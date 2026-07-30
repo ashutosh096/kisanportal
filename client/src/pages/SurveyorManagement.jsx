@@ -14,34 +14,31 @@ const SurveyorManagement = () => {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
 
-  // Auto-generate clean username from surveyor name (e.g. "krish" for "Krish")
-  const handleNameChange = (val) => {
-    setName(val);
-    const cleanSlug = val.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-    setUsername(cleanSlug);
-  };
-
-  const [msg, setMsg] = useState('');
-  const [error, setError] = useState('');
-
-  const fetchSurveyors = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/surveyors', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setSurveyors(data);
-    } catch (err) {
-      console.error('Fetch surveyors failed:', err);
-    } finally {
-      setLoading(false);
+  // Calculate next sequence username (e.g. surveyor1, surveyor2, surveyor3, surveyor4...)
+  const getNextUsername = (list = surveyors) => {
+    const surveyorOnly = list.filter((s) => s.role === 'surveyor' || s.username?.startsWith('surveyor'));
+    let maxNum = 0;
+    surveyorOnly.forEach((s) => {
+      const match = (s.username || '').match(/surveyor(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    });
+    if (maxNum === 0) {
+      maxNum = surveyorOnly.length;
     }
+    return `surveyor${maxNum + 1}`;
   };
 
-  useEffect(() => {
-    fetchSurveyors();
-  }, [token]);
+  const handleOpenAddModal = () => {
+    setUsername(getNextUsername());
+    setName('');
+    setMobile('');
+    setMsg('');
+    setError('');
+    setShowAddModal(true);
+  };
 
   const handleAddSurveyor = async (e) => {
     e.preventDefault();
@@ -61,11 +58,15 @@ const SurveyorManagement = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to add surveyor');
 
-      setMsg(`Surveyor "${name}" created! Login: username = "${username}", password = mobile number`);
-      setUsername('');
+      setMsg(`Surveyor "${name}" created! Username = "${username}", password = mobile number`);
       setName('');
       setMobile('');
       setShowAddModal(false);
+
+      const updatedList = [...surveyors, data];
+      setSurveyors(updatedList);
+      setUsername(getNextUsername(updatedList));
+
       fetchSurveyors();
     } catch (err) {
       setError(err.message);
@@ -119,7 +120,7 @@ const SurveyorManagement = () => {
 
         {/* Capsule Button */}
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={handleOpenAddModal}
           className="btn btn-primary btn-inline"
           style={{ padding: '10px 22px', fontSize: '0.95rem', borderRadius: '30px' }}
         >
