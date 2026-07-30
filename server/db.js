@@ -1,4 +1,3 @@
-import sqlite3 from 'sqlite3';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import fs from 'fs';
@@ -10,7 +9,7 @@ const __dirname = path.dirname(__filename);
 let db = null;
 let isVercel = !!process.env.VERCEL;
 
-// Vercel Ephemeral JSON Data Store
+// Vercel Ephemeral JSON Data Store Path
 const vercelDbPath = '/tmp/farmer_data.json';
 
 const getInitialData = async () => {
@@ -79,16 +78,23 @@ const saveVercelDb = (data) => {
   }
 };
 
-// Initialize DB Engine (Native SQLite or Vercel JSON Store)
-try {
+// Initialize DB Engine (Dynamic Native SQLite on Local or Vercel JSON Store)
+const initDbDriver = async () => {
   if (!isVercel) {
-    const dbPath = path.join(__dirname, 'farmer_survey.db');
-    db = new sqlite3.Database(dbPath);
+    try {
+      const sqliteModule = await import('sqlite3');
+      const sqlite3 = sqliteModule.default || sqliteModule;
+      const dbPath = path.join(__dirname, 'farmer_survey.db');
+      db = new sqlite3.Database(dbPath);
+    } catch (e) {
+      console.warn('SQLite native module unavailable, using Vercel serverless DB driver:', e.message);
+      isVercel = true;
+    }
   }
-} catch (e) {
-  console.warn('SQLite native module failed, falling back to Vercel JSON Engine:', e.message);
-  isVercel = true;
-}
+};
+
+// Auto-run driver init
+initDbDriver();
 
 export const query = async (sql, params = []) => {
   if (!isVercel && db) {
@@ -260,6 +266,8 @@ export const run = async (sql, params = []) => {
 };
 
 export const initDb = async () => {
+  await initDbDriver();
+
   if (!isVercel && db) {
     db.serialize(async () => {
       db.run(`
