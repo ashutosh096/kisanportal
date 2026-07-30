@@ -4,13 +4,22 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Helper to generate unique Farmer ID
+// Helper to generate unique Farmer ID without collision
 const generateFarmerId = async () => {
   const year = new Date().getFullYear();
   const rows = await query('SELECT COUNT(*) as count FROM farmers');
-  const nextNum = (rows[0]?.count || 0) + 1;
-  const formattedNum = String(nextNum).padStart(3, '0');
-  return `F-${year}-${formattedNum}`;
+  let nextNum = (rows[0]?.count || 0) + 1;
+  let farmerId = `F-${year}-${String(nextNum).padStart(3, '0')}`;
+
+  // Check collision and auto-increment until 100% unique ID is found
+  let existing = await query('SELECT id FROM farmers WHERE farmer_id = ?', [farmerId]);
+  while (existing && existing.length > 0) {
+    nextNum += 1;
+    farmerId = `F-${year}-${String(nextNum).padStart(3, '0')}`;
+    existing = await query('SELECT id FROM farmers WHERE farmer_id = ?', [farmerId]);
+  }
+
+  return farmerId;
 };
 
 // POST /api/farmers - Register new farmer with photo & live GPS location

@@ -52,12 +52,25 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
       [username, passwordHash, name]
     );
 
-    res.status(201).json({
-      message: 'Surveyor account created successfully',
+    const newSurveyorObj = {
       id: result.lastID,
       username,
       name,
       mobile,
+      role: 'surveyor',
+      registrations_count: 0,
+      surveys_count: 0,
+      created_at: new Date().toISOString(),
+    };
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new_surveyor', newSurveyorObj);
+    }
+
+    res.status(201).json({
+      message: 'Surveyor account created successfully',
+      ...newSurveyorObj,
     });
   } catch (err) {
     console.error('Add surveyor error:', err);

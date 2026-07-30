@@ -14,12 +14,12 @@ const SurveyorManagement = () => {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
 
-  // Auto-generate username from surveyor sequence (e.g. surveyor2, surveyor3...)
+  // Auto-generate unique username from surveyor name
   const handleNameChange = (val) => {
     setName(val);
-    // Always use surveyorN format to match existing accounts like surveyor1
-    const nextNum = surveyors.length + 1;
-    setUsername(`surveyor${nextNum}`);
+    const cleanSlug = val.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const num = surveyors.length + 1;
+    setUsername(cleanSlug ? `${cleanSlug}${num}` : `surveyor${num}`);
   };
 
   const [msg, setMsg] = useState('');
@@ -163,10 +163,10 @@ const SurveyorManagement = () => {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Auto-fills when you type name..."
+                  placeholder="e.g. rajesh1"
                   value={username}
-                  readOnly
-                  style={{ borderRadius: '12px', background: '#f8fafc', color: '#64748b', cursor: 'not-allowed', border: '1.5px dashed #cbd5e1' }}
+                  onChange={(e) => setUsername(e.target.value)}
+                  style={{ borderRadius: '12px' }}
                 />
               </div>
 
