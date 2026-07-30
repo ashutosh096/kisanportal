@@ -5,7 +5,7 @@ import FarmerSearch from '../components/FarmerSearch';
 import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin } from 'lucide-react';
 
 const SurveyForm = () => {
-  const { user, token } = useContext(AuthContext);
+  const { user, token, cachedLocation } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -39,6 +39,12 @@ const SurveyForm = () => {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
+    if (cachedLocation?.gps_location) {
+      setFormData((prev) => ({
+        ...prev,
+        gps_location: cachedLocation.gps_location,
+      }));
+    }
     fetchLiveGpsLocation();
   }, []);
 
@@ -60,7 +66,7 @@ const SurveyForm = () => {
         console.warn('Visit GPS fetch error:', err.message);
         setFetchingGps(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     );
   };
 

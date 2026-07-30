@@ -7,11 +7,67 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('farmer_token') || '');
   const [loading, setLoading] = useState(true);
 
+  const [cachedLocation, setCachedLocation] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('farmer_cached_loc');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const prefetchGpsLocation = () => {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        const gpsStr = `${lat}° N, ${lng}° E`;
+
+        let place = '';
+        let district = '';
+        let stateName = 'Uttar Pradesh';
+        let postcode = '';
+
+        try {
+          const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
+          const photonData = await photonRes.json();
+          const props = photonData.features?.[0]?.properties || {};
+
+          place = props.suburb || props.district || props.city || props.town || props.village || '';
+          district = props.county || (props.city !== place ? props.city : '') || '';
+          stateName = props.state || 'Uttar Pradesh';
+          postcode = props.postcode || '';
+        } catch (err) {
+          console.warn('Background Photon geocode error:', err);
+        }
+
+        const cleanParts = Array.from(new Set([place, district, stateName].filter(Boolean)));
+        const cleanLocationString = cleanParts.join(', ') || 'Kanpur, Kanpur Nagar, Uttar Pradesh';
+
+        const locData = {
+          gps_location: gpsStr,
+          location: cleanLocationString,
+          pincode: postcode || '208016',
+          timestamp: Date.now(),
+        };
+
+        setCachedLocation(locData);
+        sessionStorage.setItem('farmer_cached_loc', JSON.stringify(locData));
+      },
+      (err) => console.warn('Background GPS prefetch warning:', err.message),
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
+    );
+  };
+
   useEffect(() => {
     const savedUser = localStorage.getItem('farmer_user');
     if (savedUser && token) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        setUser(parsed);
+        prefetchGpsLocation();
       } catch (e) {
         console.error('Failed to parse stored user:', e);
       }
@@ -24,6 +80,7 @@ export const AuthProvider = ({ children }) => {
     setToken(authToken);
     localStorage.setItem('farmer_token', authToken);
     localStorage.setItem('farmer_user', JSON.stringify(userData));
+    prefetchGpsLocation();
   };
 
   const logout = () => {
@@ -31,10 +88,21 @@ export const AuthProvider = ({ children }) => {
     setToken('');
     localStorage.removeItem('farmer_token');
     localStorage.removeItem('farmer_user');
+    sessionStorage.removeItem('farmer_cached_loc');
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        logout,
+        loading,
+        cachedLocation,
+        prefetchGpsLocation,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ArrowLeft, ArrowRight, Save, CheckCircle, AlertCircle, Camera, MapPin, Navigation, Trash2, Tag, Lock } from 'lucide-react';
 
 const RegistrationForm = () => {
-  const { user, token } = useContext(AuthContext);
+  const { user, token, cachedLocation } = useContext(AuthContext);
   const navigate = useNavigate();
   const cameraInputRef = useRef(null);
 
@@ -45,8 +45,16 @@ const RegistrationForm = () => {
   const [error, setError] = useState('');
   const [registeredId, setRegisteredId] = useState('');
 
-  // Auto-fetch GPS Location on component mount
   useEffect(() => {
+    if (cachedLocation) {
+      setFormData((prev) => ({
+        ...prev,
+        gps_location: cachedLocation.gps_location || prev.gps_location,
+        location: cachedLocation.location || prev.location,
+        pincode: cachedLocation.pincode || prev.pincode,
+      }));
+      setGeocodedAddress(`${cachedLocation.location}${cachedLocation.pincode ? ` (PIN: ${cachedLocation.pincode})` : ''}`);
+    }
     fetchLiveGpsLocation();
   }, []);
 
@@ -130,7 +138,7 @@ const RegistrationForm = () => {
         console.warn('GPS location fetch error:', err.message);
         setFetchingGps(false);
       },
-      { enableHighAccuracy: true, timeout: 12000 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     );
   };
 
