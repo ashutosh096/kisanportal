@@ -44,7 +44,13 @@ const Login = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: adminUsername, password: adminPassword }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error('Invalid server response. Please verify backend server is active.');
+      }
       if (!res.ok) throw new Error(data.error || 'Admin login failed');
       login(data.user, data.token);
       navigate('/admin');
@@ -70,7 +76,13 @@ const Login = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ surveyor_id: targetId }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        throw new Error('Invalid server response. Please verify backend server is active.');
+      }
       if (!res.ok) throw new Error(data.error || 'Surveyor login failed');
       login(data.user, data.token);
       navigate('/surveyor');
