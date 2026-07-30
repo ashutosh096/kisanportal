@@ -20,6 +20,9 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Root Redirect */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+
           {/* Login */}
           <Route path="/login" element={<Login />} />
 
@@ -34,6 +37,7 @@ function App() {
                     <Route path="" element={<SurveyorHome />} />
                     <Route path="register" element={<RegistrationForm />} />
                     <Route path="survey" element={<SurveyForm />} />
+                    <Route path="*" element={<Navigate to="/surveyor" replace />} />
                   </Routes>
                 </div>
               </PrivateRoute>
@@ -52,13 +56,14 @@ function App() {
                     <Route path="farmer/:farmer_id" element={<FarmerProfile />} />
                     <Route path="surveyors" element={<SurveyorManagement />} />
                     <Route path="export" element={<ExportPage />} />
+                    <Route path="*" element={<Navigate to="/admin" replace />} />
                   </Routes>
                 </AdminLayout>
               </PrivateRoute>
             }
           />
 
-          {/* Default Catch-all redirect */}
+          {/* Fallback Catch-all Route */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
