@@ -30,12 +30,21 @@ app.set('io', io);
 // Initialize SQLite database schema & seed data
 initDb();
 
-// Routes
+// Dual route mounting for local server & Vercel serverless rewrites
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/farmers', farmerRoutes);
+app.use('/farmers', farmerRoutes);
+
 app.use('/api/surveys', surveyRoutes);
+app.use('/surveys', surveyRoutes);
+
 app.use('/api/surveyors', surveyorRoutes);
+app.use('/surveyors', surveyorRoutes);
+
 app.use('/api/export', exportRoutes);
+app.use('/export', exportRoutes);
 
 // Serve static React client build in production
 import path from 'path';
