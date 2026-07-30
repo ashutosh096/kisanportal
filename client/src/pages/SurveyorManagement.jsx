@@ -14,12 +14,11 @@ const SurveyorManagement = () => {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
 
-  // Auto-generate unique username from surveyor name
+  // Auto-generate clean username from surveyor name (e.g. "krish" for "Krish")
   const handleNameChange = (val) => {
     setName(val);
-    const cleanSlug = val.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const num = surveyors.length + 1;
-    setUsername(cleanSlug ? `${cleanSlug}${num}` : `surveyor${num}`);
+    const cleanSlug = val.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    setUsername(cleanSlug);
   };
 
   const [msg, setMsg] = useState('');
