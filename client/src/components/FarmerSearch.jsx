@@ -19,7 +19,7 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
         });
         const data = await res.json();
         if (Array.isArray(data)) {
-          setRecentFarmers(data.slice(0, 4));
+          setRecentFarmers(data);
         }
       } catch (err) {
         console.error('Failed to fetch recent farmers:', err);
@@ -124,14 +124,30 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
             />
           </div>
 
-          {/* RECENT 4 FARMERS QUICK SELECTION CARDS */}
+          {/* ALL REGISTERED FARMERS VERTICALLY SCROLLABLE QUICK SELECTION LIST */}
           {!searchTerm && recentFarmers.length > 0 && (
-            <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px dashed #e2e8f0' }}>
-              <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#15803d', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <UserCheck size={16} /> Recent Farmers (हाल ही में दर्ज किसान — Quick Select):
+            <div style={{ marginTop: '18px', paddingTop: '16px', borderTop: '1px dashed #cbd5e1' }}>
+              <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#15803d', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <UserCheck size={16} /> All Registered Farmers (किसान चुनें — Scroll List):
+                </span>
+                <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800 }}>
+                  {recentFarmers.length} Total
+                </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+              {/* SMOOTH VERTICAL SCROLLABLE CONTAINER */}
+              <div
+                style={{
+                  maxHeight: '340px',
+                  overflowY: 'auto',
+                  paddingRight: '4px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  WebkitOverflowScrolling: 'touch',
+                }}
+              >
                 {recentFarmers.map((f) => {
                   const initialLetter = f.name ? f.name.charAt(0).toUpperCase() : 'F';
 
@@ -143,11 +159,11 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                         background: '#f8fafc',
                         border: '1.5px solid #cbd5e1',
                         borderRadius: '16px',
-                        padding: '10px 12px',
+                        padding: '10px 14px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
+                        gap: '12px',
                         transition: 'all 0.2s ease',
                       }}
                       onMouseEnter={(e) => {
@@ -164,9 +180,9 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                           src={f.photo_url}
                           alt={f.name}
                           style={{
-                            width: '40px',
-                            height: '40px',
-                            minWidth: '40px',
+                            width: '42px',
+                            height: '42px',
+                            minWidth: '42px',
                             borderRadius: '50%',
                             objectFit: 'cover',
                             border: '2px solid #15803d',
@@ -176,12 +192,12 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                       ) : (
                         <div
                           style={{
-                            width: '40px',
-                            height: '40px',
-                            minWidth: '40px',
-                            minHeight: '40px',
-                            maxWidth: '40px',
-                            maxHeight: '40px',
+                            width: '42px',
+                            height: '42px',
+                            minWidth: '42px',
+                            minHeight: '42px',
+                            maxWidth: '42px',
+                            maxHeight: '42px',
                             borderRadius: '50%',
                             background: '#0d3c26',
                             color: '#ffffff',
@@ -189,7 +205,7 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 800,
-                            fontSize: '1rem',
+                            fontSize: '1.05rem',
                             lineHeight: '1',
                             textAlign: 'center',
                             overflow: 'hidden',
@@ -202,14 +218,14 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                         </div>
                       )}
 
-                      <div style={{ overflow: 'hidden', textAlign: 'left' }}>
-                        <div style={{ fontWeight: 800, fontSize: '0.94rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ overflow: 'hidden', textAlign: 'left', flex: 1 }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.96rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {f.name}
                         </div>
-                        <div style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 700, marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#15803d', fontWeight: 700, marginTop: '2px' }}>
                           📞 {f.contact}
                         </div>
-                        <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600, marginTop: '1px' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '1px' }}>
                           {f.farmer_id} • {f.location ? f.location.split(',')[0] : ''}
                         </div>
                       </div>
