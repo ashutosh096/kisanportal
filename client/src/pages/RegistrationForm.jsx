@@ -238,10 +238,9 @@ const RegistrationForm = () => {
         return;
       }
 
-      // Block pure numbers or gibberish with numbers like 23fsfh
-      const hasLetters = /[a-zA-Z\u0900-\u097F]/.test(cleanName);
-      if (!hasLetters || /^\d+$/.test(cleanName)) {
-        setError('Please enter a valid Farmer Name without numbers or gibberish (कृपया सही नाम दर्ज करें - बिना अंक के)');
+      // Strictly block any numbers/digits or invalid characters in name
+      if (/\d/.test(cleanName) || !/^[a-zA-Z\u0900-\u097F\s.']{2,60}$/.test(cleanName)) {
+        setError('Please enter a valid Farmer Name without numbers or symbols (कृपया किसान का सही नाम दर्ज करें - अंकों के बिना)');
         return;
       }
 
@@ -652,8 +651,12 @@ const RegistrationForm = () => {
                   className="input-field"
                   name="name"
                   value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter full farmer name"
+                  onChange={(e) => {
+                    // Automatically filter out any digits (0-9)
+                    const cleanName = e.target.value.replace(/\d/g, '');
+                    setFormData((prev) => ({ ...prev, name: cleanName }));
+                  }}
+                  placeholder="Enter full farmer name (alphabetic letters only)"
                   required
                 />
               </div>

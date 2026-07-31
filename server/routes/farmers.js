@@ -49,8 +49,8 @@ router.post('/', authenticateToken, async (req, res) => {
     expert_advice,
   } = req.body;
 
-  if (!name || name.trim().length < 2 || !/[a-zA-Z\u0900-\u097F]/.test(name)) {
-    return res.status(400).json({ error: 'Valid farmer name is required' });
+  if (!name || name.trim().length < 2 || /\d/.test(name) || !/^[a-zA-Z\u0900-\u097F\s.']{2,60}$/.test(name.trim())) {
+    return res.status(400).json({ error: 'Valid farmer name without numbers is required' });
   }
 
   if (!location) {
