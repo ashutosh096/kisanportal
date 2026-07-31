@@ -156,19 +156,17 @@ router.get('/:farmer_id', authenticateToken, async (req, res) => {
   const { farmer_id } = req.params;
 
   try {
-    const farmers = await query('SELECT * FROM farmers WHERE farmer_id = ?', [farmer_id]);
+    const [farmers, visits] = await Promise.all([
+      query('SELECT * FROM farmers WHERE farmer_id = ?', [farmer_id]),
+      query('SELECT * FROM surveys WHERE farmer_id = ? ORDER BY visit_date DESC, id DESC', [farmer_id]),
+    ]);
+
     if (farmers.length === 0) {
       return res.status(404).json({ error: 'Farmer not found' });
     }
 
-    const farmer = farmers[0];
-    const visits = await query(
-      'SELECT * FROM surveys WHERE farmer_id = ? ORDER BY visit_date DESC, id DESC',
-      [farmer_id]
-    );
-
     res.json({
-      farmer,
+      farmer: farmers[0],
       visits,
     });
   } catch (err) {

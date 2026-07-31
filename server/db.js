@@ -143,13 +143,16 @@ export const initDb = async () => {
           irrigation_done VARCHAR(20) DEFAULT 'no',
           irrigation_source VARCHAR(100) DEFAULT '',
           irrigation_type VARCHAR(100) DEFAULT '',
-          irrigation_depth VARCHAR(100) DEFAULT '',
           weeding_done VARCHAR(20) DEFAULT 'no',
           additional_activities TEXT DEFAULT '',
           surveyor_id INT,
           surveyor_name VARCHAR(150) NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE INDEX IF NOT EXISTS idx_farmers_id_desc ON farmers(id DESC);
+        CREATE INDEX IF NOT EXISTS idx_farmers_fid ON farmers(farmer_id);
+        CREATE INDEX IF NOT EXISTS idx_surveys_fid ON surveys(farmer_id);
       `);
 
       // Seed initial users if table is empty
