@@ -73,6 +73,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // Automatically trigger browser location permission popup as soon as site opens
+    prefetchGpsLocation();
+
     const savedUser = localStorage.getItem('farmer_user');
     if (savedUser && token) {
       try {

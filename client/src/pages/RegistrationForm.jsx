@@ -178,6 +178,7 @@ const RegistrationForm = () => {
       },
       (err) => {
         console.warn('GPS location fetch error:', err.message);
+        setError('Location permission is OFF. Click here to allow location permission (लोकेशन परमिशन बंद है - परमिशन चालू करने के लिए यहाँ क्लिक करें)');
         setFetchingGps(false);
       },
       { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
@@ -696,20 +697,21 @@ const RegistrationForm = () => {
                 </div>
               </div>
 
-              {/* LOCKED NON-EDITABLE LOCATION & PINCODE */}
+              {/* LOCATION & PINCODE */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
                 {/* LOCATION */}
                 <div className="form-group" style={{ flex: '1 1 200px' }}>
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Lock size={14} color="#15803d" /> Location / Village & State (स्थान / गाँव & राज्य) *
+                    <Lock size={14} color={formData.gps_location ? '#15803d' : '#64748b'} /> Location / Village & State (स्थान / गाँव & राज्य) *
                   </label>
                   <input
                     type="text"
-                    className="input-field input-readonly"
+                    className={`input-field ${formData.gps_location ? 'input-readonly' : ''}`}
                     name="location"
                     value={formData.location}
-                    readOnly
-                    placeholder="GPS Auto-Detected Location..."
+                    onChange={handleChange}
+                    readOnly={!!formData.gps_location}
+                    placeholder="Auto-detected or type Village, District, State..."
                     style={{
                       borderRadius: '30px',
                       padding: '12px 16px',
@@ -721,15 +723,19 @@ const RegistrationForm = () => {
                 {/* PINCODE */}
                 <div className="form-group" style={{ flex: '1 1 120px' }}>
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Lock size={14} color="#15803d" /> Pincode (पिनकोड)
+                    <Lock size={14} color={formData.gps_location ? '#15803d' : '#64748b'} /> Pincode (पिनकोड)
                   </label>
                   <input
                     type="text"
-                    className="input-field input-readonly"
+                    className={`input-field ${formData.gps_location ? 'input-readonly' : ''}`}
                     name="pincode"
                     value={formData.pincode}
-                    readOnly
-                    placeholder="Auto PIN"
+                    onChange={(e) => {
+                      const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setFormData((prev) => ({ ...prev, pincode: pin }));
+                    }}
+                    readOnly={!!formData.gps_location}
+                    placeholder="6-digit PIN"
                     style={{
                       borderRadius: '30px',
                       padding: '12px 16px',
