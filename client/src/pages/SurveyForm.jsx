@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import FarmerSearch from '../components/FarmerSearch';
-import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin, FileSpreadsheet, XCircle } from 'lucide-react';
 
 const SurveyForm = () => {
   const { user, token, cachedLocation } = useContext(AuthContext);
@@ -519,6 +519,39 @@ const SurveyForm = () => {
                       })}
                     </tbody>
                   </table>
+
+                  {/* BOTTOM HIDE LOGS / CROSS ACTION BUTTON FOR EASY MOBILE CLOSING */}
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      borderTop: '1.5px solid #cbd5e1',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setShowPastLogs(false)}
+                      style={{
+                        background: '#dc2626',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '10px 22px',
+                        borderRadius: '30px',
+                        fontWeight: 800,
+                        fontSize: '0.88rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 4px 14px rgba(220, 38, 38, 0.3)',
+                      }}
+                    >
+                      <XCircle size={18} /> Hide Past Logs (लॉग छुपाएं) ▲
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
