@@ -34,11 +34,10 @@ function App() {
                 <div className="app-container">
                   <Navbar />
                   <Routes>
-                    <Route path="" element={<SurveyorHome />} />
+                    <Route index element={<SurveyorHome />} />
                     <Route path="register" element={<RegistrationForm />} />
                     <Route path="survey" element={<SurveyForm />} />
                     <Route path="farmer/:farmer_id" element={<FarmerProfile />} />
-                    <Route path="*" element={<Navigate to="/surveyor" replace />} />
                   </Routes>
                 </div>
               </PrivateRoute>
@@ -52,12 +51,11 @@ function App() {
               <PrivateRoute roleRequired="admin">
                 <AdminLayout>
                   <Routes>
-                    <Route path="" element={<AdminDashboard />} />
+                    <Route index element={<AdminDashboard />} />
                     <Route path="farmers" element={<FarmersList />} />
                     <Route path="farmer/:farmer_id" element={<FarmerProfile />} />
                     <Route path="surveyors" element={<SurveyorManagement />} />
                     <Route path="export" element={<ExportPage />} />
-                    <Route path="*" element={<Navigate to="/admin" replace />} />
                   </Routes>
                 </AdminLayout>
               </PrivateRoute>

@@ -1,15 +1,9 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 const PrivateRoute = ({ children, roleRequired }) => {
-  const { user, loading, logout } = useContext(AuthContext);
-
-  useEffect(() => {
-    if (user && roleRequired && user.role !== roleRequired) {
-      logout();
-    }
-  }, [user, roleRequired, logout]);
+  const { user, loading } = useContext(AuthContext);
 
   if (loading) {
     return (

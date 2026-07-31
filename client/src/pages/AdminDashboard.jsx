@@ -57,15 +57,22 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchDashboardData();
 
-    const socket = io('/', { transports: ['websocket', 'polling'] });
-    socket.on('new_entry', (newEntry) => {
-      if (newEntry) {
-        setEntries((prev) => Array.isArray(prev) ? [newEntry, ...prev] : [newEntry]);
-        fetchDashboardData();
-      }
-    });
+    let socket;
+    try {
+      socket = io('/', { transports: ['polling', 'websocket'], timeout: 5000 });
+      socket.on('new_entry', (newEntry) => {
+        if (newEntry) {
+          setEntries((prev) => (Array.isArray(prev) ? [newEntry, ...prev] : [newEntry]));
+          fetchDashboardData();
+        }
+      });
+    } catch (sErr) {
+      console.warn('Socket connection warning:', sErr);
+    }
 
-    return () => socket.disconnect();
+    return () => {
+      if (socket) socket.disconnect();
+    };
   }, [token]);
 
   const safeEntries = Array.isArray(entries) ? entries : [];
