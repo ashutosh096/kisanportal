@@ -152,9 +152,9 @@ const FarmersList = () => {
             placeholder="Search by Farmer Name, ID, or Contact..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ borderRadius: '12px', paddingLeft: '38px' }}
+            style={{ borderRadius: '12px', paddingLeft: '44px' }}
           />
-          <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '12px' }} />
+          <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
         </div>
 
         <input

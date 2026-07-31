@@ -89,8 +89,8 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
             </p>
           </div>
 
-          {/* CAPSULE SEARCH INPUT */}
-          <div style={{ position: 'relative' }}>
+          {/* CAPSULE SEARCH INPUT WITH GUARANTEED 52PX LEFT PADDING */}
+          <div style={{ position: 'relative', width: '100%' }}>
             <input
               type="text"
               className="input-field"
@@ -99,13 +99,29 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
                 borderRadius: '30px',
-                padding: '14px 20px 14px 44px',
+                paddingTop: '14px',
+                paddingBottom: '14px',
+                paddingRight: '20px',
+                paddingLeft: '52px',
                 fontSize: '0.95rem',
                 border: '2px solid #e2e8f0',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                width: '100%',
+                boxSizing: 'border-box',
               }}
             />
-            <Search size={20} color="#15803d" style={{ position: 'absolute', left: '16px', top: '14px' }} />
+            <Search
+              size={20}
+              color="#15803d"
+              style={{
+                position: 'absolute',
+                left: '18px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                zIndex: 2,
+              }}
+            />
           </div>
 
           {/* RECENT 4 FARMERS QUICK SELECTION CARDS */}
