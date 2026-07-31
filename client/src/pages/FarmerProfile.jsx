@@ -286,50 +286,65 @@ const FarmerProfile = () => {
 
               <tbody>
                 {excelMatrixRows.map((row, idx) => {
-                  // Color styling logic matching Excel screenshots (irrigation mint green, pesticide light green/yellow)
                   const isIrrigation = row.key.includes('irrigation');
                   const isPesticide = row.key.includes('pesticide');
                   const isFertilizer = row.key.includes('fertilizer');
-                  const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafafa';
+                  const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
                   return (
                     <tr key={row.id} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
-                      {/* Left Activity Name Cell (Frozen/Sticky Column) */}
+                      {/* Left Activity Name Cell (Compact, Wrapped, Sticky) */}
                       <td
                         style={{
                           fontWeight: 700,
-                          padding: '10px 14px',
-                          color: '#1e293b',
+                          padding: '8px',
+                          color: '#334155',
                           position: 'sticky',
                           left: 0,
                           background: rowBg,
                           zIndex: 5,
                           borderRight: '2px solid #cbd5e1',
-                          whiteSpace: 'nowrap',
+                          width: '120px',
+                          minWidth: '120px',
+                          maxWidth: '120px',
+                          fontSize: '0.76rem',
+                          lineHeight: '1.25',
+                          whiteSpace: 'normal',
+                          wordBreak: 'break-word',
                         }}
                       >
                         {row.label}
                       </td>
 
-                      {/* Date Columns Values */}
+                      {/* Date Columns Values (Big, Bold, 150px Wide, Highly Legible) */}
                       {visits.map((v) => {
                         const val = row.getValue(v);
                         const isHighlight = val !== '-' && val !== 'No';
 
-                        let cellStyle = { textAlign: 'center', padding: '10px 14px', borderRight: '1px solid #e2e8f0' };
+                        let cellStyle = {
+                          textAlign: 'center',
+                          padding: '10px 12px',
+                          borderRight: '1px solid #e2e8f0',
+                          minWidth: '150px',
+                          fontSize: '0.88rem',
+                          fontWeight: 700,
+                          color: '#0f172a',
+                          whiteSpace: 'normal',
+                          wordBreak: 'break-word',
+                        };
 
                         if (isHighlight && isIrrigation) {
                           cellStyle.background = '#f0fdf4';
                           cellStyle.color = '#15803d';
-                          cellStyle.fontWeight = '700';
+                          cellStyle.fontWeight = '800';
                         } else if (isHighlight && isFertilizer) {
                           cellStyle.background = '#eff6ff';
                           cellStyle.color = '#1d4ed8';
-                          cellStyle.fontWeight = '700';
+                          cellStyle.fontWeight = '800';
                         } else if (isHighlight && isPesticide) {
                           cellStyle.background = '#fefce8';
-                          cellStyle.color = '#a16207';
-                          cellStyle.fontWeight = '700';
+                          cellStyle.color = '#b45309';
+                          cellStyle.fontWeight = '800';
                         }
 
                         return (

@@ -404,14 +404,42 @@ const SurveyForm = () => {
 
               {showPastLogs && pastVisits.length > 0 && (
                 <div style={{ marginTop: '14px', overflowX: 'auto', border: '1.5px solid #cbd5e1', borderRadius: '12px', background: '#ffffff' }}>
-                  <table style={{ fontSize: '0.82rem', borderCollapse: 'collapse', width: '100%' }}>
+                  <table style={{ fontSize: '0.86rem', borderCollapse: 'collapse', width: '100%' }}>
                     <thead>
                       <tr style={{ background: '#0d3c26', color: '#ffffff' }}>
-                        <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, position: 'sticky', left: 0, background: '#0d3c26', zIndex: 10, borderRight: '2px solid #166534', minWidth: '140px' }}>
-                          Activity
+                        <th
+                          style={{
+                            padding: '8px',
+                            textAlign: 'left',
+                            fontWeight: 800,
+                            position: 'sticky',
+                            left: 0,
+                            background: '#0d3c26',
+                            zIndex: 10,
+                            borderRight: '2px solid #166534',
+                            width: '115px',
+                            minWidth: '115px',
+                            maxWidth: '115px',
+                            fontSize: '0.76rem',
+                          }}
+                        >
+                          Activity / विवरण
                         </th>
                         {pastVisits.map((v) => (
-                          <th key={v.id} style={{ minWidth: '100px', padding: '8px 10px', textAlign: 'center', background: '#dcfce7', color: '#15803d', borderRight: '1px solid #cbd5e1', whiteSpace: 'nowrap', fontWeight: 800 }}>
+                          <th
+                            key={v.id}
+                            style={{
+                              minWidth: '150px',
+                              padding: '10px 12px',
+                              textAlign: 'center',
+                              background: '#dcfce7',
+                              color: '#15803d',
+                              borderRight: '1px solid #cbd5e1',
+                              whiteSpace: 'nowrap',
+                              fontWeight: 800,
+                              fontSize: '0.88rem',
+                            }}
+                          >
                             📅 {v.visit_date}
                           </th>
                         ))}
@@ -422,30 +450,61 @@ const SurveyForm = () => {
                         const isIrrigation = row.key.includes('irrigation');
                         const isPesticide = row.key.includes('pesticide');
                         const isFertilizer = row.key.includes('fertilizer');
-                        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafafa';
+                        const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
                         return (
                           <tr key={row.id} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
-                            <td style={{ fontWeight: 700, padding: '8px 10px', color: '#1e293b', position: 'sticky', left: 0, background: rowBg, zIndex: 5, borderRight: '2px solid #cbd5e1', whiteSpace: 'nowrap' }}>
+                            {/* Question / Activity Label Column (Compact, Wrapped, Sticky) */}
+                            <td
+                              style={{
+                                fontWeight: 700,
+                                padding: '8px',
+                                color: '#334155',
+                                position: 'sticky',
+                                left: 0,
+                                background: rowBg,
+                                zIndex: 5,
+                                borderRight: '2px solid #cbd5e1',
+                                width: '115px',
+                                minWidth: '115px',
+                                maxWidth: '115px',
+                                fontSize: '0.74rem',
+                                lineHeight: '1.25',
+                                whiteSpace: 'normal',
+                                wordBreak: 'break-word',
+                              }}
+                            >
                               {row.label}
                             </td>
+
+                            {/* Answer Values Column (Big, Bold, 150px Wide, Highly Legible) */}
                             {pastVisits.map((v) => {
                               const val = row.getValue(v);
                               const isHighlight = val !== '-' && val !== 'No';
-                              let cellStyle = { textAlign: 'center', padding: '8px 10px', borderRight: '1px solid #e2e8f0' };
+                              let cellStyle = {
+                                textAlign: 'center',
+                                padding: '10px 12px',
+                                borderRight: '1px solid #e2e8f0',
+                                minWidth: '150px',
+                                fontSize: '0.88rem',
+                                fontWeight: 700,
+                                color: '#0f172a',
+                                whiteSpace: 'normal',
+                                wordBreak: 'break-word',
+                              };
 
                               if (isHighlight && isIrrigation) {
                                 cellStyle.background = '#f0fdf4';
                                 cellStyle.color = '#15803d';
-                                cellStyle.fontWeight = '700';
+                                cellStyle.fontWeight = '800';
                               } else if (isHighlight && isFertilizer) {
                                 cellStyle.background = '#eff6ff';
                                 cellStyle.color = '#1d4ed8';
-                                cellStyle.fontWeight = '700';
+                                cellStyle.fontWeight = '800';
                               } else if (isHighlight && isPesticide) {
                                 cellStyle.background = '#fefce8';
-                                cellStyle.color = '#a16207';
-                                cellStyle.fontWeight = '700';
+                                cellStyle.color = '#b45309';
+                                cellStyle.fontWeight = '800';
                               }
 
                               return (
