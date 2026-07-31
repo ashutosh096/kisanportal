@@ -395,7 +395,10 @@ body::before {
   /* Prevent iOS input zoom on focus */
   .input-field, .select-field, .textarea-field {
     font-size: 16px !important;
-    padding: 12px 14px !important;
+  }
+
+  .input-with-icon-left {
+    padding-left: 54px !important;
   }
 
   /* Padding adjustments for mobile screens */

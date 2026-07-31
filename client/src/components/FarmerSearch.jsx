@@ -93,7 +93,7 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
           <div style={{ position: 'relative', width: '100%' }}>
             <input
               type="text"
-              className="input-field"
+              className="input-field input-with-icon-left"
               placeholder="Type Farmer ID, Phone, Name, or Village..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -102,7 +102,7 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                 paddingTop: '14px',
                 paddingBottom: '14px',
                 paddingRight: '20px',
-                paddingLeft: '52px',
+                paddingLeft: '56px',
                 fontSize: '0.95rem',
                 border: '2px solid #e2e8f0',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
