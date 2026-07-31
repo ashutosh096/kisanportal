@@ -162,11 +162,13 @@ export const initDb = async () => {
           `INSERT INTO users (username, password_hash, name, role) VALUES 
            ($1, $2, $3, $4),
            ($5, $6, $7, $8),
-           ($9, $10, $11, $12)`,
+           ($9, $10, $11, $12),
+           ($13, $14, $15, $16)`,
           [
             'admin', adminPass, 'System Admin', 'admin',
             'surveyor1', surveyorPass, 'Ramesh Kumar', 'surveyor',
-            'ashu01', surveyorPass, 'Ashutosh Mishra', 'surveyor'
+            'ashu01', surveyorPass, 'Ashutosh Mishra', 'surveyor',
+            'krissh', surveyorPass, 'Krish Verma', 'surveyor'
           ]
         );
         console.log('✅ Neon PostgreSQL Initial Users Seeded Successfully');
