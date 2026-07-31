@@ -11,9 +11,9 @@ import {
   RefreshCw,
   Plus,
   FileSpreadsheet,
-  ArrowUpRight,
   MapPin,
 } from 'lucide-react';
+import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const AdminDashboard = () => {
   const { token } = useContext(AuthContext);

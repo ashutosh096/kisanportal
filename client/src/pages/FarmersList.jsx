@@ -12,6 +12,7 @@ import {
   Sprout,
   ShieldCheck,
 } from 'lucide-react';
+import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const FarmersList = () => {
   const { token } = useContext(AuthContext);
@@ -353,7 +354,7 @@ const FarmersList = () => {
                           {visits.map((v) => (
                             <div key={v.id} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '14px 16px', borderRadius: '14px' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', fontWeight: 800, color: '#15803d', fontSize: '0.9rem' }}>
-                                <span>📅 Date: {v.visit_date}</span>
+                                <span>📅 Date: {formatDateDDMMYYYY(v.visit_date)}</span>
                                 <span>👷 Surveyor: {v.surveyor_name}</span>
                               </div>
                               {v.notes && <div style={{ fontSize: '0.88rem', color: '#334155', marginTop: '6px' }}>📝 Notes: {v.notes}</div>}

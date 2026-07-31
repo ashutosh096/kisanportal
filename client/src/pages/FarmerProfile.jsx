@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { ArrowLeft, User, History, FileSpreadsheet, LayoutGrid, ListFilter } from 'lucide-react';
+import { ArrowLeft, User, FileSpreadsheet, LayoutGrid } from 'lucide-react';
+import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const FarmerProfile = () => {
   const { farmer_id } = useParams();
@@ -72,7 +73,7 @@ const FarmerProfile = () => {
     { id: 15, label: 'Irrigation Depth', key: 'irrigation_depth', getValue: (v) => v.irrigation_depth || '-' },
     { id: 16, label: 'Weeding', key: 'weeding_done', getValue: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No') },
     { id: 17, label: 'Additional Activities', key: 'additional_activities', getValue: (v) => v.additional_activities || '-' },
-    { id: 18, label: 'Data Collection Date', key: 'visit_date', getValue: (v) => v.visit_date || '-' },
+    { id: 18, label: 'Data Collection Date', key: 'visit_date', getValue: (v) => formatDateDDMMYYYY(v.visit_date) },
   ];
 
   return (
@@ -117,7 +118,7 @@ const FarmerProfile = () => {
               fontSize: '0.85rem',
             }}
           >
-            Reg Date: {farmer.date}
+            Reg Date: {formatDateDDMMYYYY(farmer.date)}
           </span>
         </div>
 
@@ -133,12 +134,12 @@ const FarmerProfile = () => {
             <div><strong>Crop Name:</strong> <strong style={{ color: '#15803d' }}>{farmer.crop || '-'}</strong></div>
             <div><strong>Crop Reason:</strong> {farmer.crop_reason || '-'}</div>
             <div><strong>Land Area:</strong> <strong style={{ color: '#1d4ed8' }}>{farmer.area || '-'}</strong></div>
-            <div><strong>Sowing Date:</strong> {farmer.sowing_date || '-'}</div>
+            <div><strong>Sowing Date:</strong> {formatDateDDMMYYYY(farmer.sowing_date)}</div>
             <div><strong>Seed Variety:</strong> {farmer.variety || '-'}</div>
             <div><strong>Seed Qty/Acre:</strong> {farmer.seed_qty_per_acre || '-'}</div>
             <div><strong>Seed Type:</strong> {farmer.seed_type || '-'}</div>
             <div><strong>Sowing Type:</strong> {farmer.sowing_type || '-'}</div>
-            <div><strong>Harvest Date:</strong> {farmer.harvest_date || '-'}</div>
+            <div><strong>Harvest Date:</strong> {formatDateDDMMYYYY(farmer.harvest_date)}</div>
             <div><strong>Expected Yield:</strong> {farmer.yield || '-'}</div>
             <div><strong>Expert Advice:</strong> {farmer.expert_advice === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
             <div><strong>Registered By:</strong> {farmer.surveyor_name}</div>
@@ -155,7 +156,7 @@ const FarmerProfile = () => {
           border: '1px solid #e2e8f0',
           boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '20px',
           flexWrap: 'wrap',
@@ -279,7 +280,7 @@ const FarmerProfile = () => {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      📅 {v.visit_date}
+                      📅 {formatDateDDMMYYYY(v.visit_date)}
                     </th>
                   ))}
                 </tr>

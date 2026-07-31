@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import FarmerSearch from '../components/FarmerSearch';
 import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin, FileSpreadsheet, XCircle } from 'lucide-react';
+import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const SurveyForm = () => {
   const { user, token, cachedLocation } = useContext(AuthContext);
@@ -120,7 +121,7 @@ const SurveyForm = () => {
     { id: 15, label: 'Irrigation Depth', key: 'irrigation_depth', getValue: (v) => v.irrigation_depth || '-' },
     { id: 16, label: 'Weeding', key: 'weeding_done', getValue: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No') },
     { id: 17, label: 'Additional Activities', key: 'additional_activities', getValue: (v) => v.additional_activities || '-' },
-    { id: 18, label: 'Data Collection Date', key: 'visit_date', getValue: (v) => v.visit_date || '-' },
+    { id: 18, label: 'Data Collection Date', key: 'visit_date', getValue: (v) => formatDateDDMMYYYY(v.visit_date) },
   ];
 
   useEffect(() => {
@@ -441,7 +442,7 @@ const SurveyForm = () => {
                               fontSize: '0.88rem',
                             }}
                           >
-                            📅 {v.visit_date}
+                            📅 {formatDateDDMMYYYY(v.visit_date)}
                           </th>
                         ))}
                       </tr>
