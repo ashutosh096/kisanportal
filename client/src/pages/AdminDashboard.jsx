@@ -31,21 +31,24 @@ const AdminDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const feedData = await feedRes.json();
-      setEntries(feedData);
+      setEntries(Array.isArray(feedData) ? feedData : []);
 
       const farmersRes = await fetch('/api/farmers', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const farmersData = await farmersRes.json();
-      setFarmers(farmersData);
+      setFarmers(Array.isArray(farmersData) ? farmersData : []);
 
       const surveyorsRes = await fetch('/api/surveyors', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const surveyorsData = await surveyorsRes.json();
-      setSurveyors(surveyorsData);
+      setSurveyors(Array.isArray(surveyorsData) ? surveyorsData : []);
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err);
+      setEntries([]);
+      setFarmers([]);
+      setSurveyors([]);
     } finally {
       setLoading(false);
     }
@@ -56,24 +59,37 @@ const AdminDashboard = () => {
 
     const socket = io('/', { transports: ['websocket', 'polling'] });
     socket.on('new_entry', (newEntry) => {
-      setEntries((prev) => [newEntry, ...prev]);
-      fetchDashboardData();
+      if (newEntry) {
+        setEntries((prev) => Array.isArray(prev) ? [newEntry, ...prev] : [newEntry]);
+        fetchDashboardData();
+      }
     });
 
     return () => socket.disconnect();
   }, [token]);
 
-  const totalFarmers = farmers.length;
-  const totalSurveys = entries.filter((e) => e.entry_type === 'survey').length;
-  const activeSurveyors = surveyors.length > 0 ? surveyors.length : 1;
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  const safeFarmers = Array.isArray(farmers) ? farmers : [];
+  const safeSurveyors = Array.isArray(surveyors) ? surveyors : [];
+
+  const totalFarmers = safeFarmers.length;
+  const totalSurveys = safeEntries.filter((e) => e && e.entry_type === 'survey').length;
+  const activeSurveyors = safeSurveyors.length > 0 ? safeSurveyors.length : 1;
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const todaysSubmissions = entries.filter((e) => e.visit_date === todayStr).length;
+  const todaysSubmissions = safeEntries.filter((e) => e && e.visit_date === todayStr).length;
 
-  // Filter entries
-  const filteredEntries = entries.filter((item) => {
-    if (searchTerm && !item.name.toLowerCase().includes(searchTerm.toLowerCase()) && !item.farmer_id.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    if (locationFilter && !item.location.toLowerCase().includes(locationFilter.toLowerCase())) return false;
+  // Filter entries with strict null checks
+  const filteredEntries = safeEntries.filter((item) => {
+    if (!item) return false;
+    const name = (item.name || '').toLowerCase();
+    const fId = (item.farmer_id || '').toLowerCase();
+    const loc = (item.location || '').toLowerCase();
+    const search = (searchTerm || '').toLowerCase();
+    const locFilter = (locationFilter || '').toLowerCase();
+
+    if (search && !name.includes(search) && !fId.includes(search)) return false;
+    if (locFilter && !loc.includes(locFilter)) return false;
     return true;
   });
 
@@ -305,7 +321,7 @@ const AdminDashboard = () => {
           </div>
 
           {/* Table */}
-          {farmers.length === 0 ? (
+          {safeFarmers.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
               No registered farmers yet.
             </div>
@@ -322,7 +338,7 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {farmers.map((f) => (
+                  {safeFarmers.map((f) => (
                     <tr key={f.farmer_id}>
                       <td><code style={{ fontWeight: 700, color: '#0d3c26' }}>{f.farmer_id}</code></td>
                       <td>
