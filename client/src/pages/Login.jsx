@@ -21,9 +21,16 @@ const Login = () => {
       try {
         const res = await fetch('/api/auth/surveyors-list');
         const data = await res.json();
-        setSurveyors(data);
-        if (data && data.length > 0) {
-          setSelectedSurveyorId(data[0].id);
+        if (Array.isArray(data)) {
+          const sorted = [...data].sort((a, b) => {
+            const numA = parseInt((a.username || '').replace(/\D/g, ''), 10) || a.id;
+            const numB = parseInt((b.username || '').replace(/\D/g, ''), 10) || b.id;
+            return numA - numB;
+          });
+          setSurveyors(sorted);
+          if (sorted.length > 0) {
+            setSelectedSurveyorId(sorted[0].id);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch surveyors list:', err);

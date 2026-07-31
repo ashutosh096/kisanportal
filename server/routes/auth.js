@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/surveyors-list', async (req, res) => {
   try {
     const surveyors = await query(
-      "SELECT id, username, name, role FROM users WHERE role = 'surveyor' ORDER BY name ASC"
+      "SELECT id, username, name, role FROM users WHERE role = 'surveyor' ORDER BY id ASC, username ASC"
     );
     res.json(surveyors);
   } catch (err) {
