@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import FarmerSearch from '../components/FarmerSearch';
-import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin, FileSpreadsheet } from 'lucide-react';
 
 const SurveyForm = () => {
   const { user, token, cachedLocation } = useContext(AuthContext);
@@ -11,6 +11,10 @@ const SurveyForm = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [selectedFarmer, setSelectedFarmer] = useState(null);
+  const [pastVisits, setPastVisits] = useState([]);
+  const [showPastLogs, setShowPastLogs] = useState(false);
+  const [loadingPastLogs, setLoadingPastLogs] = useState(false);
+
   const [formData, setFormData] = useState({
     visit_date: todayStr,
     gps_location: '',
@@ -37,6 +41,29 @@ const SurveyForm = () => {
   const [fetchingGps, setFetchingGps] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+
+  // Fetch past visits logbook whenever selectedFarmer changes
+  useEffect(() => {
+    if (selectedFarmer?.farmer_id) {
+      setLoadingPastLogs(true);
+      fetch(`/api/farmers/${selectedFarmer.farmer_id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.visits) {
+            setPastVisits(data.visits);
+          } else {
+            setPastVisits([]);
+          }
+        })
+        .catch((err) => console.warn('Failed to load past visits:', err))
+        .finally(() => setLoadingPastLogs(false));
+    } else {
+      setPastVisits([]);
+      setShowPastLogs(false);
+    }
+  }, [selectedFarmer, token]);
 
   // Unit Selector + Quantity Number State Helpers for Form 2
   const [pestNum, setPestNum] = useState('');
@@ -74,6 +101,27 @@ const SurveyForm = () => {
     setIrrigUnit(unit);
     setFormData((prev) => ({ ...prev, irrigation_depth: num ? `${num} ${unit}` : '' }));
   };
+
+  const excelMatrixRows = [
+    { id: 1, label: 'Ploughing (Yes/No)', key: 'plowing', getValue: (v) => (v.plowing === 'yes' ? 'Yes' : 'No') },
+    { id: 2, label: 'No. Of ploughing', key: 'plowing_count', getValue: (v) => (v.plowing === 'yes' ? `${v.plowing_count || 1} times` : '-') },
+    { id: 3, label: 'Pesticide (yes/no)', key: 'pesticide_used', getValue: (v) => (v.pesticide_used === 'yes' ? 'Yes' : 'No') },
+    { id: 4, label: 'Pesticide Quantity', key: 'pesticide_qty', getValue: (v) => v.pesticide_qty || '-' },
+    { id: 5, label: 'Pesticide Brand', key: 'pesticide_brand', getValue: (v) => v.pesticide_brand || '-' },
+    { id: 6, label: 'Supplement (Yes/No)', key: 'supplement_used', getValue: (v) => (v.supplement_used === 'yes' ? 'Yes' : 'No') },
+    { id: 7, label: 'Supplement Quantity', key: 'supplement_qty', getValue: (v) => v.supplement_qty || '-' },
+    { id: 8, label: 'Supplement Brand', key: 'supplement_brand', getValue: (v) => v.supplement_brand || '-' },
+    { id: 9, label: 'Fertilizer (Yes/No)', key: 'fertilizer_used', getValue: (v) => (v.fertilizer_used === 'yes' ? 'Yes' : 'No') },
+    { id: 10, label: 'Fertilizer Quantity', key: 'fertilizer_qty', getValue: (v) => v.fertilizer_qty || '-' },
+    { id: 11, label: 'Fertilizer Brand', key: 'fertilizer_brand', getValue: (v) => v.fertilizer_brand || '-' },
+    { id: 12, label: 'Irrigation (Yes/No)', key: 'irrigation_done', getValue: (v) => (v.irrigation_done === 'yes' ? 'Yes' : 'No') },
+    { id: 13, label: 'Irrigation Source', key: 'irrigation_source', getValue: (v) => v.irrigation_source || '-' },
+    { id: 14, label: 'Irrigation type', key: 'irrigation_type', getValue: (v) => v.irrigation_type || '-' },
+    { id: 15, label: 'Irrigation Depth', key: 'irrigation_depth', getValue: (v) => v.irrigation_depth || '-' },
+    { id: 16, label: 'Weeding', key: 'weeding_done', getValue: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No') },
+    { id: 17, label: 'Additional Activities', key: 'additional_activities', getValue: (v) => v.additional_activities || '-' },
+    { id: 18, label: 'Data Collection Date', key: 'visit_date', getValue: (v) => v.visit_date || '-' },
+  ];
 
   useEffect(() => {
     if (cachedLocation?.gps_location) {
@@ -310,6 +358,111 @@ const SurveyForm = () => {
           </div>
 
           {error && <div className="alert alert-danger"><AlertCircle size={18} /> {error}</div>}
+
+          {/* MOBILE PAST VISITS MATRIX LOGBOOK CARD */}
+          {selectedFarmer && (
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1.5px solid #cbd5e1',
+                borderRadius: '20px',
+                padding: '16px',
+                marginBottom: '20px',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#0d3c26', fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FileSpreadsheet size={18} color="#15803d" />
+                    Past Visit Logbook (पिछली विज़िट लॉग)
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', fontWeight: 600 }}>
+                    {loadingPastLogs ? 'Loading history...' : `${pastVisits.length} past visits recorded`}
+                  </div>
+                </div>
+
+                {pastVisits.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPastLogs(!showPastLogs)}
+                    style={{
+                      background: showPastLogs ? '#0d3c26' : '#dcfce7',
+                      color: showPastLogs ? '#ffffff' : '#15803d',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '30px',
+                      fontWeight: 800,
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {showPastLogs ? 'Hide Logs ▲' : 'View Logs ▼'}
+                  </button>
+                )}
+              </div>
+
+              {showPastLogs && pastVisits.length > 0 && (
+                <div style={{ marginTop: '14px', overflowX: 'auto', border: '1.5px solid #cbd5e1', borderRadius: '12px', background: '#ffffff' }}>
+                  <table style={{ fontSize: '0.82rem', borderCollapse: 'collapse', width: '100%' }}>
+                    <thead>
+                      <tr style={{ background: '#0d3c26', color: '#ffffff' }}>
+                        <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, position: 'sticky', left: 0, background: '#0d3c26', zIndex: 10, borderRight: '2px solid #166534', minWidth: '140px' }}>
+                          Activity
+                        </th>
+                        {pastVisits.map((v) => (
+                          <th key={v.id} style={{ minWidth: '100px', padding: '8px 10px', textAlign: 'center', background: '#dcfce7', color: '#15803d', borderRight: '1px solid #cbd5e1', whiteSpace: 'nowrap', fontWeight: 800 }}>
+                            📅 {v.visit_date}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {excelMatrixRows.map((row, idx) => {
+                        const isIrrigation = row.key.includes('irrigation');
+                        const isPesticide = row.key.includes('pesticide');
+                        const isFertilizer = row.key.includes('fertilizer');
+                        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafafa';
+
+                        return (
+                          <tr key={row.id} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
+                            <td style={{ fontWeight: 700, padding: '8px 10px', color: '#1e293b', position: 'sticky', left: 0, background: rowBg, zIndex: 5, borderRight: '2px solid #cbd5e1', whiteSpace: 'nowrap' }}>
+                              {row.label}
+                            </td>
+                            {pastVisits.map((v) => {
+                              const val = row.getValue(v);
+                              const isHighlight = val !== '-' && val !== 'No';
+                              let cellStyle = { textAlign: 'center', padding: '8px 10px', borderRight: '1px solid #e2e8f0' };
+
+                              if (isHighlight && isIrrigation) {
+                                cellStyle.background = '#f0fdf4';
+                                cellStyle.color = '#15803d';
+                                cellStyle.fontWeight = '700';
+                              } else if (isHighlight && isFertilizer) {
+                                cellStyle.background = '#eff6ff';
+                                cellStyle.color = '#1d4ed8';
+                                cellStyle.fontWeight = '700';
+                              } else if (isHighlight && isPesticide) {
+                                cellStyle.background = '#fefce8';
+                                cellStyle.color = '#a16207';
+                                cellStyle.fontWeight = '700';
+                              }
+
+                              return (
+                                <td key={v.id} style={cellStyle}>
+                                  {val}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             {/* Visit Date */}
