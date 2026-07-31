@@ -44,6 +44,7 @@ const RegistrationForm = () => {
   const [geocodedAddress, setGeocodedAddress] = useState('');
   const [error, setError] = useState('');
   const [registeredId, setRegisteredId] = useState('');
+  const [showGpsModal, setShowGpsModal] = useState(false);
 
   // Unit Selector + Quantity Number State Helpers
   const [cowDungNum, setCowDungNum] = useState('');
@@ -503,7 +504,164 @@ const RegistrationForm = () => {
           </div>
         </div>
 
-        {error && <div className="alert alert-danger"><AlertCircle size={18} /> {error}</div>}
+        {error && (
+          <div
+            className="alert alert-danger"
+            style={{
+              cursor: error.toLowerCase().includes('gps') || error.toLowerCase().includes('location') ? 'pointer' : 'default',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              borderLeft: '5px solid #dc2626',
+              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)',
+            }}
+            onClick={() => {
+              if (error.toLowerCase().includes('gps') || error.toLowerCase().includes('location')) {
+                setShowGpsModal(true);
+                fetchLiveGpsLocation();
+              }
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={22} style={{ flexShrink: 0, color: '#dc2626' }} />
+              <span style={{ fontWeight: 800, fontSize: '0.92rem' }}>{error}</span>
+            </div>
+
+            {(error.toLowerCase().includes('gps') || error.toLowerCase().includes('location')) && (
+              <div style={{ marginTop: '2px', paddingTop: '8px', borderTop: '1px dashed #fca5a5' }}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowGpsModal(true);
+                    fetchLiveGpsLocation();
+                  }}
+                  style={{
+                    background: '#15803d',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 18px',
+                    borderRadius: '30px',
+                    fontSize: '0.85rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(21, 128, 61, 0.3)',
+                  }}
+                >
+                  <Navigation size={15} /> 📍 Click Here to Allow Location Permission (लोकेशन चालू करें)
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STEP-BY-STEP LOCATION PERMISSION GUIDE MODAL FOR ANDROID / CHROME */}
+        {showGpsModal && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '16px',
+            }}
+            onClick={() => setShowGpsModal(false)}
+          >
+            <div
+              style={{
+                background: '#ffffff',
+                borderRadius: '24px',
+                padding: '24px 20px',
+                maxWidth: '460px',
+                width: '100%',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+                borderTop: '6px solid #15803d',
+                textAlign: 'center',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ background: '#dcfce7', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px auto' }}>
+                <Navigation size={28} color="#15803d" />
+              </div>
+
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0d3c26', margin: '0 0 6px 0' }}>
+                📍 How to Enable Location Access (लोकेशन परमिशन कैसे चालू करें)
+              </h2>
+              <p style={{ fontSize: '0.86rem', color: '#64748b', margin: '0 0 16px 0' }}>
+                If Chrome blocked location access, follow these 3 easy steps:
+              </p>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '14px', textAlign: 'left', fontSize: '0.84rem', color: '#1e293b', marginBottom: '18px' }}>
+                <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <strong style={{ background: '#15803d', color: '#ffffff', borderRadius: '50%', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}>1</strong>
+                  <span>Tap the 🔒 <strong>Lock Icon</strong> (or Tune Settings) in the top Chrome address bar next to the URL.</span>
+                </div>
+                <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <strong style={{ background: '#15803d', color: '#ffffff', borderRadius: '50%', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}>2</strong>
+                  <span>Tap <strong>Permissions / Site Settings</strong> → Select <strong>Location</strong> → Set to <strong>"Allow"</strong>.</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <strong style={{ background: '#15803d', color: '#ffffff', borderRadius: '50%', width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}>3</strong>
+                  <span>Tap the green button below to re-lock your live GPS location!</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetchLiveGpsLocation();
+                    setShowGpsModal(false);
+                  }}
+                  style={{
+                    background: '#15803d',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '12px 20px',
+                    borderRadius: '30px',
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 14px rgba(21,128,61,0.3)',
+                  }}
+                >
+                  <Navigation size={18} /> 📍 Retry Location Lock (लोकेशन चालू करें)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowGpsModal(false)}
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '30px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✏️ Type Location & Pincode Manually (मैन्युअल दर्ज करें)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           {/* ================= STEP 1: BASIC INFO, PHOTO & GPS ================= */}
