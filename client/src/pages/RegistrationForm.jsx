@@ -45,6 +45,33 @@ const RegistrationForm = () => {
   const [error, setError] = useState('');
   const [registeredId, setRegisteredId] = useState('');
 
+  // Unit Selector + Quantity Number State Helpers
+  const [cowDungNum, setCowDungNum] = useState('');
+  const [cowDungUnit, setCowDungUnit] = useState('Trolleys (ट्रॉली)');
+
+  const [areaNum, setAreaNum] = useState('');
+  const [areaUnit, setAreaUnit] = useState('Acres (एकड़)');
+
+  const handleCowDungQtyChange = (num, unit) => {
+    setCowDungNum(num);
+    setCowDungUnit(unit);
+    if (num) {
+      setFormData((prev) => ({ ...prev, cow_dung_qty: `${num} ${unit}` }));
+    } else {
+      setFormData((prev) => ({ ...prev, cow_dung_qty: '' }));
+    }
+  };
+
+  const handleLandAreaChange = (num, unit) => {
+    setAreaNum(num);
+    setAreaUnit(unit);
+    if (num) {
+      setFormData((prev) => ({ ...prev, area: `${num} ${unit}` }));
+    } else {
+      setFormData((prev) => ({ ...prev, area: '' }));
+    }
+  };
+
   useEffect(() => {
     if (cachedLocation) {
       setFormData((prev) => ({
@@ -723,14 +750,37 @@ const RegistrationForm = () => {
               {formData.cow_dung_used === 'yes' && (
                 <div className="form-group">
                   <label className="form-label">Cow Dung Quantity (गोबर खाद की मात्रा)</label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    name="cow_dung_qty"
-                    value={formData.cow_dung_qty}
-                    onChange={handleChange}
-                    placeholder="e.g. 2 Trolleys / 5 Tons"
-                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {/* Unit Dropdown */}
+                    <select
+                      className="select-field"
+                      value={cowDungUnit}
+                      onChange={(e) => handleCowDungQtyChange(cowDungNum, e.target.value)}
+                      style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                    >
+                      <option value="Trolleys (ट्रॉली)">Trolleys (ट्रॉली)</option>
+                      <option value="Tons (टन)">Tons (टन)</option>
+                      <option value="Quintals (क्विंटल)">Quintals (क्विंटल)</option>
+                      <option value="Kgs (किग्रा)">Kgs (किग्रा)</option>
+                    </select>
+
+                    {/* Quantity Number Input */}
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      className="input-field"
+                      placeholder="Number (संख्या लिखें)"
+                      value={cowDungNum}
+                      onChange={(e) => handleCowDungQtyChange(e.target.value, cowDungUnit)}
+                      style={{ flex: '1 1 120px', borderRadius: '12px' }}
+                    />
+                  </div>
+                  {formData.cow_dung_qty && (
+                    <span style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 700, marginTop: '4px', display: 'block' }}>
+                      Selected: {formData.cow_dung_qty}
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -759,15 +809,37 @@ const RegistrationForm = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Land Area - Acres / Hectares (क्षेत्रफल - एकड़ / हेक्टेयर में)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  name="area"
-                  value={formData.area}
-                  onChange={handleChange}
-                  placeholder="e.g. 2 Acres / 1 Hectare"
-                />
+                <label className="form-label">Land Area (क्षेत्रफल)</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {/* Unit Dropdown */}
+                  <select
+                    className="select-field"
+                    value={areaUnit}
+                    onChange={(e) => handleLandAreaChange(areaNum, e.target.value)}
+                    style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                  >
+                    <option value="Acres (एकड़)">Acres (एकड़)</option>
+                    <option value="Hectares (हेक्टेयर)">Hectares (हेक्टेयर)</option>
+                    <option value="Bigha (बीघा)">Bigha (बीघा)</option>
+                  </select>
+
+                  {/* Area Number Input */}
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="input-field"
+                    placeholder="Number (संख्या लिखें)"
+                    value={areaNum}
+                    onChange={(e) => handleLandAreaChange(e.target.value, areaUnit)}
+                    style={{ flex: '1 1 120px', borderRadius: '12px' }}
+                  />
+                </div>
+                {formData.area && (
+                  <span style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 700, marginTop: '4px', display: 'block' }}>
+                    Selected: {formData.area}
+                  </span>
+                )}
               </div>
             </div>
           )}

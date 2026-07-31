@@ -5,30 +5,49 @@ import { UserPlus, ClipboardList, ArrowRight } from 'lucide-react';
 
 const SurveyorHome = () => {
   const { user, token } = useContext(AuthContext);
-  const [stats, setStats] = useState({ todaysReg: 0, todaysSurveys: 0 });
+  const [stats, setStats] = useState({ todaysReg: 0, todaysSurveys: 0, totalReg: 0, totalSurveys: 0 });
 
   useEffect(() => {
-    const fetchTodayStats = async () => {
+    const fetchStats = async () => {
       try {
         const res = await fetch('/api/surveys/live-feed', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        const todayStr = new Date().toISOString().split('T')[0];
-        const regCount = data.filter(
-          (e) => e.entry_type === 'registration' && e.visit_date === todayStr && e.surveyor_name === user.name
-        ).length;
-        const surveyCount = data.filter(
-          (e) => e.entry_type === 'survey' && e.visit_date === todayStr && e.surveyor_name === user.name
-        ).length;
-        setStats({ todaysReg: regCount, todaysSurveys: surveyCount });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const sName = user?.name || user?.username;
+
+            const todaysReg = data.filter(
+              (e) => e.entry_type === 'registration' && (e.timestamp?.startsWith(todayStr) || e.visit_date === todayStr) && (e.surveyor_name === sName || e.surveyor_id === user?.id)
+            ).length;
+
+            const todaysSurveys = data.filter(
+              (e) => e.entry_type === 'survey' && (e.timestamp?.startsWith(todayStr) || e.visit_date === todayStr) && (e.surveyor_name === sName || e.surveyor_id === user?.id)
+            ).length;
+
+            const totalReg = data.filter(
+              (e) => e.entry_type === 'registration' && (e.surveyor_name === sName || e.surveyor_id === user?.id)
+            ).length;
+
+            const totalSurveys = data.filter(
+              (e) => e.entry_type === 'survey' && (e.surveyor_name === sName || e.surveyor_id === user?.id)
+            ).length;
+
+            setStats({ todaysReg, todaysSurveys, totalReg, totalSurveys });
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch surveyor stats:', err);
       }
     };
 
-    fetchTodayStats();
-  }, [token, user.name]);
+    fetchStats();
+  }, [token, user?.name, user?.id]);
+
+  const todayCount = stats.todaysReg + stats.todaysSurveys;
+  const totalCount = stats.totalReg + stats.totalSurveys;
 
   return (
     <div className="main-content" style={{ maxWidth: '780px', margin: '0 auto', position: 'relative', zIndex: 2, padding: '20px 14px' }}>
@@ -63,20 +82,42 @@ const SurveyorHome = () => {
           </p>
         </div>
 
-        {/* Today's Quick Stats Pill Badges */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        {/* 2 SIDE-BY-SIDE QUICK STATS PILL BADGES (TODAY LOGS & TOTAL LOGS) */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+          {/* BADGE 1: TODAY LOGS */}
           <span
             style={{
               background: '#f0fdf4',
               color: '#15803d',
               border: '1.5px solid #bbf7d0',
-              padding: '8px 16px',
+              padding: '8px 14px',
               borderRadius: '30px',
               fontSize: '0.85rem',
               fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
             }}
           >
-            📋 Today: {stats.todaysReg + stats.todaysSurveys} Logs
+            📋 Today Logs: {todayCount} <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>(आज: {todayCount})</span>
+          </span>
+
+          {/* BADGE 2: TOTAL LOGS */}
+          <span
+            style={{
+              background: '#eff6ff',
+              color: '#1d4ed8',
+              border: '1.5px solid #bfdbfe',
+              padding: '8px 14px',
+              borderRadius: '30px',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            📊 Total Logs: {totalCount} <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>(कुल: {totalCount})</span>
           </span>
         </div>
       </div>
