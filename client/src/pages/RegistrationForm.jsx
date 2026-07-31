@@ -102,118 +102,85 @@ const RegistrationForm = () => {
 
   const fetchLiveGpsLocation = () => {
     if (!navigator.geolocation) {
-      setError('GPS is not supported on this device/browser (इस डिवाइस पर जीपीएस समर्थित नहीं है)');
+      setError('GPS is not supported on this device/browser');
       return;
     }
 
     setFetchingGps(true);
     setGeocodedAddress('');
 
-    const processPosition = async (position) => {
-      const lat = position.coords.latitude.toFixed(6);
-      const lng = position.coords.longitude.toFixed(6);
-      const coordsStr = `${lat}° N, ${lng}° E`;
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        const coordsStr = `${lat}° N, ${lng}° E`;
 
-      setFormData((prev) => ({
-        ...prev,
-        gps_location: coordsStr,
-      }));
+        setFormData((prev) => ({
+          ...prev,
+          gps_location: coordsStr,
+        }));
 
-      // CLEAN LOCATION EXTRACTION: Place, District, State (No building or street names)
-      try {
-        let place = '';
-        let district = '';
-        let stateName = 'Uttar Pradesh';
-        let postcode = '';
-
-        // Tier 1: Photon Komoot API
+        // CLEAN LOCATION EXTRACTION: Place / City, District, State ONLY (No building or street names)
         try {
-          const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
-          const photonData = await photonRes.json();
-          const props = photonData.features?.[0]?.properties || {};
+          let place = '';
+          let district = '';
+          let stateName = 'Uttar Pradesh';
+          let postcode = '';
 
-          place = props.suburb || props.district || props.city || props.town || props.village || '';
-          district = props.county || (props.city !== place ? props.city : '') || '';
-          stateName = props.state || 'Uttar Pradesh';
-          postcode = props.postcode || '';
-        } catch (pErr) {
-          console.warn('Photon geocode fallback:', pErr);
-        }
+          // Tier 1: Photon Komoot API
+          try {
+            const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
+            const photonData = await photonRes.json();
+            const props = photonData.features?.[0]?.properties || {};
 
-        // Tier 2: OpenStreetMap Nominatim Fallback
-        try {
-          if (!place || !district) {
+            place = props.suburb || props.district || props.city || props.town || props.village || '';
+            district = props.county || (props.city !== place ? props.city : '') || '';
+            stateName = props.state || 'Uttar Pradesh';
+            postcode = props.postcode || '';
+          } catch (pErr) {
+            console.warn('Photon geocode fallback:', pErr);
+          }
+
+          // Tier 2: OpenStreetMap Nominatim Fallback
+          try {
             const geoRes = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
             );
             const geoData = await geoRes.json();
             const addr = geoData.address || {};
 
-            if (!place) place = addr.suburb || addr.village || addr.town || addr.city_district || addr.city || addr.county || '';
-            if (!district) district = addr.state_district || addr.county || addr.city || '';
+            if (!place) place = addr.suburb || addr.village || addr.town || addr.city_district || addr.city || addr.county || 'Kanpur';
+            if (!district) district = addr.state_district || addr.county || 'Kanpur Nagar';
             if (!stateName) stateName = addr.state || 'Uttar Pradesh';
             if (!postcode) postcode = addr.postcode || '';
+          } catch (err2) {
+            console.warn('Nominatim geocode fallback:', err2);
           }
-        } catch (err2) {
-          console.warn('Nominatim geocode fallback:', err2);
+
+          // Combine into unique parts: Place, District, State (e.g. "Kanpur, Kanpur Nagar, Uttar Pradesh")
+          const cleanParts = Array.from(new Set([place, district, stateName].filter(Boolean)));
+          const cleanLocationString = cleanParts.join(', ');
+
+          setGeocodedAddress(`${cleanLocationString}${postcode ? ` (PIN: ${postcode})` : ''}`);
+
+          // Auto-fill LOCKED / NON-EDITABLE location & pincode fields!
+          setFormData((prev) => ({
+            ...prev,
+            location: cleanLocationString,
+            pincode: postcode || prev.pincode,
+            state: stateName,
+          }));
+        } catch (geoErr) {
+          console.warn('Reverse geocoding failed:', geoErr);
+        } finally {
+          setFetchingGps(false);
         }
-
-        // Tier 3: BigDataCloud Reverse Geocoder API Fallback
-        try {
-          if (!place) {
-            const bdcRes = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
-            );
-            const bdcData = await bdcRes.json();
-            place = bdcData.locality || bdcData.city || bdcData.principalSubdivision || '';
-            if (!stateName) stateName = bdcData.principalSubdivision || 'Uttar Pradesh';
-            if (!postcode) postcode = bdcData.postcode || '';
-          }
-        } catch (err3) {
-          console.warn('BigDataCloud geocode fallback:', err3);
-        }
-
-        // Default fallbacks if place is empty
-        if (!place) place = 'Kanpur';
-        if (!district) district = 'Kanpur Nagar';
-
-        // Combine into unique parts: Place, District, State (e.g. "Kanpur, Kanpur Nagar, Uttar Pradesh")
-        const cleanParts = Array.from(new Set([place, district, stateName].filter(Boolean)));
-        const cleanLocationString = cleanParts.join(', ');
-
-        setGeocodedAddress(`${cleanLocationString}${postcode ? ` (PIN: ${postcode})` : ''}`);
-
-        // Auto-fill LOCKED / NON-EDITABLE location & pincode fields!
-        setFormData((prev) => ({
-          ...prev,
-          location: cleanLocationString,
-          pincode: postcode || prev.pincode,
-          state: stateName,
-        }));
-      } catch (geoErr) {
-        console.warn('Reverse geocoding failed:', geoErr);
-      } finally {
-        setFetchingGps(false);
-      }
-    };
-
-    // Primary High Accuracy GPS Lock (15s Timeout)
-    navigator.geolocation.getCurrentPosition(
-      processPosition,
-      (err) => {
-        console.warn('High-accuracy GPS timed out, trying standard network location:', err.message);
-        // Secondary Network / Cell Tower Location Fallback
-        navigator.geolocation.getCurrentPosition(
-          processPosition,
-          (err2) => {
-            console.error('All GPS location attempts failed:', err2.message);
-            setError('Failed to lock GPS. Please allow location permissions on your device (जीपीएस स्थान लॉक करने में विफल)');
-            setFetchingGps(false);
-          },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
-        );
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      (err) => {
+        console.warn('GPS location fetch error:', err.message);
+        setFetchingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     );
   };
 
