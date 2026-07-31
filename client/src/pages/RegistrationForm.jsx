@@ -109,9 +109,11 @@ const RegistrationForm = () => {
 
     setFetchingGps(true);
     setGeocodedAddress('');
+    setError(''); // Clear previous location error immediately on retry!
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        setError(''); // Ensure error is completely cleared on GPS success!
         const lat = position.coords.latitude.toFixed(6);
         const lng = position.coords.longitude.toFixed(6);
         const coordsStr = `${lat}° N, ${lng}° E`;

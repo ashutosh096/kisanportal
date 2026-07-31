@@ -139,8 +139,10 @@ const SurveyForm = () => {
     if (!navigator.geolocation) return;
 
     setFetchingGps(true);
+    setError('');
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        setError('');
         const lat = position.coords.latitude.toFixed(6);
         const lng = position.coords.longitude.toFixed(6);
         setFormData((prev) => ({
