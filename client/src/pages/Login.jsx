@@ -13,15 +13,8 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { user, login } = useContext(AuthContext);
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (user) {
-      if (user.role === 'admin') navigate('/admin');
-      else if (user.role === 'surveyor') navigate('/surveyor');
-    }
-  }, [user, navigate]);
 
   useEffect(() => {
     const fetchSurveyorsList = async () => {

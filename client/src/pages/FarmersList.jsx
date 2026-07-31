@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import {
   Users,
@@ -11,11 +12,13 @@ import {
   Calendar,
   Sprout,
   ShieldCheck,
+  ChevronRight,
 } from 'lucide-react';
 import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const FarmersList = () => {
-  const { token } = useContext(AuthContext);
+  const { user, token } = useContext(AuthContext);
+  const basePath = user?.role === 'admin' ? '/admin' : '/surveyor';
   const [farmers, setFarmers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -222,16 +225,17 @@ const FarmersList = () => {
                 <div
                   onClick={() => toggleExpand(f.farmer_id)}
                   style={{
-                    padding: '20px 24px',
+                    padding: '18px 24px',
                     display: 'flex',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                     cursor: 'pointer',
                     background: isExpanded ? '#f0fdf4' : '#ffffff',
                     borderBottom: isExpanded ? '1px solid #bbf7d0' : 'none',
+                    gap: '16px',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
                     {/* FARMER PHOTO OR PERFECTLY CENTERED INITIAL AVATAR */}
                     {f.photo_url ? (
                       <img
@@ -265,7 +269,7 @@ const FarmersList = () => {
                           color: '#ffffff',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          justify: 'center',
+                          justifyContent: 'center',
                           fontWeight: 800,
                           fontSize: '1.3rem',
                           lineHeight: 1,
@@ -280,8 +284,8 @@ const FarmersList = () => {
                       </div>
                     )}
 
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{f.name}</h3>
                         <span
                           style={{
@@ -311,9 +315,32 @@ const FarmersList = () => {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#15803d', fontWeight: 700, fontSize: '0.88rem' }}>
-                    <span>{isExpanded ? 'कम विवरण (Less)' : 'पूरा विवरण देखें (More Details)'}</span>
-                    {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                    <Link
+                      to={`${basePath}/farmer/${f.farmer_id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="btn btn-primary btn-inline"
+                      style={{
+                        padding: '7px 16px',
+                        fontSize: '0.85rem',
+                        borderRadius: '20px',
+                        background: '#0d3c26',
+                        color: '#ffffff',
+                        textDecoration: 'none',
+                        fontWeight: 800,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        boxShadow: '0 2px 8px rgba(13, 60, 38, 0.3)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      Profile <ChevronRight size={15} />
+                    </Link>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b', fontWeight: 600, fontSize: '0.82rem' }}>
+                      <span>{isExpanded ? 'Less' : 'Quick Details'}</span>
+                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </div>
                   </div>
                 </div>
 
@@ -341,9 +368,30 @@ const FarmersList = () => {
 
                     {/* VISIT LOGS SECTION */}
                     <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
-                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                        <History size={18} /> Farm Visit Logbook History (दौरा सर्वे इतिहास)
-                      </h4>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                          <History size={18} /> Farm Visit Logbook History (दौरा सर्वे इतिहास)
+                        </h4>
+                        <Link
+                          to={`${basePath}/farmer/${f.farmer_id}`}
+                          className="btn btn-primary btn-inline"
+                          style={{
+                            padding: '8px 18px',
+                            fontSize: '0.85rem',
+                            borderRadius: '30px',
+                            background: '#0d3c26',
+                            color: '#ffffff',
+                            textDecoration: 'none',
+                            fontWeight: 800,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 3px 10px rgba(13, 60, 38, 0.25)',
+                          }}
+                        >
+                          📊 View Full Baseline & Excel Matrix Profile →
+                        </Link>
+                      </div>
 
                       {isVisitsLoading ? (
                         <p style={{ color: '#64748b' }}>Loading visit history...</p>

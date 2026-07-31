@@ -12,6 +12,7 @@ import {
   Plus,
   FileSpreadsheet,
   MapPin,
+  ArrowUpRight,
 } from 'lucide-react';
 import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
@@ -143,7 +144,7 @@ const AdminDashboard = () => {
         <div className="hero-metric-card primary-hero">
           <div>
             <div className="hero-card-header">
-              <span className="hero-card-title">Total Registered Farmers</span>
+              <span className="hero-card-title">Total Onboarded Farmers</span>
               <div className="hero-card-icon">
                 <Users size={18} />
               </div>
@@ -246,15 +247,15 @@ const AdminDashboard = () => {
               No submissions found. New entries will appear here live!
             </div>
           ) : (
-            <div className="table-responsive">
+            <div className="table-responsive" style={{ maxHeight: '480px', overflowY: 'auto' }}>
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Type</th>
-                    <th>Farmer Name</th>
-                    <th>GPS Location</th>
-                    <th>Surveyor</th>
-                    <th>Action</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Type</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Farmer Name</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>GPS Location</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Surveyor</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -262,7 +263,7 @@ const AdminDashboard = () => {
                     <tr key={item.farmer_id + item.timestamp + idx}>
                       <td>
                         {item.entry_type === 'registration' ? (
-                          <span className="badge badge-reg" style={{ borderRadius: '20px' }}>Registration</span>
+                          <span className="badge badge-reg" style={{ borderRadius: '20px' }}>Onboarded</span>
                         ) : (
                           <span className="badge badge-survey" style={{ borderRadius: '20px' }}>Farm Visit</span>
                         )}
@@ -333,15 +334,15 @@ const AdminDashboard = () => {
               No registered farmers yet.
             </div>
           ) : (
-            <div className="table-responsive">
+            <div className="table-responsive" style={{ maxHeight: '480px', overflowY: 'auto' }}>
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Farmer ID</th>
-                    <th>Farmer Name</th>
-                    <th>Contact</th>
-                    <th>Village / GPS</th>
-                    <th>Logbook</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Farmer ID</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Farmer Name</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Contact</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Village / GPS</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f8fafc' }}>Logbook</th>
                   </tr>
                 </thead>
                 <tbody>
