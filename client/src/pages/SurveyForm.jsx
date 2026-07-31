@@ -124,6 +124,7 @@ const SurveyForm = () => {
   ];
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     if (cachedLocation?.gps_location) {
       setFormData((prev) => ({
         ...prev,

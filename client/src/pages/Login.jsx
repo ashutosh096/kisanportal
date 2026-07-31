@@ -60,7 +60,7 @@ const Login = () => {
       login(mockUser, 'vercel-live-admin-token');
       navigate('/admin');
     } else {
-      setError('Invalid username or password. Use username: admin & password: admin123');
+      setError('Invalid username or password');
     }
     setLoading(false);
   };
@@ -305,7 +305,6 @@ const Login = () => {
                     <div
                       key={s.id}
                       onClick={() => setSelectedSurveyorId(s.id)}
-                      onDoubleClick={() => handleSurveyorLogin(s.id)}
                       style={{
                         background: isSelected
                           ? 'linear-gradient(135deg, rgba(13, 60, 38, 0.75) 0%, rgba(8, 38, 24, 0.85) 100%)'

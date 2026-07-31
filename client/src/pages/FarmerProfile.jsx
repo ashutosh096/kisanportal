@@ -13,6 +13,7 @@ const FarmerProfile = () => {
   const [viewMode, setViewMode] = useState('matrix'); // Default to 'matrix' matching user's Excel sheet format!
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     const fetchProfile = async () => {
       try {
         const res = await fetch(`/api/farmers/${farmer_id}`, {

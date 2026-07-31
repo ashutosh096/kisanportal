@@ -82,6 +82,11 @@ const RegistrationForm = () => {
     setFormData((prev) => ({ ...prev, yield: num ? `${num} ${unit}` : '' }));
   };
 
+  // Always scroll to top when mounting or changing step
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentStep]);
+
   useEffect(() => {
     if (cachedLocation) {
       setFormData((prev) => ({
@@ -219,8 +224,12 @@ const RegistrationForm = () => {
     if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
-  // Validate Step 1 before proceeding
-  const handleNextStep = () => {
+  // Validate Step 1 & Step 2 before proceeding
+  const handleNextStep = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setError('');
     if (currentStep === 1) {
       if (!formData.name.trim()) {
@@ -237,15 +246,26 @@ const RegistrationForm = () => {
       }
     }
     setCurrentStep((prev) => Math.min(prev + 1, 3));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handlePrevStep = () => {
+  const handlePrevStep = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setError('');
     setCurrentStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (currentStep !== 3) {
+      handleNextStep(e);
+      return;
+    }
+
     setError('');
     setLoading(true);
 
