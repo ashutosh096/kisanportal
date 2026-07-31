@@ -96,16 +96,60 @@ const FarmerProfile = () => {
           borderLeft: '6px solid #0d3c26',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#0d3c26', margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 800 }}>
-              <User size={30} color="#15803d" />
-              {farmer.name}
-            </h1>
-            <div style={{ fontSize: '0.98rem', fontWeight: 700, color: '#64748b', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-              <span>ID: <strong style={{ color: '#0d3c26' }}>{farmer.farmer_id}</strong></span>
-              <span>📞 <strong style={{ color: '#0f172a' }}>{farmer.contact}</strong></span>
-              <span>📍 <strong style={{ color: '#0f172a' }}>{farmer.location}</strong></span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {farmer.photo_url ? (
+              <img
+                src={farmer.photo_url}
+                alt={farmer.name}
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  minWidth: '60px',
+                  minHeight: '60px',
+                  maxWidth: '60px',
+                  maxHeight: '60px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '3px solid #15803d',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '60px',
+                  height: '60px',
+                  minWidth: '60px',
+                  minHeight: '60px',
+                  maxWidth: '60px',
+                  maxHeight: '60px',
+                  borderRadius: '50%',
+                  background: '#0d3c26',
+                  color: '#ffffff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '1.5rem',
+                  lineHeight: 1,
+                  flexShrink: 0,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+                }}
+              >
+                {farmer.name ? farmer.name.charAt(0).toUpperCase() : 'F'}
+              </div>
+            )}
+            <div>
+              <h1 style={{ color: '#0d3c26', margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 800 }}>
+                {farmer.name}
+              </h1>
+              <div style={{ fontSize: '0.98rem', fontWeight: 700, color: '#64748b', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                <span>ID: <strong style={{ color: '#0d3c26' }}>{farmer.farmer_id}</strong></span>
+                <span>📞 <strong style={{ color: '#0f172a' }}>{farmer.contact}</strong></span>
+                <span>📍 <strong style={{ color: '#0f172a' }}>{farmer.location}</strong></span>
+              </div>
             </div>
           </div>
           <span
