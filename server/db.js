@@ -1,3 +1,4 @@
+import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import fs from 'fs';
@@ -6,351 +7,273 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-let db = null;
-let isVercel = !!process.env.VERCEL;
+const DEFAULT_PG_URL = 'postgresql://neondb_owner:npg_cjB9kYbn3VOy@ep-odd-mud-aysraj8p-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require';
+const connectionString = process.env.DATABASE_URL || DEFAULT_PG_URL;
 
-// Vercel Ephemeral JSON Data Store Path
-const vercelDbPath = '/tmp/farmer_data.json';
+let pgPool = null;
+let sqliteDb = null;
+let isVercelJson = false;
 
-const getInitialData = async () => {
-  const adminPass = await bcrypt.hash('admin123', 10);
-  const surveyorPass = await bcrypt.hash('field123', 10);
-
-  return {
-    users: [
-      { id: 1, username: 'admin', password_hash: adminPass, name: 'System Admin', role: 'admin', created_at: new Date().toISOString() },
-      { id: 2, username: 'surveyor1', password_hash: surveyorPass, name: 'Ramesh Kumar', role: 'surveyor', created_at: new Date().toISOString() },
-      { id: 3, username: 'ashu01', password_hash: surveyorPass, name: 'Ashutosh Mishra', role: 'surveyor', created_at: new Date().toISOString() }
-    ],
-    farmers: [
-      {
-        id: 1,
-        farmer_id: 'F-2026-001',
-        name: 'Ram Singh',
-        contact: '9876543210',
-        location: 'Kanpur, Kanpur Nagar, Uttar Pradesh',
-        gps_location: '26.516701° N, 80.226379° E',
-        date: '2026-07-30',
-        photo_url: '',
-        soil_testing: 'yes',
-        water_testing: 'yes',
-        cow_dung_used: 'yes',
-        cow_dung_qty: '500kg',
-        crop: 'Wheat (गेहूं)',
-        crop_reason: 'High yield',
-        area: '2 Acres',
-        sowing_date: '2026-06-15',
-        variety: 'HD-2967',
-        seed_qty_per_acre: '40kg',
-        seed_type: 'Hybrid',
-        sowing_type: 'Line Sowing',
-        harvest_date: '2026-10-15',
-        yield: '25 Quintal',
-        expert_advice: 'yes',
-        surveyor_id: 2,
-        surveyor_name: 'Ramesh Kumar',
-        created_at: new Date().toISOString()
-      }
-    ],
-    surveys: []
-  };
+// Helper to convert SQLite ? placeholders to PostgreSQL $1, $2, $3...
+const formatPgSql = (sql) => {
+  let paramIndex = 1;
+  return sql.replace(/\?/g, () => `$${paramIndex++}`);
 };
 
-const loadVercelDb = async () => {
-  try {
-    if (fs.existsSync(vercelDbPath)) {
-      const content = fs.readFileSync(vercelDbPath, 'utf8');
-      return JSON.parse(content);
-    }
-  } catch (err) {
-    console.warn('Vercel JSON DB load error:', err);
-  }
-  const initial = await getInitialData();
-  saveVercelDb(initial);
-  return initial;
-};
-
-const saveVercelDb = (data) => {
-  try {
-    fs.writeFileSync(vercelDbPath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.warn('Vercel JSON DB save error:', err);
-  }
-};
-
-// Initialize DB Engine (Dynamic Native SQLite on Local or Vercel JSON Store)
-const initDbDriver = async () => {
-  if (!isVercel) {
-    try {
-      const sqliteModule = await import('sqlite3');
-      const sqlite3 = sqliteModule.default || sqliteModule;
-      const dbPath = path.join(__dirname, 'farmer_survey.db');
-      db = new sqlite3.Database(dbPath);
-    } catch (e) {
-      console.warn('SQLite native module unavailable, using Vercel serverless DB driver:', e.message);
-      isVercel = true;
-    }
-  }
-};
-
-// Auto-run driver init
-initDbDriver();
+// 1. Initialize Neon PostgreSQL Connection
+try {
+  pgPool = new pg.Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
+  console.log('🐘 Neon PostgreSQL Pool Initialized');
+} catch (err) {
+  console.warn('⚠️ Failed to initialize PG Pool, falling back to local storage:', err.message);
+}
 
 export const query = async (sql, params = []) => {
-  if (!isVercel && db) {
+  if (pgPool) {
+    try {
+      const pgSql = formatPgSql(sql);
+      const res = await pgPool.query(pgSql, params);
+      return res.rows;
+    } catch (err) {
+      console.error('PG Query error, trying SQLite fallback:', err.message);
+    }
+  }
+
+  if (sqliteDb) {
     return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
+      sqliteDb.all(sql, params, (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
     });
   }
 
-  // Vercel Driver Implementation
-  const data = await loadVercelDb();
-  const lowerSql = sql.toLowerCase();
-
-  if (lowerSql.includes('from users')) {
-    let list = [...data.users];
-    if (lowerSql.includes("role = 'surveyor'")) {
-      list = list.filter((u) => u.role === 'surveyor');
-    }
-    if (lowerSql.includes('where username =')) {
-      list = list.filter((u) => u.username === params[0]);
-    }
-    if (lowerSql.includes('where id =')) {
-      list = list.filter((u) => u.id === Number(params[0]));
-    }
-    if (lowerSql.includes('count(*)')) {
-      return [{ count: list.length }];
-    }
-    return list;
-  }
-
-  if (lowerSql.includes('from farmers')) {
-    let list = [...data.farmers];
-    if (lowerSql.includes('where farmer_id =')) {
-      list = list.filter((f) => f.farmer_id === params[0]);
-    }
-    if (lowerSql.includes('like') || lowerSql.includes('contact =')) {
-      const term = (params[0] || '').replace(/%/g, '').toLowerCase();
-      list = list.filter(
-        (f) =>
-          f.farmer_id.toLowerCase().includes(term) ||
-          f.contact.includes(term) ||
-          f.name.toLowerCase().includes(term) ||
-          f.location.toLowerCase().includes(term)
-      );
-    }
-    return list;
-  }
-
-  if (lowerSql.includes('from surveys')) {
-    let list = [...data.surveys];
-    if (lowerSql.includes('where farmer_id =')) {
-      list = list.filter((s) => s.farmer_id === params[0]);
-    }
-    return list;
-  }
-
-  return [];
+  // JSON Fallback
+  return loadJsonDbQueries(sql, params);
 };
 
 export const run = async (sql, params = []) => {
-  if (!isVercel && db) {
+  if (pgPool) {
+    try {
+      const pgSql = formatPgSql(sql);
+      const res = await pgPool.query(pgSql, params);
+      const lastID = res.rows[0]?.id || Date.now();
+      return { lastID, changes: res.rowCount || 1 };
+    } catch (err) {
+      console.error('PG Run error, trying fallback:', err.message);
+    }
+  }
+
+  if (sqliteDb) {
     return new Promise((resolve, reject) => {
-      db.run(sql, params, function (err) {
+      sqliteDb.run(sql, params, function (err) {
         if (err) reject(err);
         else resolve({ lastID: this.lastID, changes: this.changes });
       });
     });
   }
 
-  // Vercel Driver Run Implementation
-  const data = await loadVercelDb();
-  const lowerSql = sql.toLowerCase();
-
-  if (lowerSql.includes('insert into users')) {
-    const newUser = {
-      id: Date.now(),
-      username: params[0],
-      password_hash: params[1],
-      name: params[2],
-      role: params[3],
-      created_at: new Date().toISOString(),
-    };
-    data.users.push(newUser);
-    saveVercelDb(data);
-    return { lastID: newUser.id, changes: 1 };
-  }
-
-  if (lowerSql.includes('insert into farmers')) {
-    const newFarmer = {
-      id: Date.now(),
-      farmer_id: params[0],
-      name: params[1],
-      contact: params[2],
-      location: params[3],
-      gps_location: params[4],
-      date: params[5],
-      photo_url: params[6],
-      soil_testing: params[7],
-      water_testing: params[8],
-      cow_dung_used: params[9],
-      cow_dung_qty: params[10],
-      crop: params[11],
-      crop_reason: params[12],
-      area: params[13],
-      sowing_date: params[14],
-      variety: params[15],
-      seed_qty_per_acre: params[16],
-      seed_type: params[17],
-      sowing_type: params[18],
-      harvest_date: params[19],
-      yield: params[20],
-      expert_advice: params[21],
-      surveyor_id: params[22],
-      surveyor_name: params[23],
-      created_at: new Date().toISOString(),
-    };
-    data.farmers.unshift(newFarmer);
-    saveVercelDb(data);
-    return { lastID: newFarmer.id, changes: 1 };
-  }
-
-  if (lowerSql.includes('insert into surveys')) {
-    const newSurvey = {
-      id: Date.now(),
-      farmer_id: params[0],
-      visit_date: params[1],
-      gps_location: params[2],
-      plowing: params[3],
-      plowing_count: params[4],
-      pesticide_used: params[5],
-      pesticide_qty: params[6],
-      pesticide_brand: params[7],
-      supplement_used: params[8],
-      supplement_qty: params[9],
-      supplement_brand: params[10],
-      fertilizer_used: params[11],
-      fertilizer_qty: params[12],
-      fertilizer_brand: params[13],
-      irrigation_done: params[14],
-      irrigation_source: params[15],
-      irrigation_type: params[16],
-      irrigation_depth: params[17],
-      weeding_done: params[18],
-      additional_activities: params[19],
-      surveyor_id: params[20],
-      surveyor_name: params[21],
-      created_at: new Date().toISOString(),
-    };
-    data.surveys.unshift(newSurvey);
-    saveVercelDb(data);
-    return { lastID: newSurvey.id, changes: 1 };
-  }
-
-  if (lowerSql.includes('delete from farmers')) {
-    data.farmers = data.farmers.filter((f) => f.farmer_id !== params[0]);
-    saveVercelDb(data);
-    return { lastID: 0, changes: 1 };
-  }
-
-  if (lowerSql.includes('delete from users')) {
-    data.users = data.users.filter((u) => u.id !== Number(params[0]));
-    saveVercelDb(data);
-    return { lastID: 0, changes: 1 };
-  }
-
-  return { lastID: 0, changes: 0 };
+  return saveJsonDbRuns(sql, params);
 };
 
 export const initDb = async () => {
-  await initDbDriver();
-
-  if (!isVercel && db) {
-    db.serialize(async () => {
-      db.run(`
+  if (pgPool) {
+    try {
+      await pgPool.query(`
         CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username TEXT UNIQUE NOT NULL,
-          password_hash TEXT NOT NULL,
-          name TEXT NOT NULL,
-          role TEXT NOT NULL CHECK(role IN ('admin', 'surveyor')),
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      db.run(`
+          id SERIAL PRIMARY KEY,
+          username VARCHAR(100) UNIQUE NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          name VARCHAR(150) NOT NULL,
+          role VARCHAR(50) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS farmers (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          farmer_id TEXT UNIQUE NOT NULL,
-          name TEXT NOT NULL,
-          contact TEXT NOT NULL,
-          location TEXT NOT NULL,
-          gps_location TEXT DEFAULT '',
-          date TEXT NOT NULL,
+          id SERIAL PRIMARY KEY,
+          farmer_id VARCHAR(50) UNIQUE NOT NULL,
+          name VARCHAR(150) NOT NULL,
+          contact VARCHAR(50) NOT NULL,
+          location VARCHAR(255) NOT NULL,
+          gps_location VARCHAR(100) DEFAULT '',
+          date VARCHAR(50) NOT NULL,
           photo_url TEXT DEFAULT '',
-          soil_testing TEXT DEFAULT 'no',
-          water_testing TEXT DEFAULT 'no',
-          cow_dung_used TEXT DEFAULT 'no',
-          cow_dung_qty TEXT DEFAULT '',
-          crop TEXT DEFAULT '',
-          crop_reason TEXT DEFAULT '',
-          area TEXT DEFAULT '',
-          sowing_date TEXT DEFAULT '',
-          variety TEXT DEFAULT '',
-          seed_qty_per_acre TEXT DEFAULT '',
-          seed_type TEXT DEFAULT '',
-          sowing_type TEXT DEFAULT '',
-          harvest_date TEXT DEFAULT '',
-          yield TEXT DEFAULT '',
-          expert_advice TEXT DEFAULT 'no',
-          surveyor_id INTEGER,
-          surveyor_name TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      db.run(`
+          soil_testing VARCHAR(20) DEFAULT 'no',
+          water_testing VARCHAR(20) DEFAULT 'no',
+          cow_dung_used VARCHAR(20) DEFAULT 'no',
+          cow_dung_qty VARCHAR(100) DEFAULT '',
+          crop VARCHAR(100) DEFAULT '',
+          crop_reason VARCHAR(255) DEFAULT '',
+          area VARCHAR(100) DEFAULT '',
+          sowing_date VARCHAR(50) DEFAULT '',
+          variety VARCHAR(100) DEFAULT '',
+          seed_qty_per_acre VARCHAR(100) DEFAULT '',
+          seed_type VARCHAR(100) DEFAULT '',
+          sowing_type VARCHAR(100) DEFAULT '',
+          harvest_date VARCHAR(50) DEFAULT '',
+          yield VARCHAR(100) DEFAULT '',
+          expert_advice VARCHAR(20) DEFAULT 'no',
+          surveyor_id INT,
+          surveyor_name VARCHAR(150) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS surveys (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          farmer_id TEXT NOT NULL,
-          visit_date TEXT NOT NULL,
-          gps_location TEXT DEFAULT '',
-          plowing TEXT DEFAULT 'no',
-          plowing_count TEXT DEFAULT '0',
-          pesticide_used TEXT DEFAULT 'no',
-          pesticide_qty TEXT DEFAULT '',
-          pesticide_brand TEXT DEFAULT '',
-          supplement_used TEXT DEFAULT 'no',
-          supplement_qty TEXT DEFAULT '',
-          supplement_brand TEXT DEFAULT '',
-          fertilizer_used TEXT DEFAULT 'no',
-          fertilizer_qty TEXT DEFAULT '',
-          fertilizer_brand TEXT DEFAULT '',
-          irrigation_done TEXT DEFAULT 'no',
-          irrigation_source TEXT DEFAULT '',
-          irrigation_type TEXT DEFAULT '',
-          irrigation_depth TEXT DEFAULT '',
-          weeding_done TEXT DEFAULT 'no',
+          id SERIAL PRIMARY KEY,
+          farmer_id VARCHAR(50) NOT NULL,
+          visit_date VARCHAR(50) NOT NULL,
+          gps_location VARCHAR(100) DEFAULT '',
+          plowing VARCHAR(20) DEFAULT 'no',
+          plowing_count VARCHAR(50) DEFAULT '0',
+          pesticide_used VARCHAR(20) DEFAULT 'no',
+          pesticide_qty VARCHAR(100) DEFAULT '',
+          pesticide_brand VARCHAR(100) DEFAULT '',
+          supplement_used VARCHAR(20) DEFAULT 'no',
+          supplement_qty VARCHAR(100) DEFAULT '',
+          supplement_brand VARCHAR(100) DEFAULT '',
+          fertilizer_used VARCHAR(20) DEFAULT 'no',
+          fertilizer_qty VARCHAR(100) DEFAULT '',
+          fertilizer_brand VARCHAR(100) DEFAULT '',
+          irrigation_done VARCHAR(20) DEFAULT 'no',
+          irrigation_source VARCHAR(100) DEFAULT '',
+          irrigation_type VARCHAR(100) DEFAULT '',
+          irrigation_depth VARCHAR(100) DEFAULT '',
+          weeding_done VARCHAR(20) DEFAULT 'no',
           additional_activities TEXT DEFAULT '',
-          surveyor_id INTEGER,
-          surveyor_name TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
+          surveyor_id INT,
+          surveyor_name VARCHAR(150) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
       `);
 
-      db.get('SELECT COUNT(*) as count FROM users', async (err, row) => {
-        if (row && row.count === 0) {
-          const adminPass = await bcrypt.hash('admin123', 10);
-          const surveyorPass = await bcrypt.hash('field123', 10);
-          db.run(`INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)`, ['admin', adminPass, 'System Admin', 'admin']);
-          db.run(`INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)`, ['surveyor1', surveyorPass, 'Ramesh Kumar', 'surveyor']);
-        }
-      });
-    });
-  } else {
-    await loadVercelDb();
+      // Seed initial users if table is empty
+      const userCheck = await pgPool.query('SELECT COUNT(*) FROM users');
+      if (parseInt(userCheck.rows[0].count, 10) === 0) {
+        const adminPass = await bcrypt.hash('admin123', 10);
+        const surveyorPass = await bcrypt.hash('field123', 10);
+
+        await pgPool.query(
+          `INSERT INTO users (username, password_hash, name, role) VALUES 
+           ($1, $2, $3, $4),
+           ($5, $6, $7, $8),
+           ($9, $10, $11, $12)`,
+          [
+            'admin', adminPass, 'System Admin', 'admin',
+            'surveyor1', surveyorPass, 'Ramesh Kumar', 'surveyor',
+            'ashu01', surveyorPass, 'Ashutosh Mishra', 'surveyor'
+          ]
+        );
+        console.log('✅ Neon PostgreSQL Initial Users Seeded Successfully');
+      }
+
+      // Seed initial sample farmer if empty
+      const farmerCheck = await pgPool.query('SELECT COUNT(*) FROM farmers');
+      if (parseInt(farmerCheck.rows[0].count, 10) === 0) {
+        await pgPool.query(
+          `INSERT INTO farmers (
+            farmer_id, name, contact, location, gps_location, date, photo_url,
+            soil_testing, water_testing, cow_dung_used, cow_dung_qty,
+            crop, crop_reason, area, sowing_date, variety,
+            seed_qty_per_acre, seed_type, sowing_type, harvest_date,
+            yield, expert_advice, surveyor_id, surveyor_name
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
+          [
+            'F-2026-001', 'Ram Singh', '9876543210', 'Kanpur, Kanpur Nagar, Uttar Pradesh',
+            '26.516701° N, 80.226379° E', '2026-07-30', '', 'yes', 'yes', 'yes', '500kg',
+            'Wheat (गेहूं)', 'High yield', '2 Acres', '2026-06-15', 'HD-2967',
+            '40kg', 'Hybrid', 'Line Sowing', '2026-10-15', '25 Quintal', 'yes',
+            2, 'Ramesh Kumar'
+          ]
+        );
+        console.log('✅ Neon PostgreSQL Initial Sample Farmer Seeded');
+      }
+
+      console.log('🚀 Neon PostgreSQL Database Ready & Verified!');
+      return;
+    } catch (err) {
+      console.error('❌ Neon PG Init Error, initializing SQLite/JSON fallback:', err);
+    }
+  }
+
+  // Fallback to native SQLite
+  try {
+    const sqliteModule = await import('sqlite3');
+    const sqlite3 = sqliteModule.default || sqliteModule;
+    const dbPath = path.join(__dirname, 'farmer_survey.db');
+    sqliteDb = new sqlite3.Database(dbPath);
+    console.log('📁 Using local SQLite driver');
+  } catch (e) {
+    isVercelJson = true;
+    console.log('📄 Using JSON file driver');
   }
 };
 
-export default db;
+// JSON Fallback Helpers
+const vercelDbPath = '/tmp/farmer_data.json';
+const loadJsonDb = async () => {
+  try {
+    if (fs.existsSync(vercelDbPath)) {
+      return JSON.parse(fs.readFileSync(vercelDbPath, 'utf8'));
+    }
+  } catch (e) {}
+  const adminPass = await bcrypt.hash('admin123', 10);
+  const surveyorPass = await bcrypt.hash('field123', 10);
+  return {
+    users: [
+      { id: 1, username: 'admin', password_hash: adminPass, name: 'System Admin', role: 'admin' },
+      { id: 2, username: 'surveyor1', password_hash: surveyorPass, name: 'Ramesh Kumar', role: 'surveyor' },
+    ],
+    farmers: [],
+    surveys: [],
+  };
+};
+
+const saveJsonDb = (data) => {
+  try {
+    fs.writeFileSync(vercelDbPath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {}
+};
+
+const loadJsonDbQueries = async (sql, params) => {
+  const data = await loadJsonDb();
+  const lower = sql.toLowerCase();
+  if (lower.includes('from users')) {
+    let list = [...data.users];
+    if (lower.includes("role = 'surveyor'")) list = list.filter((u) => u.role === 'surveyor');
+    if (lower.includes('where username =')) list = list.filter((u) => u.username === params[0]);
+    if (lower.includes('count(*)')) return [{ count: list.length }];
+    return list;
+  }
+  if (lower.includes('from farmers')) {
+    let list = [...data.farmers];
+    if (lower.includes('where farmer_id =')) list = list.filter((f) => f.farmer_id === params[0]);
+    if (lower.includes('count(*)')) return [{ count: list.length }];
+    return list;
+  }
+  if (lower.includes('from surveys')) {
+    let list = [...data.surveys];
+    if (lower.includes('where farmer_id =')) list = list.filter((s) => s.farmer_id === params[0]);
+    return list;
+  }
+  return [];
+};
+
+const saveJsonDbRuns = async (sql, params) => {
+  const data = await loadJsonDb();
+  const lower = sql.toLowerCase();
+  if (lower.includes('insert into farmers')) {
+    const newF = { farmer_id: params[0], name: params[1], contact: params[2], location: params[3], gps_location: params[4], date: params[5], photo_url: params[6] };
+    data.farmers.unshift(newF);
+    saveJsonDb(data);
+    return { lastID: Date.now(), changes: 1 };
+  }
+  return { lastID: 0, changes: 0 };
+};
+
+export default pgPool;
