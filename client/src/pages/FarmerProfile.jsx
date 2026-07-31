@@ -145,23 +145,30 @@ const FarmerProfile = () => {
         </div>
       </div>
 
-      {/* VIEW MODE TOGGLE TOOLBAR */}
+      {/* VIEW MODE TOGGLE TOOLBAR WRAPPED IN CRISP WHITE FLOATING CARD FOR 100% LEGIBILITY */}
       <div
         style={{
+          background: '#ffffff',
+          borderRadius: '24px',
+          padding: '18px 24px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
           display: 'flex',
           justify: 'space-between',
           alignItems: 'center',
-          marginBottom: '16px',
+          marginBottom: '20px',
           flexWrap: 'wrap',
           gap: '12px',
+          position: 'relative',
+          zIndex: 2,
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0d3c26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FileSpreadsheet color="#15803d" size={24} />
             Farm Management Visit Logbook (खेत प्रबंधन विवरण)
           </h2>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
+          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0', fontWeight: 500 }}>
             Exact multi-date logbook matching paper and Excel template layout
           </p>
         </div>
