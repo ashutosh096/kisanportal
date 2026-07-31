@@ -435,8 +435,8 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
             )}
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff', margin: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff', margin: 0, wordBreak: 'break-word' }}>
                   {selectedFarmer.name}
                 </h3>
                 <span
@@ -447,6 +447,9 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                     borderRadius: '20px',
                     fontSize: '0.85rem',
                     fontWeight: 800,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    display: 'inline-block',
                   }}
                 >
                   {selectedFarmer.farmer_id}

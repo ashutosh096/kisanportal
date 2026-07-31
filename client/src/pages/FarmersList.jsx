@@ -295,6 +295,9 @@ const FarmersList = () => {
                             borderRadius: '20px',
                             fontSize: '0.78rem',
                             fontWeight: 800,
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            display: 'inline-block',
                           }}
                         >
                           {f.farmer_id}
