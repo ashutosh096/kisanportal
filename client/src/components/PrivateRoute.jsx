@@ -1,14 +1,20 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 const PrivateRoute = ({ children, roleRequired }) => {
   const { user, loading, logout } = useContext(AuthContext);
 
+  useEffect(() => {
+    if (user && roleRequired && user.role !== roleRequired) {
+      logout();
+    }
+  }, [user, roleRequired, logout]);
+
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#ffffff', fontWeight: 700 }}>
-        Loading...
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontWeight: 800, fontSize: '1.1rem' }}>
+        Loading KisanSurvey...
       </div>
     );
   }
@@ -17,9 +23,7 @@ const PrivateRoute = ({ children, roleRequired }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // If role mismatch (e.g. admin trying to open surveyor page or vice versa), logout stale session and send to login
   if (roleRequired && user.role !== roleRequired) {
-    logout();
     return <Navigate to="/login" replace />;
   }
 
