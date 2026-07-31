@@ -232,14 +232,31 @@ const RegistrationForm = () => {
     }
     setError('');
     if (currentStep === 1) {
-      if (!formData.name.trim()) {
-        setError('Farmer Name Required (कृपया किसान का नाम दर्ज करें)');
+      const cleanName = formData.name.trim();
+      if (!cleanName || cleanName.length < 2) {
+        setError('Please enter a valid Farmer Name (कृपया किसान का सही नाम दर्ज करें)');
         return;
       }
-      if (!formData.contact.trim()) {
-        setError('Contact No. Required (कृपया संपर्क नंबर दर्ज करें)');
+
+      // Block pure numbers or gibberish with numbers like 23fsfh
+      const hasLetters = /[a-zA-Z\u0900-\u097F]/.test(cleanName);
+      if (!hasLetters || /^\d+$/.test(cleanName)) {
+        setError('Please enter a valid Farmer Name without numbers or gibberish (कृपया सही नाम दर्ज करें - बिना अंक के)');
         return;
       }
+
+      // Mobile number validation (Optional, but if filled must be valid 10 digits)
+      if (formData.contact && formData.contact.trim() !== '') {
+        const digitsOnly = formData.contact.replace(/\D/g, '');
+        // Extract 10 digits if user typed 91 prefix
+        const finalDigits = digitsOnly.length === 12 && digitsOnly.startsWith('91') ? digitsOnly.slice(2) : digitsOnly;
+
+        if (!/^[6-9]\d{9}$/.test(finalDigits)) {
+          setError('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9 (कृपया 10 अंकों का सही मोबाइल नंबर दर्ज करें)');
+          return;
+        }
+      }
+
       if (!formData.location.trim()) {
         setError('Location Required (कृपया स्थान दर्ज करें)');
         return;
@@ -642,16 +659,38 @@ const RegistrationForm = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Contact No. (संपर्क नंबर) *</label>
-                <input
-                  type="tel"
-                  className="input-field"
-                  name="contact"
-                  value={formData.contact}
-                  onChange={handleChange}
-                  placeholder="10-digit mobile number"
-                  required
-                />
+                <label className="form-label">Contact No. (संपर्क नंबर) (Optional - ऐच्छिक)</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: '16px',
+                      fontSize: '0.9rem',
+                      fontWeight: 800,
+                      color: '#15803d',
+                      pointerEvents: 'none',
+                      zIndex: 2,
+                    }}
+                  >
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    className="input-field"
+                    name="contact"
+                    value={formData.contact}
+                    onChange={(e) => {
+                      // Filter non-digit inputs automatically, max 10 digits
+                      const cleanVal = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setFormData((prev) => ({ ...prev, contact: cleanVal }));
+                    }}
+                    placeholder="10-digit mobile number"
+                    style={{
+                      paddingLeft: '56px',
+                      borderRadius: '30px',
+                    }}
+                  />
+                </div>
               </div>
 
               {/* LOCKED NON-EDITABLE LOCATION & PINCODE */}

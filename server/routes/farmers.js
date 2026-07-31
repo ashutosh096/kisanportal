@@ -49,8 +49,24 @@ router.post('/', authenticateToken, async (req, res) => {
     expert_advice,
   } = req.body;
 
-  if (!name || !contact || !location) {
-    return res.status(400).json({ error: 'Farmer name, contact number, and location are required' });
+  if (!name || name.trim().length < 2 || !/[a-zA-Z\u0900-\u097F]/.test(name)) {
+    return res.status(400).json({ error: 'Valid farmer name is required' });
+  }
+
+  if (!location) {
+    return res.status(400).json({ error: 'Location is required' });
+  }
+
+  // Format contact number with +91 if 10 digits provided, or default to N/A
+  let formattedContact = 'N/A';
+  if (contact && contact.trim() !== '') {
+    const digitsOnly = contact.replace(/\D/g, '');
+    const cleanDigits = digitsOnly.length === 12 && digitsOnly.startsWith('91') ? digitsOnly.slice(2) : digitsOnly;
+    if (cleanDigits.length === 10) {
+      formattedContact = `+91 ${cleanDigits}`;
+    } else {
+      formattedContact = contact;
+    }
   }
 
   try {
@@ -70,7 +86,7 @@ router.post('/', authenticateToken, async (req, res) => {
       [
         farmerId,
         name,
-        contact,
+        formattedContact,
         location,
         gps_location || '',
         currentDate,
