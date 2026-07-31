@@ -174,28 +174,6 @@ export const initDb = async () => {
         console.log('✅ Neon PostgreSQL Initial Users Seeded Successfully');
       }
 
-      // Seed initial sample farmer if empty
-      const farmerCheck = await pgPool.query('SELECT COUNT(*) FROM farmers');
-      if (parseInt(farmerCheck.rows[0].count, 10) === 0) {
-        await pgPool.query(
-          `INSERT INTO farmers (
-            farmer_id, name, contact, location, gps_location, date, photo_url,
-            soil_testing, water_testing, cow_dung_used, cow_dung_qty,
-            crop, crop_reason, area, sowing_date, variety,
-            seed_qty_per_acre, seed_type, sowing_type, harvest_date,
-            yield, expert_advice, surveyor_id, surveyor_name
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
-          [
-            'F-2026-001', 'Ram Singh', '9876543210', 'Kanpur, Kanpur Nagar, Uttar Pradesh',
-            '26.516701° N, 80.226379° E', '2026-07-30', '', 'yes', 'yes', 'yes', '500kg',
-            'Wheat (गेहूं)', 'High yield', '2 Acres', '2026-06-15', 'HD-2967',
-            '40kg', 'Hybrid', 'Line Sowing', '2026-10-15', '25 Quintal', 'yes',
-            2, 'Ramesh Kumar'
-          ]
-        );
-        console.log('✅ Neon PostgreSQL Initial Sample Farmer Seeded');
-      }
-
       console.log('🚀 Neon PostgreSQL Database Ready & Verified!');
       return;
     } catch (err) {
