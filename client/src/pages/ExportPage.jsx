@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Calendar, MapPin, FileSpreadsheet } from 'lucide-react';
+import { Download, Calendar, MapPin, FileSpreadsheet, Layers } from 'lucide-react';
 
 const ExportPage = () => {
   const [farmerStartDate, setFarmerStartDate] = useState('');
@@ -20,8 +20,12 @@ const ExportPage = () => {
     window.location.href = `/api/export/excel?${params.toString()}`;
   };
 
+  const triggerMatrixExport = () => {
+    window.location.href = `/api/export/excel-matrix`;
+  };
+
   return (
-    <div>
+    <div style={{ paddingBottom: '40px' }}>
       {/* FLOATING CAPSULE HEADER BAR */}
       <div
         style={{
@@ -34,11 +38,57 @@ const ExportPage = () => {
         }}
       >
         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-          Export Data
+          Export Data Reports
         </h1>
         <p style={{ color: '#64748b', fontSize: '0.88rem', margin: '2px 0 0 0' }}>
-          Download raw CSV/Excel data for external analysis
+          Download raw Excel/CSV data or Multi-Tab Matrix Workbooks matching your paper template
         </p>
+      </div>
+
+      {/* FEATURED SPECIAL BANNER: MULTI-TAB EXCEL MATRIX WORKBOOK */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #0d3c26 0%, #15803d 100%)',
+          borderRadius: '24px',
+          padding: '24px 28px',
+          color: '#ffffff',
+          marginBottom: '24px',
+          boxShadow: '0 8px 24px rgba(13, 60, 38, 0.2)',
+          display: 'flex',
+          justify: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+        }}
+      >
+        <div>
+          <span style={{ background: '#86efac', color: '#064e3b', fontWeight: 800, fontSize: '0.78rem', padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase' }}>
+            Featured Template Format
+          </span>
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff', margin: '8px 0 4px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Layers size={26} color="#86efac" /> Multi-Tab Excel Matrix Workbook (.xlsx)
+          </h2>
+          <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, maxWidth: '600px' }}>
+            Generates an exact Excel workbook where each farmer gets their own worksheet tab (`Ranveer Singh`, `Dinesh Kumar`...) with activity rows and date columns matching your paper template.
+          </p>
+        </div>
+
+        <button
+          onClick={triggerMatrixExport}
+          className="btn btn-primary"
+          style={{
+            background: '#ffffff',
+            color: '#0d3c26',
+            borderRadius: '30px',
+            padding: '14px 28px',
+            fontWeight: 800,
+            fontSize: '1rem',
+            border: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          }}
+        >
+          <FileSpreadsheet size={20} color="#15803d" /> Download Multi-Tab Matrix Excel
+        </button>
       </div>
 
       {/* CARD PANELS GRID (50% / 50%) */}
@@ -55,7 +105,7 @@ const ExportPage = () => {
           }}
         >
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>
-            Export Farmers
+            Export Farmers List
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '20px' }}>
             Download registered farmer database.
@@ -95,13 +145,12 @@ const ExportPage = () => {
             />
           </div>
 
-          {/* CAPSULE SHAPE BUTTON */}
           <button
             onClick={() => triggerExport('farmers', farmerStartDate, farmerEndDate, farmerLocation)}
             className="btn btn-primary"
             style={{ borderRadius: '30px', padding: '14px', fontSize: '1rem', width: '100%' }}
           >
-            <Download size={18} /> Download Excel / CSV
+            <Download size={18} /> Download Farmers Excel
           </button>
         </div>
 
@@ -116,7 +165,7 @@ const ExportPage = () => {
           }}
         >
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>
-            Export Surveys
+            Export Visits Logbook
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '20px' }}>
             Download farm visit records.
@@ -156,13 +205,12 @@ const ExportPage = () => {
             />
           </div>
 
-          {/* CAPSULE SHAPE BUTTON */}
           <button
             onClick={() => triggerExport('surveys', surveyStartDate, surveyEndDate, surveyLocation)}
             className="btn btn-primary"
             style={{ borderRadius: '30px', padding: '14px', fontSize: '1rem', width: '100%' }}
           >
-            <Download size={18} /> Download Excel / CSV
+            <Download size={18} /> Download Visits Excel
           </button>
         </div>
 

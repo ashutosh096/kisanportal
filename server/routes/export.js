@@ -5,7 +5,7 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/export/excel - Export farmers registration & survey data as Excel file
+// GET /api/export/excel - Standard export
 router.get('/excel', authenticateToken, requireRole('admin'), async (req, res) => {
   const { location, surveyor, startDate, endDate } = req.query;
 
@@ -33,7 +33,6 @@ router.get('/excel', authenticateToken, requireRole('admin'), async (req, res) =
     farmerSql += ' ORDER BY id DESC';
     const farmers = await query(farmerSql, params);
 
-    // Fetch matching survey visits
     let surveySql = `
       SELECT s.*, f.name as farmer_name, f.location as farmer_location 
       FROM surveys s 
@@ -89,7 +88,6 @@ router.get('/excel', authenticateToken, requireRole('admin'), async (req, res) =
       { header: 'Expert Advice', key: 'expert_advice', width: 15 },
       { header: 'Surveyor Name', key: 'surveyor_name', width: 20 },
     ];
-
     farmerSheet.addRows(farmers);
 
     // Sheet 2: Farm Visit Surveys
@@ -118,33 +116,96 @@ router.get('/excel', authenticateToken, requireRole('admin'), async (req, res) =
       { header: 'Additional Notes', key: 'additional_activities', width: 30 },
       { header: 'Surveyor Name', key: 'surveyor_name', width: 20 },
     ];
-
     surveySheet.addRows(surveys);
 
-    // Styling header rows
     [farmerSheet, surveySheet].forEach((sheet) => {
       sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
       sheet.getRow(1).fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: '2E7D32' },
+        fgColor: { argb: '0D3C26' },
       };
     });
 
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=' + `Farmer_Survey_Report_${new Date().toISOString().split('T')[0]}.xlsx`
-    );
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=Farmer_Survey_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
 
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
     console.error('Excel export error:', err);
     res.status(500).json({ error: 'Failed to export Excel file' });
+  }
+});
+
+// GET /api/export/excel-matrix - Export Per-Farmer Multi-Tab Matrix Workbook matching user's template exactly!
+router.get('/excel-matrix', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    const farmers = await query('SELECT * FROM farmers ORDER BY id ASC');
+    const workbook = new ExcelJS.Workbook();
+
+    for (const farmer of farmers) {
+      const visits = await query('SELECT * FROM surveys WHERE farmer_id = ? ORDER BY visit_date ASC', [farmer.farmer_id]);
+      
+      const cleanSheetName = (farmer.name || farmer.farmer_id).replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 30) || 'Farmer Sheet';
+      const sheet = workbook.addWorksheet(cleanSheetName);
+
+      // Row 1: Farm Management Details Header
+      sheet.addRow(['Farm Management Details']);
+      sheet.getRow(1).font = { bold: true, size: 14, color: { argb: 'FFFFFF' } };
+      sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D3C26' } };
+
+      // Row 2: Farmer Name
+      sheet.addRow(['Farmer Name', farmer.name]);
+      sheet.getRow(2).font = { bold: true };
+
+      // Row 3: Dates Header
+      const dateHeaders = ['Date', ...visits.map((v) => v.visit_date)];
+      sheet.addRow(dateHeaders);
+      sheet.getRow(3).font = { bold: true, color: { argb: '15803D' } };
+      sheet.getRow(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'DCFCE7' } };
+
+      // Rows 4 to 22: Activity Rows matching paper form template
+      const rowsDef = [
+        { label: 'Ploughing (Yes/No)', getValue: (v) => (v.plowing === 'yes' ? 'Yes' : 'No') },
+        { label: 'No. Of ploughing', getValue: (v) => (v.plowing === 'yes' ? `${v.plowing_count || 1} times` : '-') },
+        { label: 'Pesticide (yes/no)', getValue: (v) => (v.pesticide_used === 'yes' ? 'Yes' : 'No') },
+        { label: 'Pesticide Quantity', getValue: (v) => v.pesticide_qty || '-' },
+        { label: 'Pesticide Brand', getValue: (v) => v.pesticide_brand || '-' },
+        { label: 'Supplement (Yes/No)', getValue: (v) => (v.supplement_used === 'yes' ? 'Yes' : 'No') },
+        { label: 'Supplement Quantity', getValue: (v) => v.supplement_qty || '-' },
+        { label: 'Supplement Brand', getValue: (v) => v.supplement_brand || '-' },
+        { label: 'Fertilizer (Yes/No)', getValue: (v) => (v.fertilizer_used === 'yes' ? 'Yes' : 'No') },
+        { label: 'Fertilizer Quantity', getValue: (v) => v.fertilizer_qty || '-' },
+        { label: 'Fertilizer Brand', getValue: (v) => v.fertilizer_brand || '-' },
+        { label: 'Irrigation (Yes/No)', getValue: (v) => (v.irrigation_done === 'yes' ? 'Yes' : 'No') },
+        { label: 'Irrigation Source (Tubewell/Canal)', getValue: (v) => v.irrigation_source || '-' },
+        { label: 'Irrigation type (sprinkle/Flood)', getValue: (v) => v.irrigation_type || '-' },
+        { label: 'Irrigation Depth', getValue: (v) => v.irrigation_depth || '-' },
+        { label: 'Weeding', getValue: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No') },
+        { label: 'Additional Activities', getValue: (v) => v.additional_activities || '-' },
+        { label: 'Data Collection Date', getValue: (v) => v.visit_date || '-' },
+      ];
+
+      rowsDef.forEach((r) => {
+        const rowVals = [r.label, ...visits.map((v) => r.getValue(v))];
+        sheet.addRow(rowVals);
+      });
+
+      sheet.getColumn(1).width = 32;
+      for (let i = 2; i <= visits.length + 1; i++) {
+        sheet.getColumn(i).width = 16;
+      }
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=Farmer_Matrix_Logbook_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('Matrix export error:', err);
+    res.status(500).json({ error: 'Failed to export matrix workbook' });
   }
 });
 
