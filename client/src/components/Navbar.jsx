@@ -92,30 +92,8 @@ const Navbar = () => {
         </div>
       </Link>
 
-      {/* FAR RIGHT: HOME BUTTON (REDIRECTS TO MAIN LOGIN PAGE) & PROFILE ICON CIRCLE 'R' */}
+      {/* FAR RIGHT: PROFILE ICON CIRCLE 'R' & USER DROPDOWN */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 'auto', position: 'relative' }}>
-        {/* HOME BUTTON ON THE FAR RIGHT -> REDIRECTS TO MAIN LOGIN PAGE */}
-        <Link
-          to="/login"
-          title="Main Login Page (मुख्य लॉगिन पृष्ठ)"
-          style={{
-            color: '#ffffff',
-            textDecoration: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: 'rgba(255, 255, 255, 0.14)',
-            padding: '8px 16px',
-            borderRadius: '30px',
-            fontWeight: 700,
-            fontSize: '0.88rem',
-            border: '1px solid rgba(255, 255, 255, 0.25)',
-            transition: 'background 0.2s',
-          }}
-        >
-          <Home size={18} color="#86efac" />
-          <span>Home</span>
-        </Link>
 
         {/* ADMIN SPECIFIC QUICK LINKS (IF ADMIN) */}
         {user.role === 'admin' && (
