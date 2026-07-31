@@ -38,6 +38,43 @@ const SurveyForm = () => {
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
+  // Unit Selector + Quantity Number State Helpers for Form 2
+  const [pestNum, setPestNum] = useState('');
+  const [pestUnit, setPestUnit] = useState('ml / Acre (मिली / एकड़)');
+
+  const [suppNum, setSuppNum] = useState('');
+  const [suppUnit, setSuppUnit] = useState('Kg (किग्रा)');
+
+  const [fertNum, setFertNum] = useState('');
+  const [fertUnit, setFertUnit] = useState('Bags (बोरी)');
+
+  const [irrigNum, setIrrigNum] = useState('');
+  const [irrigUnit, setIrrigUnit] = useState('Hours (घंटे)');
+
+  const handlePestQtyChange = (num, unit) => {
+    setPestNum(num);
+    setPestUnit(unit);
+    setFormData((prev) => ({ ...prev, pesticide_qty: num ? `${num} ${unit}` : '' }));
+  };
+
+  const handleSuppQtyChange = (num, unit) => {
+    setSuppNum(num);
+    setSuppUnit(unit);
+    setFormData((prev) => ({ ...prev, supplement_qty: num ? `${num} ${unit}` : '' }));
+  };
+
+  const handleFertQtyChange = (num, unit) => {
+    setFertNum(num);
+    setFertUnit(unit);
+    setFormData((prev) => ({ ...prev, fertilizer_qty: num ? `${num} ${unit}` : '' }));
+  };
+
+  const handleIrrigDepthChange = (num, unit) => {
+    setIrrigNum(num);
+    setIrrigUnit(unit);
+    setFormData((prev) => ({ ...prev, irrigation_depth: num ? `${num} ${unit}` : '' }));
+  };
+
   useEffect(() => {
     if (cachedLocation?.gps_location) {
       setFormData((prev) => ({
@@ -349,15 +386,29 @@ const SurveyForm = () => {
                 <div style={{ marginTop: '12px', display: 'grid', gap: '10px' }}>
                   <div>
                     <label className="form-label">Pesticide Quantity (कीटनाशक की मात्रा)</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      name="pesticide_qty"
-                      value={formData.pesticide_qty}
-                      onChange={handleChange}
-                      placeholder="e.g. 500ml / Acre"
-                      style={{ borderRadius: '12px' }}
-                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        className="select-field"
+                        value={pestUnit}
+                        onChange={(e) => handlePestQtyChange(pestNum, e.target.value)}
+                        style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                      >
+                        <option value="ml / Acre (मिली / एकड़)">ml / Acre (मिली / एकड़)</option>
+                        <option value="Litre / Acre (लीटर / एकड़)">Litre / Acre (लीटर / एकड़)</option>
+                        <option value="Grams / Acre (ग्राम / एकड़)">Grams / Acre (ग्राम / एकड़)</option>
+                        <option value="Kg / Acre (किग्रा / एकड़)">Kg / Acre (किग्रा / एकड़)</option>
+                      </select>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        className="input-field"
+                        placeholder="Number (संख्या लिखें)"
+                        value={pestNum}
+                        onChange={(e) => handlePestQtyChange(e.target.value, pestUnit)}
+                        style={{ flex: '1 1 120px', borderRadius: '12px' }}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="form-label">Pesticide Brand (कीटनाशक का ब्रांड)</label>
@@ -399,15 +450,29 @@ const SurveyForm = () => {
                 <div style={{ marginTop: '12px', display: 'grid', gap: '10px' }}>
                   <div>
                     <label className="form-label">Supplement Quantity (पूरक की मात्रा)</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      name="supplement_qty"
-                      value={formData.supplement_qty}
-                      onChange={handleChange}
-                      placeholder="Enter quantity"
-                      style={{ borderRadius: '12px' }}
-                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        className="select-field"
+                        value={suppUnit}
+                        onChange={(e) => handleSuppQtyChange(suppNum, e.target.value)}
+                        style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                      >
+                        <option value="Kg (किग्रा)">Kg (किग्रा)</option>
+                        <option value="Litre (लीटर)">Litre (लीटर)</option>
+                        <option value="Grams (ग्राम)">Grams (ग्राम)</option>
+                        <option value="Packets (पैकेट)">Packets (पैकेट)</option>
+                      </select>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        className="input-field"
+                        placeholder="Number (संख्या लिखें)"
+                        value={suppNum}
+                        onChange={(e) => handleSuppQtyChange(e.target.value, suppUnit)}
+                        style={{ flex: '1 1 120px', borderRadius: '12px' }}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="form-label">Supplement Brand (पूरक की ब्रांड)</label>
@@ -449,15 +514,29 @@ const SurveyForm = () => {
                 <div style={{ marginTop: '12px', display: 'grid', gap: '10px' }}>
                   <div>
                     <label className="form-label">Fertilizer Quantity (उर्वरक की मात्रा)</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      name="fertilizer_qty"
-                      value={formData.fertilizer_qty}
-                      onChange={handleChange}
-                      placeholder="e.g. 1 Bag / 50kg"
-                      style={{ borderRadius: '12px' }}
-                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        className="select-field"
+                        value={fertUnit}
+                        onChange={(e) => handleFertQtyChange(fertNum, e.target.value)}
+                        style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                      >
+                        <option value="Bags (बोरी)">Bags (बोरी)</option>
+                        <option value="Kg (किग्रा)">Kg (किग्रा)</option>
+                        <option value="Quintals (क्विंटल)">Quintals (क्विंटल)</option>
+                        <option value="Tons (टन)">Tons (टन)</option>
+                      </select>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        className="input-field"
+                        placeholder="Number (संख्या लिखें)"
+                        value={fertNum}
+                        onChange={(e) => handleFertQtyChange(e.target.value, fertUnit)}
+                        style={{ flex: '1 1 120px', borderRadius: '12px' }}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="form-label">Fertilizer Brand (उर्वरक का ब्रांड - DAP/NPK/Urea)</label>
@@ -532,16 +611,29 @@ const SurveyForm = () => {
                   </div>
 
                   <div>
-                    <label className="form-label">Irrigation Depth / Hours (सिंचाई की गहराई)</label>
-                    <input
-                      type="text"
-                      className="input-field"
-                      name="irrigation_depth"
-                      value={formData.irrigation_depth}
-                      onChange={handleChange}
-                      placeholder="e.g. 2 Inches / 4 Hours"
-                      style={{ borderRadius: '12px' }}
-                    />
+                    <label className="form-label">Irrigation Depth / Duration (सिंचाई मात्रा / अवधि)</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        className="select-field"
+                        value={irrigUnit}
+                        onChange={(e) => handleIrrigDepthChange(irrigNum, e.target.value)}
+                        style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                      >
+                        <option value="Hours (घंटे)">Hours (घंटे)</option>
+                        <option value="Inches (इंच)">Inches (इंच)</option>
+                        <option value="cm (सेमी)">cm (सेमी)</option>
+                      </select>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        className="input-field"
+                        placeholder="Number (संख्या लिखें)"
+                        value={irrigNum}
+                        onChange={(e) => handleIrrigDepthChange(e.target.value, irrigUnit)}
+                        style={{ flex: '1 1 120px', borderRadius: '12px' }}
+                      />
+                    </div>
                   </div>
                 </div>
               )}

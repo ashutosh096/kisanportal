@@ -52,24 +52,34 @@ const RegistrationForm = () => {
   const [areaNum, setAreaNum] = useState('');
   const [areaUnit, setAreaUnit] = useState('Acres (एकड़)');
 
+  const [seedNum, setSeedNum] = useState('');
+  const [seedUnit, setSeedUnit] = useState('Kg / Acre (किग्रा / एकड़)');
+
+  const [yieldNum, setYieldNum] = useState('');
+  const [yieldUnit, setYieldUnit] = useState('Quintals / Acre (क्विंटल / एकड़)');
+
   const handleCowDungQtyChange = (num, unit) => {
     setCowDungNum(num);
     setCowDungUnit(unit);
-    if (num) {
-      setFormData((prev) => ({ ...prev, cow_dung_qty: `${num} ${unit}` }));
-    } else {
-      setFormData((prev) => ({ ...prev, cow_dung_qty: '' }));
-    }
+    setFormData((prev) => ({ ...prev, cow_dung_qty: num ? `${num} ${unit}` : '' }));
   };
 
   const handleLandAreaChange = (num, unit) => {
     setAreaNum(num);
     setAreaUnit(unit);
-    if (num) {
-      setFormData((prev) => ({ ...prev, area: `${num} ${unit}` }));
-    } else {
-      setFormData((prev) => ({ ...prev, area: '' }));
-    }
+    setFormData((prev) => ({ ...prev, area: num ? `${num} ${unit}` : '' }));
+  };
+
+  const handleSeedQtyChange = (num, unit) => {
+    setSeedNum(num);
+    setSeedUnit(unit);
+    setFormData((prev) => ({ ...prev, seed_qty_per_acre: num ? `${num} ${unit}` : '' }));
+  };
+
+  const handleYieldChange = (num, unit) => {
+    setYieldNum(num);
+    setYieldUnit(unit);
+    setFormData((prev) => ({ ...prev, yield: num ? `${num} ${unit}` : '' }));
   };
 
   useEffect(() => {
@@ -876,14 +886,33 @@ const RegistrationForm = () => {
 
               <div className="form-group">
                 <label className="form-label">Seed Quantity Per Acre (एक एकड़ में कितना बीज डाला है?)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  name="seed_qty_per_acre"
-                  value={formData.seed_qty_per_acre}
-                  onChange={handleChange}
-                  placeholder="e.g. 40 kg / Acre"
-                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    className="select-field"
+                    value={seedUnit}
+                    onChange={(e) => handleSeedQtyChange(seedNum, e.target.value)}
+                    style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                  >
+                    <option value="Kg / Acre (किग्रा / एकड़)">Kg / Acre (किग्रा / एकड़)</option>
+                    <option value="Grams / Acre (ग्राम / एकड़)">Grams / Acre (ग्राम / एकड़)</option>
+                    <option value="Packets / Acre (पैकेट / एकड़)">Packets / Acre (पैकेट / एकड़)</option>
+                  </select>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="input-field"
+                    placeholder="Number (संख्या लिखें)"
+                    value={seedNum}
+                    onChange={(e) => handleSeedQtyChange(e.target.value, seedUnit)}
+                    style={{ flex: '1 1 120px', borderRadius: '12px' }}
+                  />
+                </div>
+                {formData.seed_qty_per_acre && (
+                  <span style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 700, marginTop: '4px', display: 'block' }}>
+                    Selected: {formData.seed_qty_per_acre}
+                  </span>
+                )}
               </div>
 
               <div className="form-group">
@@ -915,14 +944,33 @@ const RegistrationForm = () => {
 
               <div className="form-group">
                 <label className="form-label">Expected Yield - Quintal/Acre (उपज - क्विंटल / एकड़ में)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  name="yield"
-                  value={formData.yield}
-                  onChange={handleChange}
-                  placeholder="e.g. 25 Quintals / Acre"
-                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    className="select-field"
+                    value={yieldUnit}
+                    onChange={(e) => handleYieldChange(yieldNum, e.target.value)}
+                    style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                  >
+                    <option value="Quintals / Acre (क्विंटल / एकड़)">Quintals / Acre (क्विंटल / एकड़)</option>
+                    <option value="Kg / Acre (किग्रा / एकड़)">Kg / Acre (किग्रा / एकड़)</option>
+                    <option value="Tons / Acre (टन / एकड़)">Tons / Acre (टन / एकड़)</option>
+                  </select>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="input-field"
+                    placeholder="Number (संख्या लिखें)"
+                    value={yieldNum}
+                    onChange={(e) => handleYieldChange(e.target.value, yieldUnit)}
+                    style={{ flex: '1 1 120px', borderRadius: '12px' }}
+                  />
+                </div>
+                {formData.yield && (
+                  <span style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 700, marginTop: '4px', display: 'block' }}>
+                    Selected: {formData.yield}
+                  </span>
+                )}
               </div>
 
               <div className="form-group">
