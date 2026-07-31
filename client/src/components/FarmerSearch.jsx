@@ -163,18 +163,26 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                             width: '40px',
                             height: '40px',
                             minWidth: '40px',
+                            minHeight: '40px',
+                            maxWidth: '40px',
+                            maxHeight: '40px',
                             borderRadius: '50%',
                             background: '#0d3c26',
                             color: '#ffffff',
-                            display: 'flex',
+                            display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             fontWeight: 800,
                             fontSize: '1rem',
+                            lineHeight: '1',
+                            textAlign: 'center',
+                            overflow: 'hidden',
                             flexShrink: 0,
                           }}
                         >
-                          {initialLetter}
+                          <span style={{ display: 'block', textAlign: 'center', width: '100%', lineHeight: '1', margin: 0, padding: 0, color: '#ffffff' }}>
+                            {initialLetter}
+                          </span>
                         </div>
                       )}
 
@@ -369,17 +377,28 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                 style={{
                   width: '64px',
                   height: '64px',
+                  minWidth: '64px',
+                  minHeight: '64px',
+                  maxWidth: '64px',
+                  maxHeight: '64px',
                   borderRadius: '50%',
                   background: '#ffffff',
                   color: '#0d3c26',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  justify: 'center',
+                  justifyContent: 'center',
                   fontWeight: 800,
                   fontSize: '1.6rem',
+                  lineHeight: '1',
+                  textAlign: 'center',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
                 }}
               >
-                {selectedFarmer.name ? selectedFarmer.name.charAt(0).toUpperCase() : 'F'}
+                <span style={{ display: 'block', textAlign: 'center', width: '100%', lineHeight: '1', margin: 0, padding: 0, color: '#0d3c26' }}>
+                  {selectedFarmer.name ? selectedFarmer.name.charAt(0).toUpperCase() : 'F'}
+                </span>
               </div>
             )}
 
