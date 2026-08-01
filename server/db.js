@@ -36,50 +36,21 @@ try {
 
 export const query = async (sql, params = []) => {
   if (pgPool) {
-    try {
-      const pgSql = formatPgSql(sql);
-      const res = await pgPool.query(pgSql, params);
-      return res.rows;
-    } catch (err) {
-      console.error('PG Query error, trying SQLite fallback:', err.message);
-    }
+    const pgSql = formatPgSql(sql);
+    const res = await pgPool.query(pgSql, params);
+    return res.rows;
   }
-
-  if (sqliteDb) {
-    return new Promise((resolve, reject) => {
-      sqliteDb.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-  }
-
-  // JSON Fallback
-  return loadJsonDbQueries(sql, params);
+  throw new Error('PostgreSQL Connection Pool not initialized');
 };
 
 export const run = async (sql, params = []) => {
   if (pgPool) {
-    try {
-      const pgSql = formatPgSql(sql);
-      const res = await pgPool.query(pgSql, params);
-      const lastID = res.rows[0]?.id || Date.now();
-      return { lastID, changes: res.rowCount || 1 };
-    } catch (err) {
-      console.error('PG Run error, trying fallback:', err.message);
-    }
+    const pgSql = formatPgSql(sql);
+    const res = await pgPool.query(pgSql, params);
+    const lastID = res.rows[0]?.id || Date.now();
+    return { lastID, changes: res.rowCount || 1 };
   }
-
-  if (sqliteDb) {
-    return new Promise((resolve, reject) => {
-      sqliteDb.run(sql, params, function (err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
-  }
-
-  return saveJsonDbRuns(sql, params);
+  throw new Error('PostgreSQL Connection Pool not initialized');
 };
 
 export const initDb = async () => {
@@ -174,89 +145,13 @@ export const initDb = async () => {
             'krissh', surveyorPass, 'Krish Verma', 'surveyor'
           ]
         );
-        console.log('✅ Neon PostgreSQL Initial Users Seeded Successfully');
       }
 
       console.log('🚀 Neon PostgreSQL Database Ready & Verified!');
-      return;
     } catch (err) {
-      console.error('❌ Neon PG Init Error, initializing SQLite/JSON fallback:', err);
+      console.error('❌ Neon PG Init Error:', err.message);
     }
   }
-
-  // Fallback to native SQLite
-  try {
-    const sqliteModule = await import('sqlite3');
-    const sqlite3 = sqliteModule.default || sqliteModule;
-    const dbPath = path.join(__dirname, 'farmer_survey.db');
-    sqliteDb = new sqlite3.Database(dbPath);
-    console.log('📁 Using local SQLite driver');
-  } catch (e) {
-    isVercelJson = true;
-    console.log('📄 Using JSON file driver');
-  }
-};
-
-// JSON Fallback Helpers
-const vercelDbPath = '/tmp/farmer_data.json';
-const loadJsonDb = async () => {
-  try {
-    if (fs.existsSync(vercelDbPath)) {
-      return JSON.parse(fs.readFileSync(vercelDbPath, 'utf8'));
-    }
-  } catch (e) {}
-  const adminPass = await bcrypt.hash('admin123', 10);
-  const surveyorPass = await bcrypt.hash('field123', 10);
-  return {
-    users: [
-      { id: 1, username: 'admin', password_hash: adminPass, name: 'System Admin', role: 'admin' },
-      { id: 2, username: 'surveyor1', password_hash: surveyorPass, name: 'Ramesh Kumar', role: 'surveyor' },
-    ],
-    farmers: [],
-    surveys: [],
-  };
-};
-
-const saveJsonDb = (data) => {
-  try {
-    fs.writeFileSync(vercelDbPath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (e) {}
-};
-
-const loadJsonDbQueries = async (sql, params) => {
-  const data = await loadJsonDb();
-  const lower = sql.toLowerCase();
-  if (lower.includes('from users')) {
-    let list = [...data.users];
-    if (lower.includes("role = 'surveyor'")) list = list.filter((u) => u.role === 'surveyor');
-    if (lower.includes('where username =')) list = list.filter((u) => u.username === params[0]);
-    if (lower.includes('count(*)')) return [{ count: list.length }];
-    return list;
-  }
-  if (lower.includes('from farmers')) {
-    let list = [...data.farmers];
-    if (lower.includes('where farmer_id =')) list = list.filter((f) => f.farmer_id === params[0]);
-    if (lower.includes('count(*)')) return [{ count: list.length }];
-    return list;
-  }
-  if (lower.includes('from surveys')) {
-    let list = [...data.surveys];
-    if (lower.includes('where farmer_id =')) list = list.filter((s) => s.farmer_id === params[0]);
-    return list;
-  }
-  return [];
-};
-
-const saveJsonDbRuns = async (sql, params) => {
-  const data = await loadJsonDb();
-  const lower = sql.toLowerCase();
-  if (lower.includes('insert into farmers')) {
-    const newF = { farmer_id: params[0], name: params[1], contact: params[2], location: params[3], gps_location: params[4], date: params[5], photo_url: params[6] };
-    data.farmers.unshift(newF);
-    saveJsonDb(data);
-    return { lastID: Date.now(), changes: 1 };
-  }
-  return { lastID: 0, changes: 0 };
 };
 
 export default pgPool;

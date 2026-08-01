@@ -308,11 +308,8 @@ const Login = () => {
           </div>
         )}
 
-        {/* SURVEYOR VIEW: USERNAME & PASSWORD LOGIN FORM ONLY */}
         {activeRole === 'surveyor' && (
           <form onSubmit={handleSurveyorLogin}>
-
-            {/* SURVEYOR USERNAME INPUT */}
             <div style={{ marginBottom: '14px' }}>
               <label
                 style={{
@@ -345,7 +342,6 @@ const Login = () => {
               />
             </div>
 
-            {/* SURVEYOR PASSWORD INPUT */}
             <div style={{ marginBottom: '20px' }}>
               <label
                 style={{
@@ -378,7 +374,6 @@ const Login = () => {
               />
             </div>
 
-            {/* LOG IN BUTTON (GLOSSY DARK EMERALD GREEN GRADIENT) */}
             <button
               type="submit"
               disabled={loading}
@@ -405,7 +400,6 @@ const Login = () => {
           </form>
         )}
 
-        {/* ADMIN VIEW: TRANSLUCENT GLASS FORM */}
         {activeRole === 'admin' && (
           <form onSubmit={handleAdminSubmit}>
             <div style={{ marginBottom: '16px' }}>
