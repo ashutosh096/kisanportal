@@ -43,8 +43,12 @@ const RegistrationForm = () => {
   const [fetchingGps, setFetchingGps] = useState(false);
   const [geocodedAddress, setGeocodedAddress] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [registeredId, setRegisteredId] = useState('');
   const [showGpsModal, setShowGpsModal] = useState(false);
+
+  const nameInputRef = useRef(null);
+  const contactInputRef = useRef(null);
 
   // Unit Selector + Quantity Number State Helpers
   const [cowDungNum, setCowDungNum] = useState('');
@@ -253,6 +257,12 @@ const RegistrationForm = () => {
     if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent Android soft keyboard Enter key (->|) from triggering form submit
+    }
+  };
+
   // Validate Step 1 & Step 2 before proceeding
   const handleNextStep = (e) => {
     if (e) {
@@ -260,27 +270,40 @@ const RegistrationForm = () => {
       e.stopPropagation();
     }
     setError('');
+    setFieldErrors({});
+
     if (currentStep === 1) {
       const cleanName = formData.name.trim();
       if (!cleanName || cleanName.length < 2) {
+        setFieldErrors((prev) => ({ ...prev, name: 'Please enter a valid Farmer Name (कृपया किसान का सही नाम दर्ज करें)' }));
         setError('Please enter a valid Farmer Name (कृपया किसान का सही नाम दर्ज करें)');
+        nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        nameInputRef.current?.focus();
         return;
       }
 
       // Strictly block any numbers/digits or invalid characters in name
       if (/\d/.test(cleanName) || !/^[a-zA-Z\u0900-\u097F\s.']{2,60}$/.test(cleanName)) {
+        setFieldErrors((prev) => ({ ...prev, name: 'Farmer Name cannot contain numbers or symbols (किसान के नाम में अंक नहीं होने चाहिए)' }));
         setError('Please enter a valid Farmer Name without numbers or symbols (कृपया किसान का सही नाम दर्ज करें - अंकों के बिना)');
+        nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        nameInputRef.current?.focus();
         return;
       }
 
-      // Mobile number validation (Optional, but if filled must be valid 10 digits)
+      // Mobile number validation (Optional, but if filled must be valid 10 digits starting with 6, 7, 8, 9)
       if (formData.contact && formData.contact.trim() !== '') {
         const digitsOnly = formData.contact.replace(/\D/g, '');
-        // Extract 10 digits if user typed 91 prefix
         const finalDigits = digitsOnly.length === 12 && digitsOnly.startsWith('91') ? digitsOnly.slice(2) : digitsOnly;
 
         if (!/^[6-9]\d{9}$/.test(finalDigits)) {
+          setFieldErrors((prev) => ({
+            ...prev,
+            contact: 'Mobile number must start with 6, 7, 8, or 9 and be 10 digits (नंबर 6, 7, 8, या 9 से शुरू होना चाहिए और 10 अंकों का होना चाहिए)',
+          }));
           setError('Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9 (कृपया 10 अंकों का सही मोबाइल नंबर दर्ज करें)');
+          contactInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          contactInputRef.current?.focus();
           return;
         }
       }
@@ -676,7 +699,7 @@ const RegistrationForm = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
           {/* ================= STEP 1: BASIC INFO, PHOTO & GPS ================= */}
           {currentStep === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -819,18 +842,28 @@ const RegistrationForm = () => {
               <div className="form-group">
                 <label className="form-label">Farmer Name (किसान का नाम) *</label>
                 <input
+                  ref={nameInputRef}
                   type="text"
                   className="input-field"
                   name="name"
                   value={formData.name}
                   onChange={(e) => {
-                    // Automatically filter out any digits (0-9)
                     const cleanName = e.target.value.replace(/\d/g, '');
                     setFormData((prev) => ({ ...prev, name: cleanName }));
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: null }));
                   }}
                   placeholder="Enter full farmer name (alphabetic letters only)"
                   required
+                  style={{
+                    border: fieldErrors.name ? '2px solid #ef4444' : undefined,
+                    boxShadow: fieldErrors.name ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : undefined,
+                  }}
                 />
+                {fieldErrors.name && (
+                  <div style={{ color: '#ef4444', fontSize: '0.82rem', fontWeight: 700, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    ⚠️ {fieldErrors.name}
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
@@ -850,22 +883,31 @@ const RegistrationForm = () => {
                     +91
                   </span>
                   <input
+                    ref={contactInputRef}
                     type="tel"
                     className="input-field"
                     name="contact"
                     value={formData.contact}
                     onChange={(e) => {
-                      // Filter non-digit inputs automatically, max 10 digits
                       const cleanVal = e.target.value.replace(/\D/g, '').slice(0, 10);
                       setFormData((prev) => ({ ...prev, contact: cleanVal }));
+                      if (fieldErrors.contact) setFieldErrors((prev) => ({ ...prev, contact: null }));
                     }}
                     placeholder="10-digit mobile number"
+                    maxLength={10}
                     style={{
                       paddingLeft: '56px',
                       borderRadius: '30px',
+                      border: fieldErrors.contact ? '2px solid #ef4444' : undefined,
+                      boxShadow: fieldErrors.contact ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : undefined,
                     }}
                   />
                 </div>
+                {fieldErrors.contact && (
+                  <div style={{ color: '#ef4444', fontSize: '0.82rem', fontWeight: 700, marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    ⚠️ {fieldErrors.contact}
+                  </div>
+                )}
               </div>
 
               {/* LOCATION & PINCODE */}

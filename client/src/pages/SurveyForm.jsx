@@ -21,7 +21,7 @@ const SurveyForm = () => {
     visit_date: todayStr,
     gps_location: '',
     plowing: 'no',
-    plowing_count: '0',
+    plowing_count: '',
     pesticide_used: 'no',
     pesticide_qty: '',
     pesticide_brand: '',
@@ -222,7 +222,15 @@ const SurveyForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Strip leading zeros automatically (e.g. typing 63 turns 063 into 63)
+    const cleanVal = typeof value === 'string' ? value.replace(/^0+(?=\d)/, '') : value;
+    setFormData((prev) => ({ ...prev, [name]: cleanVal }));
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent Android soft keyboard Enter key from submitting form prematurely
+    }
   };
 
   const handleToggle = (name, value) => {
@@ -631,7 +639,7 @@ const SurveyForm = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
             {/* Visit Date */}
             <div className="form-group">
               <label className="form-label">Date (तारीख) *</label>

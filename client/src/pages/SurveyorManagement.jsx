@@ -17,6 +17,7 @@ const SurveyorManagement = () => {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('field123');
   const [mobile, setMobile] = useState('');
+  const [mobileError, setMobileError] = useState('');
 
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -33,9 +34,6 @@ const SurveyorManagement = () => {
         if (num > maxNum) maxNum = num;
       }
     });
-    if (maxNum === 0) {
-      maxNum = surveyorOnly.length;
-    }
     return `surveyor${maxNum + 1}`;
   };
 
@@ -44,14 +42,18 @@ const SurveyorManagement = () => {
       const res = await fetch('/api/surveyors', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setSurveyors(data);
-        }
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const sorted = [...data].sort((a, b) => {
+          const numA = parseInt((a.username || '').replace(/\D/g, ''), 10) || a.id;
+          const numB = parseInt((b.username || '').replace(/\D/g, ''), 10) || b.id;
+          return numA - numB;
+        });
+        setSurveyors(sorted);
+        if (!username) setUsername(getNextUsername(sorted));
       }
     } catch (err) {
-      console.warn('Fetch surveyors offline warning:', err);
+      console.error('Failed to fetch surveyors:', err);
     } finally {
       setLoading(false);
     }
@@ -66,15 +68,37 @@ const SurveyorManagement = () => {
     setName('');
     setPassword('field123');
     setMobile('');
+    setMobileError('');
     setMsg('');
     setError('');
     setShowAddModal(true);
+  };
+
+  const handleMobileChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setMobile(raw);
+    if (raw && !/^[6-9]\d{0,9}$/.test(raw)) {
+      setMobileError('Mobile number must start with 6, 7, 8, or 9 (नंबर 6, 7, 8, या 9 से शुरू होना चाहिए)');
+    } else if (raw && raw.length < 10) {
+      setMobileError('Please enter full 10-digit mobile number (10 अंकों का पूरा नंबर दर्ज करें)');
+    } else {
+      setMobileError('');
+    }
   };
 
   const handleAddSurveyor = async (e) => {
     e.preventDefault();
     setMsg('');
     setError('');
+    setMobileError('');
+
+    if (mobile.trim() !== '') {
+      const cleanMobile = mobile.replace(/\D/g, '');
+      if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+        setMobileError('Enter valid 10-digit mobile starting with 6, 7, 8, or 9 (वैध 10-अंकों का मोबाइल नंबर दर्ज करें)');
+        return;
+      }
+    }
 
     try {
       const res = await fetch('/api/surveyors', {
@@ -92,6 +116,7 @@ const SurveyorManagement = () => {
         setName('');
         setPassword('field123');
         setMobile('');
+        setMobileError('');
         setShowAddModal(false);
 
         const updatedList = Array.isArray(surveyors) ? [...surveyors, data] : [data];
@@ -237,17 +262,54 @@ const SurveyorManagement = () => {
                 />
               </div>
 
-              {/* 4. MOBILE NUMBER (OPTIONAL) */}
+              {/* 4. MOBILE NUMBER (OPTIONAL WITH +91 BADGE & 10 DIGIT VALIDATION) */}
               <div>
-                <label className="form-label">Mobile Number (Optional)</label>
-                <input
-                  type="tel"
-                  className="input-field"
-                  placeholder="e.g. 9876543210"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  style={{ borderRadius: '12px' }}
-                />
+                <label className="form-label">Mobile Number (Optional - ऐच्छिक)</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    border: mobileError ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    background: '#ffffff',
+                  }}
+                >
+                  <span
+                    style={{
+                      padding: '0 12px',
+                      background: '#f1f5f9',
+                      color: '#15803d',
+                      fontWeight: 800,
+                      fontSize: '0.92rem',
+                      borderRight: '1px solid #cbd5e1',
+                      height: '42px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    className="input-field"
+                    placeholder="10-digit mobile number"
+                    value={mobile}
+                    maxLength={10}
+                    onChange={handleMobileChange}
+                    style={{
+                      border: 'none',
+                      borderRadius: 0,
+                      outline: 'none',
+                      flex: 1,
+                    }}
+                  />
+                </div>
+                {mobileError && (
+                  <div style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 700, marginTop: '4px' }}>
+                    ⚠️ {mobileError}
+                  </div>
+                )}
               </div>
             </div>
 
