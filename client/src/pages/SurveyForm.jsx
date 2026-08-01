@@ -473,131 +473,136 @@ const SurveyForm = () => {
               </div>
 
               {showPastLogs && pastVisits.length > 0 && (
-                <div style={{ marginTop: '14px', overflowX: 'auto', border: '1.5px solid #cbd5e1', borderRadius: '12px', background: '#ffffff' }}>
-                  <table style={{ fontSize: '0.86rem', borderCollapse: 'collapse', width: '100%' }}>
-                    <thead>
-                      <tr style={{ background: '#0d3c26', color: '#ffffff' }}>
-                        <th
-                          style={{
-                            padding: '8px',
-                            textAlign: 'left',
-                            fontWeight: 800,
-                            position: 'sticky',
-                            left: 0,
-                            background: '#0d3c26',
-                            zIndex: 10,
-                            borderRight: '2px solid #166534',
-                            width: '115px',
-                            minWidth: '115px',
-                            maxWidth: '115px',
-                            fontSize: '0.76rem',
-                          }}
-                        >
-                          Activity / विवरण
-                        </th>
-                        {pastVisits.map((v) => (
+                <div style={{ marginTop: '14px', border: '1.5px solid #cbd5e1', borderRadius: '16px', background: '#ffffff', overflow: 'hidden' }}>
+                  {/* SCROLLABLE TABLE CONTAINER ONLY */}
+                  <div style={{ overflowX: 'auto', width: '100%' }}>
+                    <table style={{ fontSize: '0.86rem', borderCollapse: 'collapse', width: '100%' }}>
+                      <thead>
+                        <tr style={{ background: '#0d3c26', color: '#ffffff' }}>
                           <th
-                            key={v.id}
                             style={{
-                              minWidth: '150px',
-                              padding: '10px 12px',
-                              textAlign: 'center',
-                              background: '#dcfce7',
-                              color: '#15803d',
-                              borderRight: '1px solid #cbd5e1',
-                              whiteSpace: 'nowrap',
+                              padding: '8px',
+                              textAlign: 'left',
                               fontWeight: 800,
-                              fontSize: '0.88rem',
+                              position: 'sticky',
+                              left: 0,
+                              background: '#0d3c26',
+                              zIndex: 10,
+                              borderRight: '2px solid #166534',
+                              width: '115px',
+                              minWidth: '115px',
+                              maxWidth: '115px',
+                              fontSize: '0.76rem',
                             }}
                           >
-                            📅 {formatDateDDMMYYYY(v.visit_date)}
+                            Activity / विवरण
                           </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {excelMatrixRows.map((row, idx) => {
-                        const isIrrigation = row.key.includes('irrigation');
-                        const isPesticide = row.key.includes('pesticide');
-                        const isFertilizer = row.key.includes('fertilizer');
-                        const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-
-                        return (
-                          <tr key={row.id} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
-                            {/* Question / Activity Label Column (Compact, Wrapped, Sticky) */}
-                            <td
+                          {pastVisits.map((v) => (
+                            <th
+                              key={v.id}
                               style={{
-                                fontWeight: 700,
-                                padding: '8px',
-                                color: '#334155',
-                                position: 'sticky',
-                                left: 0,
-                                background: rowBg,
-                                zIndex: 5,
-                                borderRight: '2px solid #cbd5e1',
-                                width: '115px',
-                                minWidth: '115px',
-                                maxWidth: '115px',
-                                fontSize: '0.74rem',
-                                lineHeight: '1.25',
-                                whiteSpace: 'normal',
-                                wordBreak: 'break-word',
+                                minWidth: '150px',
+                                padding: '10px 12px',
+                                textAlign: 'center',
+                                background: '#dcfce7',
+                                color: '#15803d',
+                                borderRight: '1px solid #cbd5e1',
+                                whiteSpace: 'nowrap',
+                                fontWeight: 800,
+                                fontSize: '0.88rem',
                               }}
                             >
-                              {row.label}
-                            </td>
+                              📅 {formatDateDDMMYYYY(v.visit_date)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {excelMatrixRows.map((row, idx) => {
+                          const isIrrigation = row.key.includes('irrigation');
+                          const isPesticide = row.key.includes('pesticide');
+                          const isFertilizer = row.key.includes('fertilizer');
+                          const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
-                            {/* Answer Values Column (Big, Bold, 150px Wide, Highly Legible) */}
-                            {pastVisits.map((v) => {
-                              const val = row.getValue(v);
-                              const isHighlight = val !== '-' && val !== 'No';
-                              let cellStyle = {
-                                textAlign: 'center',
-                                padding: '10px 12px',
-                                borderRight: '1px solid #e2e8f0',
-                                minWidth: '150px',
-                                fontSize: '0.88rem',
-                                fontWeight: 700,
-                                color: '#0f172a',
-                                whiteSpace: 'normal',
-                                wordBreak: 'break-word',
-                              };
+                          return (
+                            <tr key={row.id} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
+                              {/* Question / Activity Label Column (Compact, Wrapped, Sticky) */}
+                              <td
+                                style={{
+                                  fontWeight: 700,
+                                  padding: '8px',
+                                  color: '#334155',
+                                  position: 'sticky',
+                                  left: 0,
+                                  background: rowBg,
+                                  zIndex: 5,
+                                  borderRight: '2px solid #cbd5e1',
+                                  width: '115px',
+                                  minWidth: '115px',
+                                  maxWidth: '115px',
+                                  fontSize: '0.74rem',
+                                  lineHeight: '1.25',
+                                  whiteSpace: 'normal',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {row.label}
+                              </td>
 
-                              if (isHighlight && isIrrigation) {
-                                cellStyle.background = '#f0fdf4';
-                                cellStyle.color = '#15803d';
-                                cellStyle.fontWeight = '800';
-                              } else if (isHighlight && isFertilizer) {
-                                cellStyle.background = '#eff6ff';
-                                cellStyle.color = '#1d4ed8';
-                                cellStyle.fontWeight = '800';
-                              } else if (isHighlight && isPesticide) {
-                                cellStyle.background = '#fefce8';
-                                cellStyle.color = '#b45309';
-                                cellStyle.fontWeight = '800';
-                              }
+                              {/* Answer Values Column (Big, Bold, 150px Wide, Highly Legible) */}
+                              {pastVisits.map((v) => {
+                                const val = row.getValue(v);
+                                const isHighlight = val !== '-' && val !== 'No';
+                                let cellStyle = {
+                                  textAlign: 'center',
+                                  padding: '10px 12px',
+                                  borderRight: '1px solid #e2e8f0',
+                                  minWidth: '150px',
+                                  fontSize: '0.88rem',
+                                  fontWeight: 700,
+                                  color: '#0f172a',
+                                  whiteSpace: 'normal',
+                                  wordBreak: 'break-word',
+                                };
 
-                              return (
-                                <td key={v.id} style={cellStyle}>
-                                  {val}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                if (isHighlight && isIrrigation) {
+                                  cellStyle.background = '#f0fdf4';
+                                  cellStyle.color = '#15803d';
+                                  cellStyle.fontWeight = '800';
+                                } else if (isHighlight && isFertilizer) {
+                                  cellStyle.background = '#eff6ff';
+                                  cellStyle.color = '#1d4ed8';
+                                  cellStyle.fontWeight = '800';
+                                } else if (isHighlight && isPesticide) {
+                                  cellStyle.background = '#fefce8';
+                                  cellStyle.color = '#b45309';
+                                  cellStyle.fontWeight = '800';
+                                }
 
-                  {/* BOTTOM HIDE LOGS / CROSS ACTION BUTTON FOR EASY MOBILE CLOSING */}
+                                return (
+                                  <td key={v.id} style={cellStyle}>
+                                    {val}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* FIXED NON-SCROLLING FOOTER BUTTON */}
                   <div
                     style={{
-                      padding: '10px 14px',
+                      padding: '12px 14px',
                       background: '#f8fafc',
                       borderTop: '1.5px solid #cbd5e1',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      width: '100%',
+                      boxSizing: 'border-box',
                     }}
                   >
                     <button
@@ -607,7 +612,7 @@ const SurveyForm = () => {
                         background: '#dc2626',
                         color: '#ffffff',
                         border: 'none',
-                        padding: '10px 22px',
+                        padding: '10px 24px',
                         borderRadius: '30px',
                         fontWeight: 800,
                         fontSize: '0.88rem',

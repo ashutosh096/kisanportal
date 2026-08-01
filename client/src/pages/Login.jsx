@@ -7,7 +7,7 @@ const Login = () => {
   const [activeRole, setActiveRole] = useState('surveyor');
   const [surveyorUsernameInput, setSurveyorUsernameInput] = useState('');
   const [surveyorPasswordInput, setSurveyorPasswordInput] = useState('');
-  const [adminUsername, setAdminUsername] = useState('admin');
+  const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [surveyors, setSurveyors] = useState([]);
   const [loadingSurveyors, setLoadingSurveyors] = useState(true);
@@ -329,7 +329,7 @@ const Login = () => {
                 type="text"
                 value={surveyorUsernameInput}
                 onChange={(e) => setSurveyorUsernameInput(e.target.value)}
-                placeholder="e.g. surveyor1 or ashu01"
+                placeholder="Enter Username"
                 required
                 style={{
                   width: '100%',
@@ -362,7 +362,7 @@ const Login = () => {
                 type="password"
                 value={surveyorPasswordInput}
                 onChange={(e) => setSurveyorPasswordInput(e.target.value)}
-                placeholder="Password (e.g. field123)"
+                placeholder="Enter Password"
                 required
                 style={{
                   width: '100%',
@@ -424,7 +424,7 @@ const Login = () => {
                 type="text"
                 value={adminUsername}
                 onChange={(e) => setAdminUsername(e.target.value)}
-                placeholder="admin"
+                placeholder="Enter Username"
                 required
                 style={{
                   width: '100%',
@@ -456,7 +456,7 @@ const Login = () => {
                 type="password"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Enter Password"
                 required
                 style={{
                   width: '100%',
