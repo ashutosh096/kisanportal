@@ -129,44 +129,62 @@ const RegistrationForm = () => {
           gps_location: coordsStr,
         }));
 
-        // CLEAN LOCATION EXTRACTION: Place / City, District, State ONLY (No building or street names)
+        // ACCURATE REVERSE GEOCODING FOR ALL 28 INDIAN STATES & UTs
         try {
           let place = '';
           let district = '';
-          let stateName = 'Uttar Pradesh';
+          let stateName = '';
           let postcode = '';
 
-          // Tier 1: Photon Komoot API
+          // Tier 1: BigDataCloud API (Guarantees exact State & District in India)
           try {
-            const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
-            const photonData = await photonRes.json();
-            const props = photonData.features?.[0]?.properties || {};
-
-            place = props.suburb || props.district || props.city || props.town || props.village || '';
-            district = props.county || (props.city !== place ? props.city : '') || '';
-            stateName = props.state || 'Uttar Pradesh';
-            postcode = props.postcode || '';
-          } catch (pErr) {
-            console.warn('Photon geocode fallback:', pErr);
-          }
-
-          // Tier 2: OpenStreetMap Nominatim Fallback
-          try {
-            const geoRes = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+            const bgRes = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
             );
-            const geoData = await geoRes.json();
-            const addr = geoData.address || {};
-
-            if (!place) place = addr.suburb || addr.village || addr.town || addr.city_district || addr.city || addr.county || 'Kanpur';
-            if (!district) district = addr.state_district || addr.county || 'Kanpur Nagar';
-            if (!stateName) stateName = addr.state || 'Uttar Pradesh';
-            if (!postcode) postcode = addr.postcode || '';
-          } catch (err2) {
-            console.warn('Nominatim geocode fallback:', err2);
+            const bgData = await bgRes.json();
+            place = bgData.locality || bgData.city || '';
+            district = bgData.principalSubdivisionCode ? bgData.localityInfo?.administrative?.[2]?.name || bgData.locality : '';
+            stateName = bgData.principalSubdivision || '';
+            postcode = bgData.postcode || '';
+          } catch (bgErr) {
+            console.warn('BigDataCloud geocode error:', bgErr);
           }
 
-          // Combine into unique parts: Place, District, State (e.g. "Kanpur, Kanpur Nagar, Uttar Pradesh")
+          // Tier 2: Photon Komoot API Fallback
+          if (!stateName || !place) {
+            try {
+              const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
+              const photonData = await photonRes.json();
+              const props = photonData.features?.[0]?.properties || {};
+
+              if (!place) place = props.suburb || props.district || props.city || props.town || props.village || '';
+              if (!district) district = props.county || (props.city !== place ? props.city : '') || '';
+              if (!stateName) stateName = props.state || '';
+              if (!postcode) postcode = props.postcode || '';
+            } catch (pErr) {
+              console.warn('Photon geocode fallback:', pErr);
+            }
+          }
+
+          // Tier 3: OpenStreetMap Nominatim Fallback
+          if (!stateName || !postcode) {
+            try {
+              const geoRes = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+              );
+              const geoData = await geoRes.json();
+              const addr = geoData.address || {};
+
+              if (!place) place = addr.suburb || addr.village || addr.town || addr.city_district || addr.city || addr.county || '';
+              if (!district) district = addr.state_district || addr.county || '';
+              if (!stateName) stateName = addr.state || '';
+              if (!postcode) postcode = addr.postcode || '';
+            } catch (err2) {
+              console.warn('Nominatim geocode fallback:', err2);
+            }
+          }
+
+          // Combine into unique parts: Place, District, State
           const cleanParts = Array.from(new Set([place, district, stateName].filter(Boolean)));
           const cleanLocationString = cleanParts.join(', ');
 

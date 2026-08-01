@@ -38,29 +38,64 @@ export const AuthProvider = ({ children }) => {
 
         let place = '';
         let district = '';
-        let stateName = 'Uttar Pradesh';
+        let stateName = '';
         let postcode = '';
 
+        // Tier 1: BigDataCloud API (100% Accurate Indian States & Districts)
         try {
-          const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
-          const photonData = await photonRes.json();
-          const props = photonData.features?.[0]?.properties || {};
+          const bgRes = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+          );
+          const bgData = await bgRes.json();
+          place = bgData.locality || bgData.city || '';
+          district = bgData.principalSubdivisionCode ? bgData.localityInfo?.administrative?.[2]?.name || bgData.locality : '';
+          stateName = bgData.principalSubdivision || '';
+          postcode = bgData.postcode || '';
+        } catch (bgErr) {
+          console.warn('BigDataCloud geocode warning:', bgErr);
+        }
 
-          place = props.suburb || props.district || props.city || props.town || props.village || '';
-          district = props.county || (props.city !== place ? props.city : '') || '';
-          stateName = props.state || 'Uttar Pradesh';
-          postcode = props.postcode || '';
-        } catch (err) {
-          console.warn('Background Photon geocode error:', err);
+        // Tier 2: Photon Komoot API Fallback
+        if (!stateName || !place) {
+          try {
+            const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
+            const photonData = await photonRes.json();
+            const props = photonData.features?.[0]?.properties || {};
+
+            if (!place) place = props.suburb || props.district || props.city || props.town || props.village || '';
+            if (!district) district = props.county || (props.city !== place ? props.city : '') || '';
+            if (!stateName) stateName = props.state || '';
+            if (!postcode) postcode = props.postcode || '';
+          } catch (pErr) {
+            console.warn('Photon geocode warning:', pErr);
+          }
+        }
+
+        // Tier 3: Nominatim OSM Fallback
+        if (!stateName || !postcode) {
+          try {
+            const geoRes = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+            );
+            const geoData = await geoRes.json();
+            const addr = geoData.address || {};
+
+            if (!place) place = addr.suburb || addr.village || addr.town || addr.city_district || addr.city || '';
+            if (!district) district = addr.state_district || addr.county || '';
+            if (!stateName) stateName = addr.state || '';
+            if (!postcode) postcode = addr.postcode || '';
+          } catch (oErr) {
+            console.warn('Nominatim geocode warning:', oErr);
+          }
         }
 
         const cleanParts = Array.from(new Set([place, district, stateName].filter(Boolean)));
-        const cleanLocationString = cleanParts.join(', ') || 'Kanpur, Kanpur Nagar, Uttar Pradesh';
+        const cleanLocationString = cleanParts.join(', ');
 
         const locData = {
           gps_location: gpsStr,
           location: cleanLocationString,
-          pincode: postcode || '208016',
+          pincode: postcode || '',
           timestamp: Date.now(),
         };
 

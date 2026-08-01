@@ -15,6 +15,7 @@ const SurveyorManagement = () => {
   // New surveyor form state
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('field123');
   const [mobile, setMobile] = useState('');
 
   const [msg, setMsg] = useState('');
@@ -63,6 +64,7 @@ const SurveyorManagement = () => {
   const handleOpenAddModal = () => {
     setUsername(getNextUsername());
     setName('');
+    setPassword('field123');
     setMobile('');
     setMsg('');
     setError('');
@@ -74,16 +76,6 @@ const SurveyorManagement = () => {
     setMsg('');
     setError('');
 
-    const newObj = {
-      id: Date.now(),
-      username,
-      name,
-      mobile,
-      role: 'surveyor',
-      registrations_count: 0,
-      surveys_count: 0,
-    };
-
     try {
       const res = await fetch('/api/surveyors', {
         method: 'POST',
@@ -91,13 +83,14 @@ const SurveyorManagement = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ username, name, mobile }),
+        body: JSON.stringify({ username, name, password, mobile }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        setMsg(`Surveyor "${name}" created! Username = "${username}", password = mobile number`);
+        setMsg(`✅ Surveyor "${name}" created successfully! Username: "${username}" | Password: "${password || 'field123'}"`);
         setName('');
+        setPassword('field123');
         setMobile('');
         setShowAddModal(false);
 
@@ -202,19 +195,17 @@ const SurveyorManagement = () => {
           <form onSubmit={handleAddSurveyor}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
 
-              {/* 1. USERNAME - Auto-generated */}
+              {/* 1. USERNAME */}
               <div>
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  Username
-                  <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#15803d', borderRadius: '10px', padding: '1px 8px', fontWeight: 700 }}>Auto-generated</span>
-                </label>
+                <label className="form-label">Username</label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="e.g. surveyor3"
+                  placeholder="e.g. surveyor1 or ashu01"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   style={{ borderRadius: '12px' }}
+                  required
                 />
               </div>
 
@@ -224,7 +215,7 @@ const SurveyorManagement = () => {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="e.g. Rajesh Kumar"
+                  placeholder="e.g. Ramesh Kumar"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   style={{ borderRadius: '12px' }}
@@ -232,9 +223,23 @@ const SurveyorManagement = () => {
                 />
               </div>
 
-              {/* 3. MOBILE NUMBER (USED AS PASSWORD) */}
+              {/* 3. PASSWORD */}
               <div>
-                <label className="form-label">Mobile Number (Password)</label>
+                <label className="form-label">Password (Passkey)</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. field123"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ borderRadius: '12px' }}
+                  required
+                />
+              </div>
+
+              {/* 4. MOBILE NUMBER (OPTIONAL) */}
+              <div>
+                <label className="form-label">Mobile Number (Optional)</label>
                 <input
                   type="tel"
                   className="input-field"
@@ -242,7 +247,6 @@ const SurveyorManagement = () => {
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   style={{ borderRadius: '12px' }}
-                  required
                 />
               </div>
             </div>

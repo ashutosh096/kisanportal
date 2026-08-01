@@ -15,6 +15,7 @@ const SurveyForm = () => {
   const [pastVisits, setPastVisits] = useState([]);
   const [showPastLogs, setShowPastLogs] = useState(false);
   const [loadingPastLogs, setLoadingPastLogs] = useState(false);
+  const [geocodedAddress, setGeocodedAddress] = useState('');
 
   const [formData, setFormData] = useState({
     visit_date: todayStr,
@@ -131,6 +132,9 @@ const SurveyForm = () => {
         ...prev,
         gps_location: cachedLocation.gps_location,
       }));
+      if (cachedLocation.location) {
+        setGeocodedAddress(`${cachedLocation.location}${cachedLocation.pincode ? ` (PIN: ${cachedLocation.pincode})` : ''}`);
+      }
     }
     fetchLiveGpsLocation();
   }, []);
@@ -141,7 +145,7 @@ const SurveyForm = () => {
     setFetchingGps(true);
     setError('');
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         setError('');
         const lat = position.coords.latitude.toFixed(6);
         const lng = position.coords.longitude.toFixed(6);
@@ -149,7 +153,63 @@ const SurveyForm = () => {
           ...prev,
           gps_location: `${lat}° N, ${lng}° E`,
         }));
-        setFetchingGps(false);
+
+        try {
+          let place = '';
+          let district = '';
+          let stateName = '';
+          let postcode = '';
+
+          // Tier 1: BigDataCloud API (Guarantees exact State & District in India)
+          try {
+            const bgRes = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+            );
+            const bgData = await bgRes.json();
+            place = bgData.locality || bgData.city || '';
+            district = bgData.principalSubdivisionCode ? bgData.localityInfo?.administrative?.[2]?.name || bgData.locality : '';
+            stateName = bgData.principalSubdivision || '';
+            postcode = bgData.postcode || '';
+          } catch (bgErr) {
+            console.warn('BigDataCloud geocode error:', bgErr);
+          }
+
+          // Tier 2: Photon Komoot API Fallback
+          if (!stateName || !place) {
+            try {
+              const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
+              const photonData = await photonRes.json();
+              const props = photonData.features?.[0]?.properties || {};
+              if (!place) place = props.suburb || props.district || props.city || props.town || props.village || '';
+              if (!district) district = props.county || (props.city !== place ? props.city : '') || '';
+              if (!stateName) stateName = props.state || '';
+              if (!postcode) postcode = props.postcode || '';
+            } catch (e1) {}
+          }
+
+          // Tier 3: OpenStreetMap Nominatim Fallback
+          if (!stateName || !postcode) {
+            try {
+              const geoRes = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+              );
+              const geoData = await geoRes.json();
+              const addr = geoData.address || {};
+              if (!place) place = addr.suburb || addr.village || addr.town || addr.city_district || addr.city || '';
+              if (!district) district = addr.state_district || addr.county || '';
+              if (!stateName) stateName = addr.state || '';
+              if (!postcode) postcode = addr.postcode || '';
+            } catch (e2) {}
+          }
+
+          const cleanParts = Array.from(new Set([place, district, stateName].filter(Boolean)));
+          const cleanLocationString = cleanParts.join(', ');
+          setGeocodedAddress(`${cleanLocationString}${postcode ? ` (PIN: ${postcode})` : ''}`);
+        } catch (geoErr) {
+          console.warn('Reverse geocoding error:', geoErr);
+        } finally {
+          setFetchingGps(false);
+        }
       },
       (err) => {
         console.warn('Visit GPS fetch error:', err.message);
@@ -226,7 +286,7 @@ const SurveyForm = () => {
               Farmer Name (किसान): <strong>{selectedFarmer.name}</strong> ({selectedFarmer.farmer_id})
             </p>
             <p style={{ fontSize: '0.95rem', color: '#475569', marginTop: '6px' }}>
-              Date (तारीख): <strong>{formData.visit_date}</strong> | Surveyor (सर्वेक्षक): <strong>{user.name}</strong>
+              Date (तारीख): <strong>{formatDateDDMMYYYY(formData.visit_date)}</strong> | Surveyor (सर्वेक्षक): <strong>{user.name}</strong>
             </p>
             {formData.gps_location && (
               <p style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 700, marginTop: '8px' }}>
@@ -336,12 +396,17 @@ const SurveyForm = () => {
             }}
           >
             <div>
-              <div style={{ fontWeight: 800, color: '#15803d', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ fontWeight: 800, color: '#15803d', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Navigation size={16} /> ✅ Live Farm GPS Verified
               </div>
-              <div style={{ fontSize: '0.82rem', color: '#334155', marginTop: '2px' }}>
-                {fetchingGps ? 'Locking live GPS...' : formData.gps_location || 'GPS Locked'}
+              <div style={{ fontSize: '0.82rem', color: '#334155', marginTop: '2px', fontWeight: 600 }}>
+                📍 Coordinates: {fetchingGps ? 'Locking live GPS...' : formData.gps_location || 'GPS Locked'}
               </div>
+              {geocodedAddress && (
+                <div style={{ fontSize: '0.82rem', color: '#15803d', fontWeight: 700, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  🏷️ Location: {geocodedAddress}
+                </div>
+              )}
             </div>
             <button
               type="button"

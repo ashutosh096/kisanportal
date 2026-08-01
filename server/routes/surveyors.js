@@ -32,11 +32,11 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   }
 });
 
-// POST /api/surveyors - Admin only: Add new surveyor account
+// POST /api/surveyors - Admin only: Add new surveyor account with custom username & password
 router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
-  const { username, mobile, name } = req.body;
-  if (!username || !mobile || !name) {
-    return res.status(400).json({ error: 'Username, name, and mobile are required' });
+  const { username, mobile, name, password } = req.body;
+  if (!username || !name) {
+    return res.status(400).json({ error: 'Username and name are required' });
   }
 
   try {
@@ -45,8 +45,9 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
       return res.status(400).json({ error: 'Username already exists' });
     }
 
-    // Auto-set password to mobile number (surveyor logs in with mobile as password)
-    const passwordHash = await bcrypt.hash(mobile, 10);
+    // Set custom password set by admin, or mobile, or default 'field123'
+    const rawPassword = password || mobile || 'field123';
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
     const result = await run(
       "INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, 'surveyor')",
       [username, passwordHash, name]

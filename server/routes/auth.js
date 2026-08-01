@@ -63,7 +63,11 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const users = await query('SELECT * FROM users WHERE username = ?', [username]);
+    const cleanInput = (username || '').trim();
+    const users = await query(
+      'SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(name) = LOWER(?)',
+      [cleanInput, cleanInput]
+    );
     if (users.length === 0) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }

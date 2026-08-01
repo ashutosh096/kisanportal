@@ -5,7 +5,8 @@ import { LogIn, Lock, User, CheckCircle2, Sparkles, Sprout } from 'lucide-react'
 
 const Login = () => {
   const [activeRole, setActiveRole] = useState('surveyor');
-  const [selectedSurveyorId, setSelectedSurveyorId] = useState(null);
+  const [surveyorUsernameInput, setSurveyorUsernameInput] = useState('');
+  const [surveyorPasswordInput, setSurveyorPasswordInput] = useState('');
   const [adminUsername, setAdminUsername] = useState('admin');
   const [adminPassword, setAdminPassword] = useState('');
   const [surveyors, setSurveyors] = useState([]);
@@ -30,6 +31,7 @@ const Login = () => {
           setSurveyors(sorted);
           if (sorted.length > 0) {
             setSelectedSurveyorId(sorted[0].id);
+            setSurveyorUsernameInput(sorted[0].username);
           }
         }
       } catch (err) {
@@ -72,10 +74,17 @@ const Login = () => {
     setLoading(false);
   };
 
-  const handleSurveyorLogin = async (surveyorId) => {
-    const targetId = surveyorId || selectedSurveyorId;
-    if (!targetId) {
-      setError('Please select a field surveyor to log in');
+  const handleSurveyorLogin = async (e) => {
+    if (e) e.preventDefault();
+    const targetUsername = (surveyorUsernameInput || '').trim();
+    const targetPassword = surveyorPasswordInput;
+
+    if (!targetUsername) {
+      setError('Please enter surveyor username');
+      return;
+    }
+    if (!targetPassword) {
+      setError('Please enter surveyor password');
       return;
     }
 
@@ -83,26 +92,34 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/surveyor-quick-login', {
+      // Authenticate via standard username + password POST /api/auth/login
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ surveyor_id: targetId }),
+        body: JSON.stringify({ username: targetUsername, password: targetPassword }),
       });
       if (res.ok) {
         const data = await res.json();
         login(data.user, data.token);
         navigate('/surveyor');
         return;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error) {
+          setError(errData.error);
+          setLoading(false);
+          return;
+        }
       }
     } catch (err) {
-      console.warn('API quick-login offline, checking static surveyor fallback:', err);
+      console.warn('API surveyor login warning:', err);
     }
 
-    // Client-side surveyor login fallback for static cloud deployments (Vercel)
-    const selectedObj = surveyors.find((s) => s.id === Number(targetId)) || {
-      id: Number(targetId),
-      name: 'Ramesh Kumar',
-      username: 'surveyor1',
+    // Client-side surveyor fallback if offline
+    const selectedObj = surveyors.find((s) => s.username === targetUsername) || {
+      id: 2,
+      name: targetUsername,
+      username: targetUsername,
       role: 'surveyor',
     };
 
@@ -291,93 +308,80 @@ const Login = () => {
           </div>
         )}
 
-        {/* SURVEYOR VIEW: GLASS CARDS FOR FIELD STAFF */}
+        {/* SURVEYOR VIEW: USERNAME & PASSWORD LOGIN FORM ONLY */}
         {activeRole === 'surveyor' && (
-          <div>
-            {loadingSurveyors ? (
-              <p style={{ textAlign: 'center', padding: '20px', color: 'rgba(255, 255, 255, 0.8)' }}>
-                Loading field staff...
-              </p>
-            ) : surveyors.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: 'rgba(255, 255, 255, 0.7)' }}>
-                No active surveyors found. Log in as Admin to create surveyors.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '22px' }}>
-                {surveyors.map((s) => {
-                  const isSelected = selectedSurveyorId === s.id;
-                  const initialLetter = s.name ? s.name.charAt(0).toUpperCase() : 'S';
+          <form onSubmit={handleSurveyorLogin}>
 
-                  return (
-                    <div
-                      key={s.id}
-                      onClick={() => setSelectedSurveyorId(s.id)}
-                      style={{
-                        background: isSelected
-                          ? 'linear-gradient(135deg, rgba(13, 60, 38, 0.75) 0%, rgba(8, 38, 24, 0.85) 100%)'
-                          : 'rgba(255, 255, 255, 0.08)',
-                        border: isSelected
-                          ? '1.5px solid #86efac'
-                          : '1px solid rgba(255, 255, 255, 0.15)',
-                        borderRadius: '20px',
-                        padding: '12px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        transition: 'all 0.25s ease',
-                        boxShadow: isSelected ? '0 8px 20px rgba(0, 0, 0, 0.3)' : 'none',
-                        boxSizing: 'border-box',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        {/* AVATAR WITH WHITE / MINT RING */}
-                        <div
-                          style={{
-                            width: '46px',
-                            height: '46px',
-                            minWidth: '46px',
-                            borderRadius: '50%',
-                            background: isSelected
-                              ? 'linear-gradient(135deg, #15803d 0%, #22c55e 100%)'
-                              : 'rgba(255, 255, 255, 0.2)',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            fontSize: '1.25rem',
-                            border: '2px solid #86efac',
-                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
-                          }}
-                        >
-                          {initialLetter}
-                        </div>
+            {/* SURVEYOR USERNAME INPUT */}
+            <div style={{ marginBottom: '14px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  marginBottom: '6px',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                }}
+              >
+                Surveyor Username (यूज़रनेम)
+              </label>
+              <input
+                type="text"
+                value={surveyorUsernameInput}
+                onChange={(e) => setSurveyorUsernameInput(e.target.value)}
+                placeholder="e.g. surveyor1 or ashu01"
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  color: '#ffffff',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
 
-                        <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontWeight: 800, color: '#ffffff', fontSize: '1.1rem', lineHeight: 1.2 }}>
-                            {s.name}
-                          </div>
-                          <div style={{ fontSize: '0.8rem', color: '#cbd5e1', marginTop: '2px' }}>
-                            Field Staff (@{s.username})
-                          </div>
-                        </div>
-                      </div>
+            {/* SURVEYOR PASSWORD INPUT */}
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  marginBottom: '6px',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                }}
+              >
+                Surveyor Password (पासवर्ड)
+              </label>
+              <input
+                type="password"
+                value={surveyorPasswordInput}
+                onChange={(e) => setSurveyorPasswordInput(e.target.value)}
+                placeholder="Password (e.g. field123)"
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  color: '#ffffff',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
 
-                      {isSelected && (
-                        <CheckCircle2 size={22} color="#86efac" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* LOG IN BUTTON (GLOSSY DARK EMERALD GREEN GRADIENT FROM IMAGE 1) */}
+            {/* LOG IN BUTTON (GLOSSY DARK EMERALD GREEN GRADIENT) */}
             <button
-              type="button"
-              onClick={() => handleSurveyorLogin()}
-              disabled={loading || surveyors.length === 0}
+              type="submit"
+              disabled={loading}
               style={{
                 width: '100%',
                 background: 'linear-gradient(180deg, #0d5c3a 0%, #06301d 100%)',
@@ -398,7 +402,7 @@ const Login = () => {
             >
               {loading ? 'Logging In...' : 'Log In'}
             </button>
-          </div>
+          </form>
         )}
 
         {/* ADMIN VIEW: TRANSLUCENT GLASS FORM */}
