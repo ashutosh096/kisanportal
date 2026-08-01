@@ -89,8 +89,9 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
-        const cleanParts = Array.from(new Set([place, district, stateName].filter(Boolean)));
-        const cleanLocationString = cleanParts.join(', ');
+        const cleanParts = Array.from(new Set([place, district, stateName].filter(Boolean)))
+          .map((s) => s.replace(/\s*district\s*/gi, '').trim());
+        const cleanLocationString = cleanParts.filter(Boolean).join(', ');
 
         const locData = {
           gps_location: gpsStr,
