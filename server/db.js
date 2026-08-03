@@ -10,8 +10,9 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEFAULT_PG_URL = 'postgresql://neondb_owner:npg_i7JpMqnZILx9@ep-odd-mud-aysraj8p-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-const connectionString = process.env.DATABASE_URL || DEFAULT_PG_URL;
+const DEFAULT_PG_URL = 'postgresql://neondb_owner:npg_i7JpMqnZILx9@ep-odd-mud-aysraj8p-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require';
+const rawUrl = process.env.DATABASE_URL || DEFAULT_PG_URL;
+const connectionString = rawUrl.replace(/&channel_binding=\w+/gi, '').replace(/\?channel_binding=\w+&?/gi, '?');
 
 let pgPool = null;
 let sqliteDb = null;
