@@ -76,8 +76,11 @@ const Login = () => {
     }
 
     // Client-side authentication fallback for static cloud deployments (Vercel)
-    if (adminUsername === 'admin' && (adminPassword === 'admin123' || adminPassword === 'admin')) {
-      const mockUser = { id: 1, username: 'admin', name: 'System Admin', role: 'admin' };
+    if (
+      (adminUsername === 'indliberatas' && adminPassword === 'ind@123') ||
+      (adminUsername === 'admin' && (adminPassword === 'admin123' || adminPassword === 'admin'))
+    ) {
+      const mockUser = { id: 1, username: adminUsername, name: 'Indliberatas Admin', role: 'admin' };
       login(mockUser, 'vercel-live-admin-token');
       navigate('/admin');
     } else {

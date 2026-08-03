@@ -151,20 +151,18 @@ export const initDb = async () => {
       // Seed initial users if table is empty
       const userCheck = await pgPool.query('SELECT COUNT(*) FROM users');
       if (parseInt(userCheck.rows[0].count, 10) === 0) {
-        const adminPass = await bcrypt.hash('admin123', 10);
+        const adminPass = await bcrypt.hash('ind@123', 10);
         const surveyorPass = await bcrypt.hash('field123', 10);
 
         await pgPool.query(
-          `INSERT INTO users (username, password_hash, name, role) VALUES 
-           ($1, $2, $3, $4),
-           ($5, $6, $7, $8),
-           ($9, $10, $11, $12),
-           ($13, $14, $15, $16)`,
+          `INSERT INTO users (username, password_hash, name, role, raw_passkey) VALUES 
+           ($1, $2, $3, $4, $5),
+           ($6, $7, $8, $9, $10),
+           ($11, $12, $13, $14, $15)`,
           [
-            'admin', adminPass, 'System Admin', 'admin',
-            'surveyor1', surveyorPass, 'Ramesh Kumar', 'surveyor',
-            'ashu01', surveyorPass, 'Ashutosh Mishra', 'surveyor',
-            'krissh', surveyorPass, 'Krish Verma', 'surveyor'
+            'indliberatas', adminPass, 'Indliberatas Admin', 'admin', 'ind@123',
+            'surveyor1', surveyorPass, 'Ramesh Kumar', 'surveyor', 'field123',
+            'surveyor2', surveyorPass, 'Ashutosh Mishra', 'surveyor', 'field123'
           ]
         );
       }
