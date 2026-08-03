@@ -11,7 +11,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DEFAULT_PG_URL = 'postgresql://neondb_owner:npg_wKf2HDW6Limr@ep-odd-mud-aysraj8p-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require';
-const rawUrl = process.env.DATABASE_URL || DEFAULT_PG_URL;
+let rawUrl = process.env.DATABASE_URL;
+if (!rawUrl || rawUrl.includes('npg_i7JpMqnZILx9') || rawUrl.includes('npg_cjB9kYbn3VOy')) {
+  rawUrl = DEFAULT_PG_URL;
+}
 const connectionString = rawUrl.replace(/&channel_binding=\w+/gi, '').replace(/\?channel_binding=\w+&?/gi, '?');
 
 let pgPool = null;

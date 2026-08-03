@@ -78,13 +78,13 @@ router.post('/login', async (req, res) => {
 
     const user = users[0];
 
-    // Strict Role Validation: Surveyor tab cannot log in as admin, Admin tab cannot log in as surveyor
-    if (expected_role === 'surveyor' && user.role !== 'surveyor') {
-      return res.status(401).json({ error: 'Invalid username or password for Surveyor login' });
-    }
-
-    if (expected_role === 'admin' && user.role !== 'admin' && user.role !== 'superadmin') {
-      return res.status(401).json({ error: 'Invalid username or password for Admin login' });
+    // Strict Role Validation: Surveyor tab only logs in surveyor, Admin tab only logs in admin
+    if (expected_role && user.role !== expected_role) {
+      return res.status(401).json({
+        error: expected_role === 'surveyor'
+          ? 'Invalid username or password for Surveyor login'
+          : 'Invalid username or password for Admin login'
+      });
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);

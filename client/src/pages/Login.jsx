@@ -55,17 +55,13 @@ const Login = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.user?.role !== 'admin' && data.user?.role !== 'superadmin') {
+        if (data.user?.role !== 'admin') {
           setError('Invalid username or password for Admin login');
           setLoading(false);
           return;
         }
         login(data.user, data.token);
-        if (data.user?.role === 'superadmin') {
-          navigate('/superadmin');
-        } else {
-          navigate('/admin');
-        }
+        navigate('/admin');
         return;
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -80,11 +76,7 @@ const Login = () => {
     }
 
     // Client-side authentication fallback for static cloud deployments (Vercel)
-    if (adminUsername === 'superadmin' && (adminPassword === 'superadmin123' || adminPassword === 'superadmin')) {
-      const mockUser = { id: 1, username: 'superadmin', name: 'Super Admin', role: 'superadmin' };
-      login(mockUser, 'vercel-live-superadmin-token');
-      navigate('/superadmin');
-    } else if (adminUsername === 'admin' && (adminPassword === 'admin123' || adminPassword === 'admin')) {
+    if (adminUsername === 'admin' && (adminPassword === 'admin123' || adminPassword === 'admin')) {
       const mockUser = { id: 1, username: 'admin', name: 'System Admin', role: 'admin' };
       login(mockUser, 'vercel-live-admin-token');
       navigate('/admin');
