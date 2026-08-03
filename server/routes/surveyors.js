@@ -5,22 +5,36 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/surveyors - Admin only: List all surveyors with submission counts
+// GET /api/surveyors - Admin only: List all surveyors with detailed submission counts & profile info
 router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   try {
     const surveyors = await query(
-      "SELECT id, username, name, created_at FROM users WHERE role = 'surveyor' ORDER BY id ASC"
+      "SELECT id, username, name, mobile, raw_passkey, created_at FROM users WHERE role = 'surveyor' ORDER BY id ASC"
     );
 
-    // Get submission counts
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Get submission counts (Today & Total)
     const withCounts = await Promise.all(
       surveyors.map(async (s) => {
-        const regCount = await query('SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ?', [s.id]);
-        const survCount = await query('SELECT COUNT(*) as count FROM surveys WHERE surveyor_id = ?', [s.id]);
+        const totalRegRes = await query('SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ?', [s.id]);
+        const todayRegRes = await query(
+          "SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ? AND (date = ? OR created_at::text LIKE ?)",
+          [s.id, todayStr, `${todayStr}%`]
+        );
+
+        const totalSurvRes = await query('SELECT COUNT(*) as count FROM surveys WHERE surveyor_id = ?', [s.id]);
+        const todaySurvRes = await query(
+          "SELECT COUNT(*) as count FROM surveys WHERE surveyor_id = ? AND (visit_date = ? OR created_at::text LIKE ?)",
+          [s.id, todayStr, `${todayStr}%`]
+        );
+
         return {
           ...s,
-          registrations_count: regCount[0]?.count || 0,
-          surveys_count: survCount[0]?.count || 0,
+          registrations_count: parseInt(totalRegRes[0]?.count || 0, 10),
+          today_registrations_count: parseInt(todayRegRes[0]?.count || 0, 10),
+          surveys_count: parseInt(totalSurvRes[0]?.count || 0, 10),
+          today_surveys_count: parseInt(todaySurvRes[0]?.count || 0, 10),
         };
       })
     );
@@ -32,35 +46,40 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   }
 });
 
-// POST /api/surveyors - Admin only: Add new surveyor account with custom username & password
+// POST /api/surveyors - Admin only: Add new surveyor account with custom username & password & mobile
 router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
   const { username, mobile, name, password } = req.body;
   if (!username || !name) {
     return res.status(400).json({ error: 'Username and name are required' });
   }
 
+  const cleanUsername = (username || '').trim();
+  const cleanName = (name || '').trim();
+  const finalPasskey = (password && password.trim()) ? password.trim() : (mobile && mobile.trim()) ? mobile.trim() : 'field123';
+
   try {
-    const existing = await query('SELECT id FROM users WHERE username = ?', [username]);
+    const existing = await query('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', [cleanUsername]);
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'Username already exists' });
+      return res.status(400).json({ error: `Username "${cleanUsername}" already exists` });
     }
 
-    // Set custom password set by admin, or mobile, or default 'field123'
-    const rawPassword = password || mobile || 'field123';
-    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const passwordHash = await bcrypt.hash(finalPasskey, 10);
     const result = await run(
-      "INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, 'surveyor')",
-      [username, passwordHash, name]
+      "INSERT INTO users (username, password_hash, name, role, mobile, raw_passkey) VALUES (?, ?, ?, 'surveyor', ?, ?)",
+      [cleanUsername, passwordHash, cleanName, mobile || '', finalPasskey]
     );
 
     const newSurveyorObj = {
       id: result.lastID,
-      username,
-      name,
-      mobile,
+      username: cleanUsername,
+      name: cleanName,
+      mobile: mobile || '',
+      raw_passkey: finalPasskey,
       role: 'surveyor',
       registrations_count: 0,
+      today_registrations_count: 0,
       surveys_count: 0,
+      today_surveys_count: 0,
       created_at: new Date().toISOString(),
     };
 

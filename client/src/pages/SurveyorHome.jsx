@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { UserPlus, ClipboardList, ArrowRight } from 'lucide-react';
+import { UserPlus, ClipboardList, ArrowRight, LogOut } from 'lucide-react';
 
 const SurveyorHome = () => {
-  const { user, token } = useContext(AuthContext);
+  const { user, token, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [stats, setStats] = useState({ todaysReg: 0, todaysSurveys: 0, totalReg: 0, totalSurveys: 0 });
 
   useEffect(() => {
@@ -264,6 +265,37 @@ const SurveyorHome = () => {
             Record Visit (दौरा सर्वे दर्ज करें) <ArrowRight size={16} />
           </div>
         </Link>
+      </div>
+
+      {/* PROMINENT EASY MOBILE LOGOUT BUTTON AT THE VERY BOTTOM */}
+      <div style={{ marginTop: '32px', textAlign: 'center', position: 'relative', zIndex: 2 }}>
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate('/login');
+          }}
+          style={{
+            width: '100%',
+            maxWidth: '360px',
+            background: '#fef2f2',
+            color: '#dc2626',
+            border: '1.5px solid #fecaca',
+            padding: '14px 24px',
+            borderRadius: '30px',
+            fontWeight: 800,
+            fontSize: '0.98rem',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 14px rgba(220, 38, 38, 0.12)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <LogOut size={18} /> Log Out (लॉगआउट करें)
+        </button>
       </div>
     </div>
   );

@@ -1,10 +1,10 @@
 import React, { useState, useContext, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { ArrowLeft, ArrowRight, Save, CheckCircle, AlertCircle, Camera, MapPin, Navigation, Trash2, Tag, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, CheckCircle, AlertCircle, Camera, MapPin, Navigation, Trash2, Tag, Lock, LogOut } from 'lucide-react';
 
 const RegistrationForm = () => {
-  const { user, token, cachedLocation } = useContext(AuthContext);
+  const { user, token, cachedLocation, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const cameraInputRef = useRef(null);
 
@@ -21,7 +21,6 @@ const RegistrationForm = () => {
     state: '',
     gps_location: '',
     date: todayStr,
-    photo_url: '',
     soil_testing: 'no',
     water_testing: 'no',
     cow_dung_used: 'no',
@@ -32,15 +31,20 @@ const RegistrationForm = () => {
     sowing_date: '',
     variety: '',
     seed_qty_per_acre: '',
-    seed_type: 'New (नया)',
+    seed_type: 'OP Seed (ओपी बीज)',
+    seed_age: 'New Seed (नया बीज)',
     sowing_type: 'By Hand (हाथ से)',
     harvest_date: '',
     yield: '',
     expert_advice: 'no',
+    crop_growth_stage: 'Vegetative Stage (वानस्पतिक अवस्था)',
+    crop_height: 'Medium / Normal (1.5 - 4 Ft / 1.5 से 4 फीट)',
+    flowering_status: 'Early Flowering (शुरुआती फूल)',
   });
 
   const [loading, setLoading] = useState(false);
   const [fetchingGps, setFetchingGps] = useState(false);
+  const [manualLocationMode, setManualLocationMode] = useState(false);
   const [geocodedAddress, setGeocodedAddress] = useState('');
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
@@ -680,7 +684,10 @@ const RegistrationForm = () => {
 
                 <button
                   type="button"
-                  onClick={() => setShowGpsModal(false)}
+                  onClick={() => {
+                    setManualLocationMode(true);
+                    setShowGpsModal(false);
+                  }}
                   style={{
                     background: '#f1f5f9',
                     color: '#475569',
@@ -700,97 +707,11 @@ const RegistrationForm = () => {
         )}
 
         <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
-          {/* ================= STEP 1: BASIC INFO, PHOTO & GPS ================= */}
           {currentStep === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <h3 style={{ color: '#0d3c26', fontSize: '1.05rem', fontWeight: 800, borderBottom: '2px solid #e2e8f0', paddingBottom: '6px' }}>
-                👤 1. Farmer Info & Verified GPS (किसान जानकारी)
+                👤 1. Farmer Info & GPS Location (किसान जानकारी)
               </h3>
-
-              {/* FARMER PHOTO CAPTURE CAMERA SECTION */}
-              <div
-                style={{
-                  background: '#f8fafc',
-                  border: '2px dashed #cbd5e1',
-                  borderRadius: '16px',
-                  padding: '16px 14px',
-                  textAlign: 'center',
-                }}
-              >
-                <label className="form-label" style={{ marginBottom: '10px', display: 'block', color: '#0d3c26', fontWeight: 800 }}>
-                  📷 Farmer Photo Capture (किसान की फोटो)
-                </label>
-
-                {formData.photo_url ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                    <img
-                      src={formData.photo_url}
-                      alt="Captured Farmer"
-                      style={{
-                        width: '110px',
-                        height: '110px',
-                        borderRadius: '50%',
-                        objectFit: 'cover',
-                        border: '4px solid #15803d',
-                        boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemovePhoto}
-                      style={{
-                        background: '#fef2f2',
-                        color: '#ef4444',
-                        border: '1px solid #fecaca',
-                        padding: '6px 14px',
-                        borderRadius: '30px',
-                        fontWeight: 700,
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <Trash2 size={14} /> Remove & Retake Photo (फोटो हटाएँ और पुन: खींचें)
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      ref={cameraInputRef}
-                      onChange={handlePhotoCapture}
-                      style={{ display: 'none' }}
-                      id="farmer-camera-input"
-                    />
-
-                    <label
-                      htmlFor="farmer-camera-input"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justify: 'center',
-                        gap: '8px',
-                        background: '#0d3c26',
-                        color: '#ffffff',
-                        padding: '12px 20px',
-                        borderRadius: '30px',
-                        fontWeight: 700,
-                        fontSize: '0.9rem',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(13, 60, 38, 0.2)',
-                        width: '100%',
-                        maxWidth: '320px',
-                      }}
-                    >
-                      <Camera size={18} /> Take Photo (कैमरे से फोटो खींचें)
-                    </label>
-                  </div>
-                )}
-              </div>
 
               {/* LIVE GPS & REVERSE GEOCODED PLACE NAME CARD */}
               <div
@@ -803,37 +724,56 @@ const RegistrationForm = () => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
                   <div style={{ fontWeight: 800, color: '#15803d', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Navigation size={16} /> ✅ Live GPS Location (लाइव GPS स्थान)
+                    <Navigation size={16} /> ✅ GPS Location Status (GPS स्थिति)
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={fetchLiveGpsLocation}
-                    style={{
-                      background: '#15803d',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '5px 12px',
-                      borderRadius: '30px',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    <MapPin size={13} /> Refresh GPS (GPS रिफ्रेश करें)
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={fetchLiveGpsLocation}
+                      style={{
+                        background: '#15803d',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '6px 14px',
+                        borderRadius: '30px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <MapPin size={13} /> Refresh GPS (GPS रिफ्रेश करें)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setManualLocationMode((prev) => !prev)}
+                      style={{
+                        background: manualLocationMode ? '#0f172a' : '#ffffff',
+                        color: manualLocationMode ? '#ffffff' : '#334155',
+                        border: '1px solid #cbd5e1',
+                        padding: '6px 14px',
+                        borderRadius: '30px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {manualLocationMode ? '🔒 Auto Lock GPS' : '✏️ Manual Location Input'}
+                    </button>
+                  </div>
                 </div>
 
                 <div style={{ fontSize: '0.82rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div>
-                    📍 Coordinates: {fetchingGps ? 'Fetching GPS...' : <strong>{formData.gps_location || 'GPS Locking...'}</strong>}
+                    📍 Coordinates: {fetchingGps ? 'Fetching GPS...' : <strong>{formData.gps_location || 'GPS Locking / Manual Mode'}</strong>}
                   </div>
                   {geocodedAddress && (
                     <div style={{ color: '#0d3c26', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Tag size={14} color="#15803d" /> 🏷️ Location: {geocodedAddress}
+                      <Tag size={14} color="#15803d" /> 🏷️ Auto Location: {geocodedAddress}
                     </div>
                   )}
                 </div>
@@ -915,16 +855,16 @@ const RegistrationForm = () => {
                 {/* LOCATION */}
                 <div className="form-group" style={{ flex: '1 1 200px' }}>
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Lock size={14} color={formData.gps_location ? '#15803d' : '#64748b'} /> Location / Village & State (स्थान / गाँव & राज्य) *
+                    <Lock size={14} color={!manualLocationMode && formData.gps_location ? '#15803d' : '#64748b'} /> Location / Village & State (स्थान / गाँव & राज्य) *
                   </label>
                   <input
                     type="text"
-                    className={`input-field ${formData.gps_location ? 'input-readonly' : ''}`}
+                    className={`input-field ${!manualLocationMode && formData.gps_location ? 'input-readonly' : ''}`}
                     name="location"
                     value={formData.location}
                     onChange={handleChange}
-                    readOnly={!!formData.gps_location}
-                    placeholder="Auto-detected or type Village, District, State..."
+                    readOnly={!manualLocationMode && !!formData.gps_location}
+                    placeholder="Type Village, District, State manually..."
                     style={{
                       borderRadius: '30px',
                       padding: '12px 16px',
@@ -936,18 +876,18 @@ const RegistrationForm = () => {
                 {/* PINCODE */}
                 <div className="form-group" style={{ flex: '1 1 120px' }}>
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Lock size={14} color={formData.gps_location ? '#15803d' : '#64748b'} /> Pincode (पिनकोड)
+                    <Lock size={14} color={!manualLocationMode && formData.gps_location ? '#15803d' : '#64748b'} /> Pincode (पिनकोड)
                   </label>
                   <input
                     type="text"
-                    className={`input-field ${formData.gps_location ? 'input-readonly' : ''}`}
+                    className={`input-field ${!manualLocationMode && formData.gps_location ? 'input-readonly' : ''}`}
                     name="pincode"
                     value={formData.pincode}
                     onChange={(e) => {
                       const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
                       setFormData((prev) => ({ ...prev, pincode: pin }));
                     }}
-                    readOnly={!!formData.gps_location}
+                    readOnly={!manualLocationMode && !!formData.gps_location}
                     placeholder="6-digit PIN"
                     style={{
                       borderRadius: '30px',
@@ -1112,6 +1052,7 @@ const RegistrationForm = () => {
                     <option value="Acres (एकड़)">Acres (एकड़)</option>
                     <option value="Hectares (हेक्टेयर)">Hectares (हेक्टेयर)</option>
                     <option value="Bigha (बीघा)">Bigha (बीघा)</option>
+                    <option value="Katha (कट्ठा)">Katha (कट्ठा)</option>
                   </select>
 
                   {/* Area Number Input */}
@@ -1196,12 +1137,23 @@ const RegistrationForm = () => {
                 )}
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Seed Type (बीज नया है या पुराना?)</label>
-                <select className="select-field" name="seed_type" value={formData.seed_type} onChange={handleChange}>
-                  <option value="New (नया)">New (नया)</option>
-                  <option value="Old (पुराना)">Old (पुराना)</option>
-                </select>
+              {/* SIDE-BY-SIDE SEED TYPE & SEED CONDITION / AGE */}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div className="form-group" style={{ flex: '1 1 200px' }}>
+                  <label className="form-label">Seed Type (बीज का प्रकार - OP / Hybrid)</label>
+                  <select className="select-field" name="seed_type" value={formData.seed_type} onChange={handleChange}>
+                    <option value="OP Seed (ओपी बीज)">OP Seed (ओपी बीज)</option>
+                    <option value="Hybrid Seed (हाइब्रिड बीज)">Hybrid Seed (हाइब्रिड बीज)</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ flex: '1 1 200px' }}>
+                  <label className="form-label">Seed Condition (बीज नया या पुराना?)</label>
+                  <select className="select-field" name="seed_age" value={formData.seed_age} onChange={handleChange}>
+                    <option value="New Seed (नया बीज)">New Seed (नया बीज)</option>
+                    <option value="Old Seed (पुराना बीज)">Old Seed (पुराना / सहेजा बीज)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="form-group">
@@ -1213,7 +1165,7 @@ const RegistrationForm = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Harvest Date (कटाई की तारीख)</label>
+                <label className="form-label">Expected Harvest Date (अनुमानित कटाई की तारीख)</label>
                 <input
                   type="date"
                   className="input-field"
@@ -1221,6 +1173,36 @@ const RegistrationForm = () => {
                   value={formData.harvest_date}
                   onChange={handleChange}
                 />
+              </div>
+
+              {/* 3 CROP OBSERVATION DROPDOWNS */}
+              <div className="form-group">
+                <label className="form-label">Crop Growth Stage (फसल वृद्धि अवस्था)</label>
+                <select className="select-field" name="crop_growth_stage" value={formData.crop_growth_stage} onChange={handleChange}>
+                  <option value="Vegetative Stage (वानस्पतिक अवस्था)">Vegetative Stage (वानस्पतिक अवस्था)</option>
+                  <option value="Flowering Stage (फूल आने की अवस्था)">Flowering Stage (फूल आने की अवस्था)</option>
+                  <option value="Grain Filling Stage (दाना बनने की अवस्था)">Grain Filling Stage (दाना बनने की अवस्था)</option>
+                  <option value="Ripening Stage (पकने की अवस्था)">Ripening Stage (पकने की अवस्था)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Crop Height (फसल की ऊँचाई)</label>
+                <select className="select-field" name="crop_height" value={formData.crop_height} onChange={handleChange}>
+                  <option value="Short / Low (< 1.5 Ft / 1.5 फीट से कम)">Short / Low (&lt; 1.5 Ft / 1.5 फीट से कम)</option>
+                  <option value="Medium / Normal (1.5 - 4 Ft / 1.5 से 4 फीट)">Medium / Normal (1.5 - 4 Ft / 1.5 से 4 फीट)</option>
+                  <option value="Tall / High (> 4 Ft / 4 फीट से अधिक)">Tall / High (&gt; 4 Ft / 4 फीट से अधिक)</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Flowering Status (फूल आने की स्थिति)</label>
+                <select className="select-field" name="flowering_status" value={formData.flowering_status} onChange={handleChange}>
+                  <option value="Not Started (शुरू नहीं हुआ)">Not Started (शुरू नहीं हुआ)</option>
+                  <option value="Early Flowering (शुरुआती फूल)">Early Flowering (शुरुआती फूल)</option>
+                  <option value="Full Bloom (पूर्ण फूल)">Full Bloom (पूर्ण फूल)</option>
+                  <option value="Completed / Post-Flowering (समाप्त)">Completed / Post-Flowering (समाप्त)</option>
+                </select>
               </div>
 
               <div className="form-group">
@@ -1315,6 +1297,37 @@ const RegistrationForm = () => {
             )}
           </div>
         </form>
+      </div>
+
+      {/* PROMINENT EASY MOBILE LOGOUT BUTTON AT THE VERY BOTTOM */}
+      <div style={{ marginTop: '28px', textAlign: 'center' }}>
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate('/login');
+          }}
+          style={{
+            width: '100%',
+            maxWidth: '360px',
+            background: '#fef2f2',
+            color: '#dc2626',
+            border: '1.5px solid #fecaca',
+            padding: '14px 24px',
+            borderRadius: '30px',
+            fontWeight: 800,
+            fontSize: '0.98rem',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 14px rgba(220, 38, 38, 0.12)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <LogOut size={18} /> Log Out (लॉगआउट करें)
+        </button>
       </div>
     </div>
   );

@@ -183,8 +183,11 @@ const FarmerProfile = () => {
             <div><strong>Seed Qty/Acre:</strong> {farmer.seed_qty_per_acre || '-'}</div>
             <div><strong>Seed Type:</strong> {farmer.seed_type || '-'}</div>
             <div><strong>Sowing Type:</strong> {farmer.sowing_type || '-'}</div>
-            <div><strong>Harvest Date:</strong> {formatDateDDMMYYYY(farmer.harvest_date)}</div>
+            <div><strong>Expected Harvest Date:</strong> {formatDateDDMMYYYY(farmer.harvest_date)}</div>
             <div><strong>Expected Yield:</strong> {farmer.yield || '-'}</div>
+            <div><strong>Growth Stage:</strong> {farmer.crop_growth_stage || '-'}</div>
+            <div><strong>Crop Height:</strong> {farmer.crop_height || '-'}</div>
+            <div><strong>Flowering Status:</strong> {farmer.flowering_status || '-'}</div>
             <div><strong>Expert Advice:</strong> {farmer.expert_advice === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
             <div><strong>Registered By:</strong> {farmer.surveyor_name}</div>
           </div>

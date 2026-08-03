@@ -55,9 +55,9 @@ router.post('/surveyor-quick-login', async (req, res) => {
   }
 });
 
-// POST /api/auth/login - Admin/Standard login
+// POST /api/auth/login - Admin/Surveyor login with strict role validation
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, expected_role } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
   }
@@ -69,13 +69,31 @@ router.post('/login', async (req, res) => {
       [cleanInput, cleanInput]
     );
     if (users.length === 0) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+      return res.status(401).json({
+        error: expected_role === 'surveyor'
+          ? 'Invalid username or password for Surveyor login'
+          : 'Invalid username or password for Admin login'
+      });
     }
 
     const user = users[0];
+
+    // Strict Role Validation: Surveyor tab cannot log in as admin, Admin tab cannot log in as surveyor
+    if (expected_role === 'surveyor' && user.role !== 'surveyor') {
+      return res.status(401).json({ error: 'Invalid username or password for Surveyor login' });
+    }
+
+    if (expected_role === 'admin' && user.role !== 'admin' && user.role !== 'superadmin') {
+      return res.status(401).json({ error: 'Invalid username or password for Admin login' });
+    }
+
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+      return res.status(401).json({
+        error: expected_role === 'surveyor'
+          ? 'Invalid username or password for Surveyor login'
+          : 'Invalid username or password for Admin login'
+      });
     }
 
     const token = jwt.sign(

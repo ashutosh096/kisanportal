@@ -63,8 +63,12 @@ export const initDb = async () => {
           password_hash VARCHAR(255) NOT NULL,
           name VARCHAR(150) NOT NULL,
           role VARCHAR(50) NOT NULL,
+          mobile VARCHAR(50) DEFAULT '',
+          raw_passkey VARCHAR(100) DEFAULT 'field123',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile VARCHAR(50) DEFAULT '';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS raw_passkey VARCHAR(100) DEFAULT 'field123';
 
         CREATE TABLE IF NOT EXISTS farmers (
           id SERIAL PRIMARY KEY,
@@ -90,6 +94,9 @@ export const initDb = async () => {
           harvest_date VARCHAR(50) DEFAULT '',
           yield VARCHAR(100) DEFAULT '',
           expert_advice VARCHAR(20) DEFAULT 'no',
+          crop_growth_stage VARCHAR(100) DEFAULT '',
+          crop_height VARCHAR(100) DEFAULT '',
+          flowering_status VARCHAR(100) DEFAULT '',
           surveyor_id INT,
           surveyor_name VARCHAR(150) NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -114,12 +121,20 @@ export const initDb = async () => {
           irrigation_done VARCHAR(20) DEFAULT 'no',
           irrigation_source VARCHAR(100) DEFAULT '',
           irrigation_type VARCHAR(100) DEFAULT '',
+          irrigation_depth VARCHAR(100) DEFAULT '',
           weeding_done VARCHAR(20) DEFAULT 'no',
           additional_activities TEXT DEFAULT '',
           surveyor_id INT,
           surveyor_name VARCHAR(150) NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+
+        -- Automatic migrations
+        ALTER TABLE surveys ADD COLUMN IF NOT EXISTS irrigation_depth VARCHAR(100) DEFAULT '';
+        ALTER TABLE farmers ADD COLUMN IF NOT EXISTS crop_growth_stage VARCHAR(100) DEFAULT '';
+        ALTER TABLE farmers ADD COLUMN IF NOT EXISTS crop_height VARCHAR(100) DEFAULT '';
+        ALTER TABLE farmers ADD COLUMN IF NOT EXISTS flowering_status VARCHAR(100) DEFAULT '';
+        ALTER TABLE farmers ADD COLUMN IF NOT EXISTS seed_age VARCHAR(100) DEFAULT '';
 
         CREATE INDEX IF NOT EXISTS idx_farmers_id_desc ON farmers(id DESC);
         CREATE INDEX IF NOT EXISTS idx_farmers_fid ON farmers(farmer_id);

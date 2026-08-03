@@ -47,6 +47,10 @@ router.post('/', authenticateToken, async (req, res) => {
     harvest_date,
     yield: cropYield,
     expert_advice,
+    crop_growth_stage,
+    crop_height,
+    flowering_status,
+    seed_age,
   } = req.body;
 
   if (!name || name.trim().length < 2 || /\d/.test(name) || !/^[a-zA-Z\u0900-\u097F\s.']{2,60}$/.test(name.trim())) {
@@ -81,8 +85,8 @@ router.post('/', authenticateToken, async (req, res) => {
         soil_testing, water_testing, cow_dung_used, cow_dung_qty,
         crop, crop_reason, area, sowing_date, variety,
         seed_qty_per_acre, seed_type, sowing_type, harvest_date,
-        yield, expert_advice, surveyor_id, surveyor_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        yield, expert_advice, crop_growth_stage, crop_height, flowering_status, seed_age, surveyor_id, surveyor_name
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         farmerId,
         name,
@@ -106,6 +110,10 @@ router.post('/', authenticateToken, async (req, res) => {
         harvest_date || '',
         cropYield || '',
         expert_advice || 'no',
+        crop_growth_stage || '',
+        crop_height || '',
+        flowering_status || '',
+        seed_age || '',
         surveyorId,
         surveyorName,
       ]

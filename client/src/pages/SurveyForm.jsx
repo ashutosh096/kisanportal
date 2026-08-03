@@ -2,11 +2,11 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import FarmerSearch from '../components/FarmerSearch';
-import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin, FileSpreadsheet, XCircle } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin, FileSpreadsheet, XCircle, LogOut } from 'lucide-react';
 import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const SurveyForm = () => {
-  const { user, token, cachedLocation } = useContext(AuthContext);
+  const { user, token, cachedLocation, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -1015,6 +1015,37 @@ const SurveyForm = () => {
           </form>
         </div>
       )}
+
+      {/* PROMINENT EASY MOBILE LOGOUT BUTTON AT THE VERY BOTTOM */}
+      <div style={{ marginTop: '28px', textAlign: 'center' }}>
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate('/login');
+          }}
+          style={{
+            width: '100%',
+            maxWidth: '360px',
+            background: '#fef2f2',
+            color: '#dc2626',
+            border: '1.5px solid #fecaca',
+            padding: '14px 24px',
+            borderRadius: '30px',
+            fontWeight: 800,
+            fontSize: '0.98rem',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 14px rgba(220, 38, 38, 0.12)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <LogOut size={18} /> Log Out (लॉगआउट करें)
+        </button>
+      </div>
     </div>
   );
 };

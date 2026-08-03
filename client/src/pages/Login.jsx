@@ -51,25 +51,45 @@ const Login = () => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: adminUsername, password: adminPassword }),
+        body: JSON.stringify({ username: adminUsername, password: adminPassword, expected_role: 'admin' }),
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.user?.role !== 'admin' && data.user?.role !== 'superadmin') {
+          setError('Invalid username or password for Admin login');
+          setLoading(false);
+          return;
+        }
         login(data.user, data.token);
-        navigate('/admin');
+        if (data.user?.role === 'superadmin') {
+          navigate('/superadmin');
+        } else {
+          navigate('/admin');
+        }
         return;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error) {
+          setError(errData.error);
+          setLoading(false);
+          return;
+        }
       }
     } catch (err) {
       console.warn('API login offline, checking static credentials:', err);
     }
 
     // Client-side authentication fallback for static cloud deployments (Vercel)
-    if (adminUsername === 'admin' && (adminPassword === 'admin123' || adminPassword === 'admin')) {
+    if (adminUsername === 'superadmin' && (adminPassword === 'superadmin123' || adminPassword === 'superadmin')) {
+      const mockUser = { id: 1, username: 'superadmin', name: 'Super Admin', role: 'superadmin' };
+      login(mockUser, 'vercel-live-superadmin-token');
+      navigate('/superadmin');
+    } else if (adminUsername === 'admin' && (adminPassword === 'admin123' || adminPassword === 'admin')) {
       const mockUser = { id: 1, username: 'admin', name: 'System Admin', role: 'admin' };
       login(mockUser, 'vercel-live-admin-token');
       navigate('/admin');
     } else {
-      setError('Invalid username or password');
+      setError('Invalid username or password for Admin login');
     }
     setLoading(false);
   };
@@ -92,14 +112,19 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Authenticate via standard username + password POST /api/auth/login
+      // Authenticate via standard username + password POST /api/auth/login with expected_role='surveyor'
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: targetUsername, password: targetPassword }),
+        body: JSON.stringify({ username: targetUsername, password: targetPassword, expected_role: 'surveyor' }),
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.user?.role !== 'surveyor') {
+          setError('Invalid username or password for Surveyor login');
+          setLoading(false);
+          return;
+        }
         login(data.user, data.token);
         navigate('/surveyor');
         return;
@@ -116,22 +141,26 @@ const Login = () => {
     }
 
     // Client-side surveyor fallback if offline
-    const selectedObj = surveyors.find((s) => s.username === targetUsername) || {
-      id: 2,
-      name: targetUsername,
-      username: targetUsername,
-      role: 'surveyor',
-    };
+    if (targetUsername.startsWith('surveyor') || targetUsername === 'ram kumar') {
+      const selectedObj = surveyors.find((s) => s.username === targetUsername) || {
+        id: 2,
+        name: targetUsername,
+        username: targetUsername,
+        role: 'surveyor',
+      };
 
-    const mockUser = {
-      id: selectedObj.id,
-      username: selectedObj.username,
-      name: selectedObj.name,
-      role: 'surveyor',
-    };
+      const mockUser = {
+        id: selectedObj.id,
+        username: selectedObj.username,
+        name: selectedObj.name,
+        role: 'surveyor',
+      };
 
-    login(mockUser, 'vercel-live-surveyor-token');
-    navigate('/surveyor');
+      login(mockUser, 'vercel-live-surveyor-token');
+      navigate('/surveyor');
+    } else {
+      setError('Invalid username or password for Surveyor login');
+    }
     setLoading(false);
   };
 
