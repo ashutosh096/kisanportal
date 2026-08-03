@@ -3,12 +3,14 @@ import bcrypt from 'bcryptjs';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEFAULT_PG_URL = 'postgresql://neondb_owner:npg_cjB9kYbn3VOy@ep-odd-mud-aysraj8p-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require';
-const connectionString = process.env.DATABASE_URL || DEFAULT_PG_URL;
+const connectionString = process.env.DATABASE_URL;
 
 let pgPool = null;
 let sqliteDb = null;
