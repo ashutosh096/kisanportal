@@ -254,4 +254,44 @@ router.get('/:farmer_id', authenticateToken, async (req, res) => {
   }
 });
 
+
+// DELETE /api/farmers/:farmer_id - SuperAdmin only: Delete farmer record
+// mode=full → deletes farmer + all visits
+// mode=surveys → deletes only the visit surveys (keeps farmer registration)
+router.delete('/:farmer_id', authenticateToken, async (req, res) => {
+  const user = req.user;
+  const isSuper = user.username === 'superadmin' || user.role === 'superadmin';
+  if (!isSuper) {
+    return res.status(403).json({ error: 'Only SuperAdmin can delete farmer records' });
+  }
+
+  const { farmer_id } = req.params;
+  const { mode } = req.query; // 'full' or 'surveys'
+
+  try {
+    // First check the farmer exists
+    const existing = await query('SELECT id FROM farmers WHERE farmer_id = ?', [farmer_id]);
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ error: 'Farmer not found' });
+    }
+
+    if (mode === 'surveys') {
+      // Delete only farm visit surveys — keep the farmer registration
+      await run('DELETE FROM surveys WHERE farmer_id = ?', [farmer_id]);
+      cacheClear();
+      return res.json({ message: `All visit logs for farmer ${farmer_id} deleted. Farmer registration kept.` });
+    }
+
+    // Default: full delete — remove surveys first (FK), then farmer
+    await run('DELETE FROM surveys WHERE farmer_id = ?', [farmer_id]);
+    await run('DELETE FROM farmers WHERE farmer_id = ?', [farmer_id]);
+    cacheClear();
+    res.json({ message: `Farmer ${farmer_id} and all visit logs permanently deleted.` });
+  } catch (err) {
+    console.error('Delete farmer error:', err);
+    res.status(500).json({ error: 'Failed to delete farmer record' });
+  }
+});
+
 export default router;
+

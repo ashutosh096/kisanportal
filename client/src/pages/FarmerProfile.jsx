@@ -1,17 +1,23 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { ArrowLeft, User, FileSpreadsheet, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, User, FileSpreadsheet, LayoutGrid, Trash2, AlertTriangle } from 'lucide-react';
 import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const FarmerProfile = () => {
   const { farmer_id } = useParams();
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState('matrix'); // Default to 'matrix' matching user's Excel sheet format!
+  const [viewMode, setViewMode] = useState('matrix');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState('');
+
+  const isSuperAdmin = user?.username === 'superadmin';
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -32,6 +38,33 @@ const FarmerProfile = () => {
 
     fetchProfile();
   }, [farmer_id, token]);
+
+  const handleDelete = async (mode) => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/farmers/${farmer_id}?mode=${mode}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setDeleteMsg(json.message);
+        setShowDeleteModal(false);
+        if (mode === 'full') {
+          setTimeout(() => navigate('/admin'), 1800);
+        } else {
+          // Refresh page to show updated visit count
+          setTimeout(() => window.location.reload(), 1200);
+        }
+      } else {
+        setDeleteMsg('❌ Error: ' + (json.error || 'Delete failed'));
+      }
+    } catch (err) {
+      setDeleteMsg('❌ Network error: ' + err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -78,10 +111,35 @@ const FarmerProfile = () => {
 
   return (
     <div className="main-content" style={{ paddingBottom: '40px' }}>
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
         <Link to="/admin" className="btn btn-secondary btn-inline" style={{ fontSize: '0.9rem', borderRadius: '30px' }}>
           <ArrowLeft size={16} /> Back to Admin Dashboard
         </Link>
+        {isSuperAdmin && (
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 18px',
+              borderRadius: '30px',
+              background: '#fef2f2',
+              color: '#dc2626',
+              border: '1.5px solid #fecaca',
+              fontWeight: 800,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+            }}
+          >
+            <Trash2 size={15} /> Delete Farmer
+          </button>
+        )}
+        {deleteMsg && (
+          <span style={{ fontSize: '0.85rem', color: deleteMsg.startsWith('❌') ? '#dc2626' : '#15803d', fontWeight: 700 }}>
+            {deleteMsg}
+          </span>
+        )}
       </div>
 
       {/* Header Profile Summary Card */}
@@ -443,6 +501,122 @@ const FarmerProfile = () => {
           </div>
         )}
       </div>
+
+      {/* ======== DELETE FARMER CONFIRMATION MODAL (SuperAdmin Only) ======== */}
+      {showDeleteModal && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(15, 23, 42, 0.80)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 9999, padding: '16px',
+          }}
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '24px',
+              maxWidth: '460px',
+              width: '100%',
+              padding: '30px',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.35)',
+              borderTop: '6px solid #dc2626',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <AlertTriangle size={44} color="#dc2626" style={{ marginBottom: '10px' }} />
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0' }}>
+                Delete Farmer Record
+              </h2>
+              <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
+                Farmer: <strong style={{ color: '#0f172a' }}>{data?.farmer?.name}</strong> &nbsp;|&nbsp;
+                ID: <strong style={{ color: '#dc2626' }}>{farmer_id}</strong>
+              </p>
+              <p style={{ color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, marginTop: '8px' }}>
+                ⚠️ Choose what to delete — this action cannot be undone.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* Option 1: Delete only farm visits */}
+              <button
+                onClick={() => handleDelete('surveys')}
+                disabled={deleting}
+                style={{
+                  padding: '14px 20px',
+                  borderRadius: '16px',
+                  background: '#fffbeb',
+                  border: '2px solid #fbbf24',
+                  color: '#92400e',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '3px',
+                }}
+              >
+                🗑️ Delete Farm Visits Only
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#78350f' }}>
+                  Keeps farmer registration · Removes all visit/survey logs
+                </span>
+              </button>
+
+              {/* Option 2: Full delete */}
+              <button
+                onClick={() => handleDelete('full')}
+                disabled={deleting}
+                style={{
+                  padding: '14px 20px',
+                  borderRadius: '16px',
+                  background: '#fef2f2',
+                  border: '2px solid #fca5a5',
+                  color: '#991b1b',
+                  fontWeight: 800,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '3px',
+                }}
+              >
+                🔥 Delete Farmer Completely
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#7f1d1d' }}>
+                  Permanently removes farmer registration + all visit logs
+                </span>
+              </button>
+
+              {/* Cancel */}
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  padding: '12px',
+                  borderRadius: '16px',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel — Keep Farmer
+              </button>
+            </div>
+
+            {deleting && (
+              <p style={{ textAlign: 'center', color: '#64748b', marginTop: '14px', fontSize: '0.9rem' }}>
+                ⏳ Deleting...
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
