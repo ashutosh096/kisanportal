@@ -1,22 +1,51 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
 
 export const AuthContext = createContext();
+
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes auto-lock timeout
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('farmer_user');
-      return saved ? JSON.parse(saved) : null;
+      const savedUser = localStorage.getItem('farmer_user');
+      const lastActive = localStorage.getItem('farmer_last_active');
+      if (savedUser && lastActive) {
+        const timeDiff = Date.now() - parseInt(lastActive, 10);
+        if (timeDiff > INACTIVITY_TIMEOUT_MS) {
+          localStorage.removeItem('farmer_token');
+          localStorage.removeItem('farmer_user');
+          localStorage.removeItem('farmer_last_active');
+          return null;
+        }
+      }
+      return savedUser ? JSON.parse(savedUser) : null;
     } catch (e) {
       return null;
     }
   });
 
   const [token, setToken] = useState(() => {
+    const lastActive = localStorage.getItem('farmer_last_active');
+    if (lastActive) {
+      const timeDiff = Date.now() - parseInt(lastActive, 10);
+      if (timeDiff > INACTIVITY_TIMEOUT_MS) {
+        return '';
+      }
+    }
     return localStorage.getItem('farmer_token') || '';
   });
 
+  const [sessionExpiredMsg, setSessionExpiredMsg] = useState(() => {
+    const lastActive = localStorage.getItem('farmer_last_active');
+    const savedUser = localStorage.getItem('farmer_user');
+    if (savedUser && lastActive && Date.now() - parseInt(lastActive, 10) > INACTIVITY_TIMEOUT_MS) {
+      return 'Session locked due to 10 minutes of inactivity. Please log in again.';
+    }
+    return '';
+  });
+
   const [loading, setLoading] = useState(false);
+  const lastActiveRef = useRef(Date.now());
 
   const [cachedLocation, setCachedLocation] = useState(() => {
     try {
@@ -41,7 +70,6 @@ export const AuthProvider = ({ children }) => {
         let stateName = '';
         let postcode = '';
 
-        // Tier 1: BigDataCloud API (100% Accurate Indian States & Districts)
         try {
           const bgRes = await fetch(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
@@ -55,7 +83,6 @@ export const AuthProvider = ({ children }) => {
           console.warn('BigDataCloud geocode warning:', bgErr);
         }
 
-        // Tier 2: Photon Komoot API Fallback
         if (!stateName || !place) {
           try {
             const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
@@ -71,7 +98,6 @@ export const AuthProvider = ({ children }) => {
           }
         }
 
-        // Tier 3: Nominatim OSM Fallback
         if (!stateName || !postcode) {
           try {
             const geoRes = await fetch(
@@ -108,8 +134,51 @@ export const AuthProvider = ({ children }) => {
     );
   };
 
+  // Activity tracker & Auto-lock interval
   useEffect(() => {
-    // Automatically trigger browser location permission popup as soon as site opens
+    if (!token || !user) return;
+
+    const updateActivity = () => {
+      const now = Date.now();
+      // Throttle updating to once per 5 seconds
+      if (now - lastActiveRef.current > 5000) {
+        lastActiveRef.current = now;
+        localStorage.setItem('farmer_last_active', now.toString());
+      }
+    };
+
+    // Set initial timestamp
+    localStorage.setItem('farmer_last_active', Date.now().toString());
+
+    // Listen for user activity
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('click', updateActivity);
+    window.addEventListener('touchstart', updateActivity);
+    window.addEventListener('scroll', updateActivity);
+
+    // Periodic check for inactivity every 15 seconds
+    const interval = setInterval(() => {
+      const lastActive = localStorage.getItem('farmer_last_active');
+      if (lastActive) {
+        const inactiveMs = Date.now() - parseInt(lastActive, 10);
+        if (inactiveMs >= INACTIVITY_TIMEOUT_MS) {
+          logout('Session locked due to 10 minutes of inactivity. Please log in again.');
+        }
+      }
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('click', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
+      clearInterval(interval);
+    };
+  }, [token, user]);
+
+  useEffect(() => {
     prefetchGpsLocation();
 
     const savedUser = localStorage.getItem('farmer_user');
@@ -117,7 +186,6 @@ export const AuthProvider = ({ children }) => {
       try {
         const parsed = JSON.parse(savedUser);
         setUser(parsed);
-        prefetchGpsLocation();
       } catch (e) {
         console.error('Failed to parse stored user:', e);
       }
@@ -126,18 +194,24 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   const login = (userData, authToken) => {
+    const nowStr = Date.now().toString();
     setUser(userData);
     setToken(authToken);
+    setSessionExpiredMsg('');
     localStorage.setItem('farmer_token', authToken);
     localStorage.setItem('farmer_user', JSON.stringify(userData));
+    localStorage.setItem('farmer_last_active', nowStr);
+    lastActiveRef.current = parseInt(nowStr, 10);
     prefetchGpsLocation();
   };
 
-  const logout = () => {
+  const logout = (msg = '') => {
     setUser(null);
     setToken('');
+    if (msg) setSessionExpiredMsg(msg);
     localStorage.removeItem('farmer_token');
     localStorage.removeItem('farmer_user');
+    localStorage.removeItem('farmer_last_active');
     sessionStorage.removeItem('farmer_cached_loc');
   };
 
@@ -151,9 +225,12 @@ export const AuthProvider = ({ children }) => {
         loading,
         cachedLocation,
         prefetchGpsLocation,
+        sessionExpiredMsg,
+        setSessionExpiredMsg,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
+

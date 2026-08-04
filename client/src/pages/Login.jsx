@@ -16,7 +16,7 @@ const Login = () => {
   const [showSurveyorPassword, setShowSurveyorPassword] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
 
-  const { login } = useContext(AuthContext);
+  const { login, sessionExpiredMsg } = useContext(AuthContext);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -317,7 +317,7 @@ const Login = () => {
           </button>
         </div>
 
-        {error && (
+        {(error || sessionExpiredMsg) && (
           <div
             style={{
               background: 'rgba(239, 68, 68, 0.25)',
@@ -328,14 +328,15 @@ const Login = () => {
               fontSize: '0.88rem',
               marginBottom: '18px',
               fontWeight: 600,
-              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
             }}
           >
-            ⚠️ {error}
+            <Lock size={18} style={{ flexShrink: 0 }} />
+            <span>{error || sessionExpiredMsg}</span>
           </div>
-        )}
-
-        {activeRole === 'surveyor' && (
+        )}{activeRole === 'surveyor' && (
           <form onSubmit={handleSurveyorLogin}>
             <div style={{ marginBottom: '14px' }}>
               <label
