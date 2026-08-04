@@ -67,29 +67,14 @@ const Login = () => {
         return;
       } else {
         const errData = await res.json().catch(() => ({}));
-        if (errData.error) {
-          setError(errData.error);
-          setLoading(false);
-          return;
-        }
+        setError(errData.error || 'Invalid username or password for Admin login');
       }
     } catch (err) {
-      console.warn('API login offline, checking static credentials:', err);
+      console.error('API login error:', err);
+      setError('Connection error. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    // Client-side authentication fallback for static cloud deployments (Vercel)
-    if (
-      (adminUsername === 'superadmin' && (adminPassword === 'superadmin123' || adminPassword === 'superadmin')) ||
-      (adminUsername === 'indliberatas' && adminPassword === 'ind@123') ||
-      (adminUsername === 'admin' && (adminPassword === 'admin123' || adminPassword === 'admin'))
-    ) {
-      const mockUser = { id: 1, username: adminUsername, name: 'Admin', role: 'admin' };
-      login(mockUser, 'vercel-live-admin-token');
-      navigate('/admin');
-    } else {
-      setError('Invalid username or password for Admin login');
-    }
-    setLoading(false);
   };
 
   const handleSurveyorLogin = async (e) => {
@@ -128,38 +113,14 @@ const Login = () => {
         return;
       } else {
         const errData = await res.json().catch(() => ({}));
-        if (errData.error) {
-          setError(errData.error);
-          setLoading(false);
-          return;
-        }
+        setError(errData.error || 'Invalid username or password for Surveyor login');
       }
     } catch (err) {
-      console.warn('API surveyor login warning:', err);
+      console.error('API surveyor login error:', err);
+      setError('Connection error. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    // Client-side surveyor fallback if offline
-    if (targetUsername.startsWith('surveyor') || targetUsername === 'ram kumar') {
-      const selectedObj = surveyors.find((s) => s.username === targetUsername) || {
-        id: 2,
-        name: targetUsername,
-        username: targetUsername,
-        role: 'surveyor',
-      };
-
-      const mockUser = {
-        id: selectedObj.id,
-        username: selectedObj.username,
-        name: selectedObj.name,
-        role: 'surveyor',
-      };
-
-      login(mockUser, 'vercel-live-surveyor-token');
-      navigate('/surveyor');
-    } else {
-      setError('Invalid username or password for Surveyor login');
-    }
-    setLoading(false);
   };
 
   return (

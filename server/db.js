@@ -72,10 +72,9 @@ export const initDb = async () => {
           role VARCHAR(50) NOT NULL,
           mobile VARCHAR(50) DEFAULT '',
           raw_passkey VARCHAR(100) DEFAULT 'field123',
+          admin_id INTEGER DEFAULT 0,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile VARCHAR(50) DEFAULT '';
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS raw_passkey VARCHAR(100) DEFAULT 'field123';
 
         CREATE TABLE IF NOT EXISTS farmers (
           id SERIAL PRIMARY KEY,
@@ -135,11 +134,6 @@ export const initDb = async () => {
           surveyor_name VARCHAR(150) NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-
-        -- Automatic migrations
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile VARCHAR(50) DEFAULT '';
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS raw_passkey VARCHAR(100) DEFAULT '';
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_id INTEGER DEFAULT 0;
 
         CREATE INDEX IF NOT EXISTS idx_farmers_id_desc ON farmers(id DESC);
         CREATE INDEX IF NOT EXISTS idx_farmers_fid ON farmers(farmer_id);

@@ -113,6 +113,8 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   }
 });
 
+const DEFAULT_SURVEYOR_PASSKEY = 'field123';
+
 // POST /api/surveyors - Admin only: Add new surveyor account under chosen Company Admin
 router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
   cacheClear();
@@ -123,7 +125,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 
   const cleanUsername = (username || '').trim();
   const cleanName = (name || '').trim();
-  const finalPasskey = (password && password.trim()) ? password.trim() : (mobile && mobile.trim()) ? mobile.trim() : 'field123';
+  const finalPasskey = (password && password.trim()) ? password.trim() : (mobile && mobile.trim()) ? mobile.trim() : DEFAULT_SURVEYOR_PASSKEY;
   // If the creator is NOT superadmin, always assign surveyor to themselves (ignore any admin_id from request)
   const isSuper = req.user.username === 'superadmin' || req.user.role === 'superadmin';
   const targetAdminId = isSuper && admin_id ? parseInt(admin_id, 10) : req.user.id;
