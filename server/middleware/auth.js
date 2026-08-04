@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-export const JWT_SECRET = 'farmer_survey_super_secret_key_2026';
+export const JWT_SECRET = process.env.JWT_SECRET || 'farmer_survey_super_secret_key_2026';
 
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
