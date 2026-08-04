@@ -65,7 +65,7 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
     const params = [];
 
     if (!isSuper && user.role === 'admin') {
-      sql += " AND (u.admin_id = ? OR u.admin_id IS NULL OR u.admin_id = 0)";
+      sql += " AND u.admin_id = ?";
       params.push(user.id);
     }
 
@@ -124,7 +124,9 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
   const cleanUsername = (username || '').trim();
   const cleanName = (name || '').trim();
   const finalPasskey = (password && password.trim()) ? password.trim() : (mobile && mobile.trim()) ? mobile.trim() : 'field123';
-  const targetAdminId = admin_id ? parseInt(admin_id, 10) : req.user.id;
+  // If the creator is NOT superadmin, always assign surveyor to themselves (ignore any admin_id from request)
+  const isSuper = req.user.username === 'superadmin' || req.user.role === 'superadmin';
+  const targetAdminId = isSuper && admin_id ? parseInt(admin_id, 10) : req.user.id;
 
   try {
     const existing = await query('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', [cleanUsername]);
