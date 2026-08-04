@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LogIn, Lock, User, CheckCircle2, Sparkles, Sprout } from 'lucide-react';
+import { LogIn, Lock, User, CheckCircle2, Sparkles, Sprout, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [activeRole, setActiveRole] = useState('surveyor');
@@ -13,6 +13,8 @@ const Login = () => {
   const [loadingSurveyors, setLoadingSurveyors] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSurveyorPassword, setShowSurveyorPassword] = useState(false);
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
 
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -379,24 +381,45 @@ const Login = () => {
               >
                 Surveyor Password (पासवर्ड)
               </label>
-              <input
-                type="password"
-                value={surveyorPasswordInput}
-                onChange={(e) => setSurveyorPasswordInput(e.target.value)}
-                placeholder="Enter Password"
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  color: '#ffffff',
-                  fontSize: '0.95rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showSurveyorPassword ? 'text' : 'password'}
+                  value={surveyorPasswordInput}
+                  onChange={(e) => setSurveyorPasswordInput(e.target.value)}
+                  placeholder="Enter Password"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px 44px 12px 16px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    color: '#ffffff',
+                    fontSize: '0.95rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSurveyorPassword(!showSurveyorPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '14px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'rgba(255,255,255,0.7)',
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {showSurveyorPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <button
@@ -471,24 +494,45 @@ const Login = () => {
               >
                 Admin Password
               </label>
-              <input
-                type="password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                placeholder="Enter Password"
-                required
-                style={{
-                  width: '100%',
-                  padding: '14px 16px',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  color: '#ffffff',
-                  fontSize: '0.98rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showAdminPassword ? 'text' : 'password'}
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="Enter Password"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '14px 44px 14px 16px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    color: '#ffffff',
+                    fontSize: '0.98rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword(!showAdminPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '14px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'rgba(255,255,255,0.7)',
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {showAdminPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             <button

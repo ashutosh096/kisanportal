@@ -433,22 +433,24 @@ const SurveyorManagement = () => {
 
             <form onSubmit={handleAddSurveyor}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
-                <div>
-                  <label className="form-label">Assign Company Admin (कंपनी एडमिन चुनें) *</label>
-                  <select
-                    required
-                    className="input-field"
-                    value={selectedAdminId}
-                    onChange={(e) => setSelectedAdminId(e.target.value)}
-                    style={{ borderRadius: '12px', padding: '10px', fontWeight: 700 }}
-                  >
-                    {safeAdmins.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        🏢 {a.name} ({a.username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {user?.username === 'superadmin' && (
+                  <div>
+                    <label className="form-label">Assign Company Admin *</label>
+                    <select
+                      required
+                      className="input-field"
+                      value={selectedAdminId}
+                      onChange={(e) => setSelectedAdminId(e.target.value)}
+                      style={{ borderRadius: '12px', padding: '10px', fontWeight: 700 }}
+                    >
+                      {safeAdmins.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          🏢 {a.name} ({a.username})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="form-label">Full Name (सर्वेक्षक का पूरा नाम) *</label>
@@ -566,22 +568,23 @@ const SurveyorManagement = () => {
 
             <form onSubmit={handleUpdateSurveyor}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
-                <div>
-                  <label className="form-label">Assign Company Admin (कंपनी एडमिन) *</label>
-                  <select
-                    required
-                    className="input-field"
-                    value={editAdminId}
-                    onChange={(e) => setEditAdminId(e.target.value)}
-                    style={{ borderRadius: '12px', padding: '10px', fontWeight: 700 }}
-                  >
-                    {safeAdmins.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        🏢 {a.name} ({a.username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {user?.username === 'superadmin' && (
+                  <div>
+                    <label className="form-label">Assign Company Admin *</label>
+                    <select
+                      className="input-field"
+                      value={editAdminId}
+                      onChange={(e) => setEditAdminId(e.target.value)}
+                      style={{ borderRadius: '12px', padding: '10px', fontWeight: 700 }}
+                    >
+                      {safeAdmins.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          🏢 {a.name} ({a.username})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="form-label">Full Name (सर्वेक्षक का नाम) *</label>
