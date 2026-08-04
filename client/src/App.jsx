@@ -13,6 +13,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import FarmersList from './pages/FarmersList';
 import FarmerProfile from './pages/FarmerProfile';
 import SurveyorManagement from './pages/SurveyorManagement';
+import CompanyAdminManagement from './pages/CompanyAdminManagement';
 import ExportPage from './pages/ExportPage';
 
 function App() {
@@ -54,6 +55,7 @@ function App() {
                     <Route index element={<AdminDashboard />} />
                     <Route path="farmers" element={<FarmersList />} />
                     <Route path="farmer/:farmer_id" element={<FarmerProfile />} />
+                    <Route path="admins" element={<CompanyAdminManagement />} />
                     <Route path="surveyors" element={<SurveyorManagement />} />
                     <Route path="export" element={<ExportPage />} />
                   </Routes>

@@ -1,25 +1,31 @@
 import express from 'express';
 import { query, run } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { cacheGet, cacheSet, cacheClear } from '../cache.js';
 
 const router = express.Router();
 
-// Helper to generate unique Farmer ID without collision
+// Helper to generate unique Farmer ID sequentially (+1 increment, no gaps)
 const generateFarmerId = async () => {
   const year = new Date().getFullYear();
-  const rows = await query('SELECT COUNT(*) as count FROM farmers');
-  let nextNum = (rows[0]?.count || 0) + 1;
-  let farmerId = `F-${year}-${String(nextNum).padStart(3, '0')}`;
+  const rows = await query(
+    "SELECT farmer_id FROM farmers WHERE farmer_id LIKE ? ORDER BY id DESC",
+    [`F-${year}-%`]
+  );
 
-  // Check collision and auto-increment until 100% unique ID is found
-  let existing = await query('SELECT id FROM farmers WHERE farmer_id = ?', [farmerId]);
-  while (existing && existing.length > 0) {
-    nextNum += 1;
-    farmerId = `F-${year}-${String(nextNum).padStart(3, '0')}`;
-    existing = await query('SELECT id FROM farmers WHERE farmer_id = ?', [farmerId]);
+  let maxNum = 0;
+  if (rows && rows.length > 0) {
+    rows.forEach((r) => {
+      const match = (r.farmer_id || '').match(/F-\d+-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    });
   }
 
-  return farmerId;
+  const nextNum = maxNum + 1;
+  return `F-${year}-${String(nextNum).padStart(3, '0')}`;
 };
 
 // POST /api/farmers - Register new farmer with photo & live GPS location
@@ -131,6 +137,8 @@ router.post('/', authenticateToken, async (req, res) => {
       timestamp: new Date().toISOString(),
     };
 
+    cacheClear();
+
     // Broadcast live event to all connected admin clients!
     if (io) {
       io.emit('new_entry', newFarmerEntry);
@@ -146,28 +154,68 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/farmers - List all farmers
+// GET /api/farmers - List farmers filtered by role (surveyor sees own, admin sees company team, superadmin sees all)
 router.get('/', authenticateToken, async (req, res) => {
   const { search, location } = req.query;
+  const user = req.user;
+
+  const cacheKey = `farmers_${user.id}_${user.role}_${search || ''}_${location || ''}`;
+  const cachedData = cacheGet(cacheKey);
+  if (cachedData) {
+    return res.json(cachedData);
+  }
 
   try {
-    let sql = 'SELECT * FROM farmers WHERE 1=1';
+    let sql = `SELECT f.*, 
+                      COALESCE(a.name, 'System Admin') AS admin_name, 
+                      COALESCE(a.username, 'admin') AS admin_username, 
+                      COALESCE(a.id, 0) AS admin_user_id
+               FROM farmers f
+               LEFT JOIN users u ON f.surveyor_id = u.id OR LOWER(f.surveyor_name) = LOWER(u.username) OR LOWER(f.surveyor_name) = LOWER(u.name)
+               LEFT JOIN users a ON u.admin_id = a.id OR (u.role = 'admin' AND u.id = a.id)
+               WHERE 1=1`;
     const params = [];
 
+    const isSuper = user.username === 'superadmin' || user.role === 'superadmin';
+
+    // Data Isolation by Role (SuperAdmin sees ALL farmers)
+    if (!isSuper) {
+      if (user.role === 'surveyor') {
+        const userAdminId = user.admin_id || user.id;
+        sql += ` AND (
+          f.surveyor_id = ?
+          OR f.surveyor_id IN (
+            SELECT id FROM users 
+            WHERE admin_id = ? 
+               OR id = ? 
+               OR admin_id = (SELECT admin_id FROM users WHERE id = ?)
+          )
+          OR LOWER(f.surveyor_name) = LOWER(?)
+          OR (f.surveyor_id IS NULL OR f.surveyor_id = 0)
+        )`;
+        params.push(user.id, userAdminId, userAdminId, user.id, user.name || user.username);
+      } else if (user.role === 'admin') {
+        sql += ` AND (f.surveyor_id IN (SELECT id FROM users WHERE admin_id = ? OR id = ? OR admin_id IS NULL OR admin_id = 0)
+                      OR LOWER(f.surveyor_name) IN (SELECT LOWER(name) FROM users WHERE admin_id = ? OR id = ? OR admin_id IS NULL OR admin_id = 0))`;
+        params.push(user.id, user.id, user.id, user.id);
+      }
+    }
+
     if (search) {
-      sql += ' AND (name LIKE ? OR farmer_id LIKE ? OR contact LIKE ? OR location LIKE ?)';
+      sql += ' AND (LOWER(f.name) LIKE LOWER(?) OR LOWER(f.farmer_id) LIKE LOWER(?) OR LOWER(f.contact) LIKE LOWER(?) OR LOWER(f.location) LIKE LOWER(?))';
       const term = `%${search}%`;
       params.push(term, term, term, term);
     }
 
     if (location) {
-      sql += ' AND location LIKE ?';
+      sql += ' AND LOWER(f.location) LIKE LOWER(?)';
       params.push(`%${location}%`);
     }
 
-    sql += ' ORDER BY id DESC';
+    sql += ' ORDER BY f.id DESC';
 
     const farmers = await query(sql, params);
+    cacheSet(cacheKey, farmers, 30);
     res.json(farmers);
   } catch (err) {
     console.error('Fetch farmers error:', err);
@@ -181,7 +229,14 @@ router.get('/:farmer_id', authenticateToken, async (req, res) => {
 
   try {
     const [farmers, visits] = await Promise.all([
-      query('SELECT * FROM farmers WHERE farmer_id = ?', [farmer_id]),
+      query(
+        `SELECT f.*, COALESCE(a.name, 'System Admin') as admin_name
+         FROM farmers f
+         LEFT JOIN users u ON f.surveyor_id = u.id OR LOWER(f.surveyor_name) = LOWER(u.username) OR LOWER(f.surveyor_name) = LOWER(u.name)
+         LEFT JOIN users a ON u.admin_id = a.id OR (u.role = 'admin' AND u.id = a.id)
+         WHERE f.farmer_id = ?`,
+        [farmer_id]
+      ),
       query('SELECT * FROM surveys WHERE farmer_id = ? ORDER BY visit_date DESC, id DESC', [farmer_id]),
     ]);
 
@@ -191,7 +246,7 @@ router.get('/:farmer_id', authenticateToken, async (req, res) => {
 
     res.json({
       farmer: farmers[0],
-      visits,
+      visits: visits || [],
     });
   } catch (err) {
     console.error('Fetch farmer profile error:', err);

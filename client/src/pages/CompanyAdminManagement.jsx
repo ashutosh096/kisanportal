@@ -1,100 +1,67 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import {
-  Users,
+  Building2,
   UserPlus,
   CheckCircle,
   AlertCircle,
   X,
   Eye,
   Edit2,
-  Trash2,
-  Building2
+  Trash2
 } from 'lucide-react';
 
-const SurveyorManagement = () => {
+const CompanyAdminManagement = () => {
   const { user, token } = useContext(AuthContext);
 
-  const [surveyors, setSurveyors] = useState([]);
-  const [adminsList, setAdminsList] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddSurveyorModal, setShowAddSurveyorModal] = useState(false);
-  const [selectedProfileSurveyor, setSelectedProfileSurveyor] = useState(null);
+  const [showAddAdminModal, setShowAddAdminModal] = useState(false);
+  const [selectedProfileAdmin, setSelectedProfileAdmin] = useState(null);
 
   // Edit / Delete State
-  const [editingSurveyor, setEditingSurveyor] = useState(null);
-  const [deletingSurveyor, setDeletingSurveyor] = useState(null);
+  const [editAdmin, setEditAdmin] = useState(null);
+  const [deleteAdmin, setDeleteAdmin] = useState(null);
 
   // Form State for Add
-  const [surveyorUsername, setSurveyorUsername] = useState('');
-  const [surveyorName, setSurveyorName] = useState('');
-  const [surveyorPassword, setSurveyorPassword] = useState('field123');
-  const [surveyorMobile, setSurveyorMobile] = useState('');
-  const [selectedAdminId, setSelectedAdminId] = useState('');
+  const [adminName, setAdminName] = useState('');
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('admin123');
+  const [adminMobile, setAdminMobile] = useState('');
 
   // Form State for Edit
   const [editName, setEditName] = useState('');
   const [editUsername, setEditUsername] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editMobile, setEditMobile] = useState('');
-  const [editAdminId, setEditAdminId] = useState('');
 
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [modalError, setModalError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const getNextSurveyorUsername = (list = surveyors) => {
-    const validList = Array.isArray(list) ? list : [];
-    const surveyorOnly = validList.filter((s) => s.role === 'surveyor' || s.username?.startsWith('surveyor'));
-    let maxNum = 0;
-    surveyorOnly.forEach((s) => {
-      const match = (s.username || '').match(/surveyor(\d+)/i);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
-      }
-    });
-    return `surveyor${maxNum + 1}`;
-  };
-
-  const fetchSurveyorsAndAdmins = async () => {
+  const fetchAdmins = async () => {
     setLoading(true);
     try {
-      // Fetch Surveyors
-      const res = await fetch('/api/surveyors', {
+      const res = await fetch('/api/auth/admins-list', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        const sorted = [...data].sort((a, b) => a.id - b.id);
-        setSurveyors(sorted);
-        setSurveyorUsername(getNextSurveyorUsername(sorted));
-      }
-
-      // Fetch Admins for Dropdown Selection
-      const adminRes = await fetch('/api/auth/admins-list', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => null);
-      if (adminRes && adminRes.ok) {
-        const adminData = await adminRes.json().catch(() => []);
-        setAdminsList(Array.isArray(adminData) ? adminData : []);
-        if (adminData.length > 0 && !selectedAdminId) {
-          setSelectedAdminId(adminData[0].id);
-        }
+      if (res.ok) {
+        const data = await res.json();
+        setAdmins(Array.isArray(data) ? data : []);
       }
     } catch (err) {
-      console.error('Failed to fetch surveyors data:', err);
+      console.error('Failed to fetch admins list:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSurveyorsAndAdmins();
+    fetchAdmins();
   }, [token]);
 
-  const handleAddSurveyor = async (e) => {
+  const handleAddAdmin = async (e) => {
     e.preventDefault();
     setMsg('');
     setError('');
@@ -102,49 +69,50 @@ const SurveyorManagement = () => {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/surveyors', {
+      const res = await fetch('/api/auth/add-admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          username: surveyorUsername,
-          name: surveyorName,
-          password: surveyorPassword,
-          mobile: surveyorMobile,
-          admin_id: selectedAdminId || user?.id,
+          username: adminUsername,
+          name: adminName,
+          password: adminPassword,
+          mobile: adminMobile,
         }),
       });
 
       if (res.ok) {
-        setMsg(`✅ Field Surveyor "${surveyorName}" created successfully! Username: "${surveyorUsername}" | Password: "${surveyorPassword}"`);
-        setSurveyorName('');
-        setSurveyorMobile('');
-        setShowAddSurveyorModal(false);
-        fetchSurveyorsAndAdmins();
+        setMsg(`✅ Company Admin "${adminName}" created successfully! Username: "${adminUsername}" | Password: "${adminPassword}"`);
+        setAdminName('');
+        setAdminUsername('');
+        setAdminPassword('admin123');
+        setAdminMobile('');
+        setShowAddAdminModal(false);
+        fetchAdmins();
       } else {
         const errData = await res.json().catch(() => ({}));
-        setModalError(errData.error || 'Failed to create Field Surveyor');
+        setModalError(errData.error || 'Failed to create Company Admin');
       }
     } catch (err) {
-      console.error('Add surveyor error:', err);
+      console.error('Add admin error:', err);
       setModalError('Failed to connect to server');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleUpdateSurveyor = async (e) => {
+  const handleUpdateAdmin = async (e) => {
     e.preventDefault();
-    if (!editingSurveyor) return;
+    if (!editAdmin) return;
     setMsg('');
     setError('');
     setModalError('');
     setSubmitting(true);
 
     try {
-      const res = await fetch(`/api/auth/users/${editingSurveyor.id}`, {
+      const res = await fetch(`/api/auth/users/${editAdmin.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -155,56 +123,54 @@ const SurveyorManagement = () => {
           username: editUsername,
           password: editPassword,
           mobile: editMobile,
-          admin_id: editAdminId,
         }),
       });
 
       if (res.ok) {
-        setMsg(`✅ Field Surveyor "${editName}" updated successfully!`);
-        setEditingSurveyor(null);
-        fetchSurveyorsAndAdmins();
+        setMsg(`✅ Company Admin "${editName}" updated successfully!`);
+        setEditAdmin(null);
+        fetchAdmins();
       } else {
         const errData = await res.json().catch(() => ({}));
-        setModalError(errData.error || 'Failed to update Field Surveyor');
+        setModalError(errData.error || 'Failed to update Company Admin');
       }
     } catch (err) {
-      console.error('Update surveyor error:', err);
+      console.error('Update admin error:', err);
       setModalError('Failed to connect to server');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteSurveyor = async () => {
-    if (!deletingSurveyor) return;
+  const handleDeleteAdmin = async () => {
+    if (!deleteAdmin) return;
     setMsg('');
     setError('');
     setSubmitting(true);
 
     try {
-      const res = await fetch(`/api/auth/users/${deletingSurveyor.id}`, {
+      const res = await fetch(`/api/auth/users/${deleteAdmin.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
-        setMsg(`🗑️ Field Surveyor "${deletingSurveyor.name}" deleted successfully.`);
-        setDeletingSurveyor(null);
-        fetchSurveyorsAndAdmins();
+        setMsg(`🗑️ Company Admin "${deleteAdmin.name}" deleted successfully.`);
+        setDeleteAdmin(null);
+        fetchAdmins();
       } else {
         const errData = await res.json().catch(() => ({}));
-        setError(errData.error || 'Failed to delete Field Surveyor');
+        setError(errData.error || 'Failed to delete Company Admin');
       }
     } catch (err) {
-      console.error('Delete surveyor error:', err);
+      console.error('Delete admin error:', err);
       setError('Failed to connect to server');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const safeSurveyors = Array.isArray(surveyors) ? surveyors : [];
-  const safeAdmins = Array.isArray(adminsList) ? adminsList : [];
+  const safeAdmins = Array.isArray(admins) ? admins : [];
 
   return (
     <div>
@@ -226,10 +192,10 @@ const SurveyorManagement = () => {
       >
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Users size={24} color="#0d3c26" /> Field Surveyors (फील्ड सर्वेक्षक)
+            <Building2 size={24} color="#0d3c26" /> Company Admins (कंपनी एडमिन)
           </h1>
           <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
-            Manage active surveyor accounts, view daily performance &amp; login credentials
+            Manage active company admin accounts, login credentials &amp; team performance
           </p>
         </div>
 
@@ -248,25 +214,24 @@ const SurveyorManagement = () => {
               gap: '6px',
             }}
           >
-            Total Surveyors: {safeSurveyors.length}
+            Total Admins: {safeAdmins.length}
           </div>
 
           <button
             onClick={() => {
-              setSurveyorUsername(getNextSurveyorUsername());
-              setSurveyorName('');
-              setSurveyorPassword('field123');
-              setSurveyorMobile('');
-              if (safeAdmins.length > 0) setSelectedAdminId(safeAdmins[0].id);
+              setAdminName('');
+              setAdminUsername('');
+              setAdminPassword('admin123');
+              setAdminMobile('');
               setMsg('');
               setError('');
               setModalError('');
-              setShowAddSurveyorModal(true);
+              setShowAddAdminModal(true);
             }}
             className="btn btn-primary btn-inline"
             style={{ borderRadius: '30px', padding: '10px 22px', fontSize: '0.88rem' }}
           >
-            <UserPlus size={16} /> Add Surveyor (सर्वेक्षक जोड़ें)
+            <UserPlus size={16} /> Add Admin (एडमिन जोड़ें)
           </button>
         </div>
       </div>
@@ -274,51 +239,47 @@ const SurveyorManagement = () => {
       {msg && <div className="alert alert-success" style={{ marginBottom: '16px' }}><CheckCircle size={18} /> {msg}</div>}
       {error && <div className="alert alert-danger" style={{ marginBottom: '16px' }}><AlertCircle size={18} /> {error}</div>}
 
-      {/* FIELD SURVEYORS TABLE */}
+      {/* COMPANY ADMINS TABLE */}
       <div className="option3-panel-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div className="option3-panel-title">
-            <Users size={20} color="#0d3c26" /> Active Field Surveyors List
+            <Building2 size={20} color="#0d3c26" /> Registered Company Admins List
           </div>
         </div>
 
         {loading ? (
-          <p style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Loading field surveyors...</p>
-        ) : safeSurveyors.length === 0 ? (
-          <p style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No field surveyors registered yet.</p>
+          <p style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Loading company admins...</p>
+        ) : safeAdmins.length === 0 ? (
+          <p style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No company admins registered yet.</p>
         ) : (
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name (नाम)</th>
-                  <th>Username (यूज़रनेम)</th>
-                  <th>Company Admin (कंपनी/एडमिन)</th>
-                  <th>Passkey</th>
-                  <th>Registrations</th>
-                  <th>Visits Logged</th>
-                  <th style={{ textAlign: 'right' }}>Actions (कार्रवाई)</th>
+                  <th>Company / Admin Name</th>
+                  <th>Username</th>
+                  <th>Login Passkey</th>
+                  <th>Mobile Number</th>
+                  <th>Team Farmers</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {safeSurveyors.map((s) => (
-                  <tr key={s.id}>
-                    <td style={{ fontWeight: 800, color: '#0f172a' }}>👤 {s.name}</td>
-                    <td style={{ color: '#64748b', fontWeight: 600 }}>{s.username}</td>
-                    <td style={{ fontWeight: 700, color: '#0d3c26', fontSize: '0.85rem' }}>
-                      🏢 {s.admin_name || 'System Admin'}
-                    </td>
+                {safeAdmins.map((a) => (
+                  <tr key={a.id}>
+                    <td style={{ fontWeight: 800, color: '#0f172a' }}>🏢 {a.name}</td>
+                    <td style={{ color: '#64748b', fontWeight: 600 }}>{a.username}</td>
                     <td>
                       <code style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '0.8rem' }}>
-                        {s.raw_passkey || s.mobile || 'field123'}
+                        {a.raw_passkey || 'admin123'}
                       </code>
                     </td>
-                    <td style={{ color: '#15803d', fontWeight: 800 }}>{s.registrations_count || 0}</td>
-                    <td style={{ color: '#1d4ed8', fontWeight: 800 }}>{s.surveys_count || 0}</td>
+                    <td style={{ color: '#64748b', fontSize: '0.85rem' }}>{a.mobile ? `+91 ${a.mobile}` : 'N/A'}</td>
+                    <td style={{ color: '#15803d', fontWeight: 800 }}>{a.registrations_count || 0}</td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '6px' }}>
                         <button
-                          onClick={() => setSelectedProfileSurveyor(s)}
+                          onClick={() => setSelectedProfileAdmin(a)}
                           style={{
                             background: '#f0fdf4',
                             color: '#15803d',
@@ -333,17 +294,16 @@ const SurveyorManagement = () => {
                             gap: '4px',
                           }}
                         >
-                          <Eye size={13} /> Profile
+                          <Eye size={13} /> View
                         </button>
 
                         <button
                           onClick={() => {
-                            setEditingSurveyor(s);
-                            setEditName(s.name || '');
-                            setEditUsername(s.username || '');
-                            setEditPassword(s.raw_passkey || '');
-                            setEditMobile(s.mobile || '');
-                            setEditAdminId(s.admin_id || '');
+                            setEditAdmin(a);
+                            setEditName(a.name || '');
+                            setEditUsername(a.username || '');
+                            setEditPassword(a.raw_passkey || '');
+                            setEditMobile(a.mobile || '');
                             setModalError('');
                           }}
                           style={{
@@ -363,24 +323,26 @@ const SurveyorManagement = () => {
                           <Edit2 size={13} /> Edit
                         </button>
 
-                        <button
-                          onClick={() => setDeletingSurveyor(s)}
-                          style={{
-                            background: '#fef2f2',
-                            color: '#dc2626',
-                            border: '1px solid #fecaca',
-                            borderRadius: '20px',
-                            padding: '4px 12px',
-                            fontSize: '0.78rem',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <Trash2 size={13} /> Delete
-                        </button>
+                        {a.username !== 'superadmin' && a.id !== user?.id && (
+                          <button
+                            onClick={() => setDeleteAdmin(a)}
+                            style={{
+                              background: '#fef2f2',
+                              color: '#dc2626',
+                              border: '1px solid #fecaca',
+                              borderRadius: '20px',
+                              padding: '4px 12px',
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -391,8 +353,8 @@ const SurveyorManagement = () => {
         )}
       </div>
 
-      {/* CREATE NEW FIELD SURVEYOR MODAL WITH COMPANY ADMIN SELECTOR */}
-      {showAddSurveyorModal && (
+      {/* CREATE NEW COMPANY ADMIN MODAL */}
+      {showAddAdminModal && (
         <div
           style={{
             position: 'fixed',
@@ -408,7 +370,7 @@ const SurveyorManagement = () => {
             zIndex: 9999,
             padding: '16px',
           }}
-          onClick={() => setShowAddSurveyorModal(false)}
+          onClick={() => setShowAddAdminModal(false)}
         >
           <div
             style={{
@@ -424,65 +386,50 @@ const SurveyorManagement = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                ➕ Create Field Surveyor Account
+                🏢 Create New Company Admin (नया एडमिन बनाएँ)
               </h2>
-              <button onClick={() => setShowAddSurveyorModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+              <button onClick={() => setShowAddAdminModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleAddSurveyor}>
+            <form onSubmit={handleAddAdmin}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
                 <div>
-                  <label className="form-label">Assign Company Admin (कंपनी एडमिन चुनें) *</label>
-                  <select
-                    required
-                    className="input-field"
-                    value={selectedAdminId}
-                    onChange={(e) => setSelectedAdminId(e.target.value)}
-                    style={{ borderRadius: '12px', padding: '10px', fontWeight: 700 }}
-                  >
-                    {safeAdmins.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        🏢 {a.name} ({a.username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label">Full Name (सर्वेक्षक का पूरा नाम) *</label>
+                  <label className="form-label">Company / Admin Name (कंपनी का नाम) *</label>
                   <input
                     type="text"
                     required
                     className="input-field"
-                    placeholder="e.g. Ramesh Kumar"
-                    value={surveyorName}
-                    onChange={(e) => setSurveyorName(e.target.value)}
+                    placeholder="e.g. AgriTech Enterprises"
+                    value={adminName}
+                    onChange={(e) => setAdminName(e.target.value)}
                     style={{ borderRadius: '12px' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label">Username (यूज़रनेम) *</label>
+                  <label className="form-label">Admin Username (यूज़रनेम) *</label>
                   <input
                     type="text"
                     required
                     className="input-field"
-                    value={surveyorUsername}
-                    onChange={(e) => setSurveyorUsername(e.target.value)}
+                    placeholder="e.g. agritech_admin"
+                    value={adminUsername}
+                    onChange={(e) => setAdminUsername(e.target.value)}
                     style={{ borderRadius: '12px' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label">Password / Passkey (पासवर्ड) *</label>
+                  <label className="form-label">Admin Password / Passkey (पासवर्ड) *</label>
                   <input
                     type="text"
                     required
                     className="input-field"
-                    value={surveyorPassword}
-                    onChange={(e) => setSurveyorPassword(e.target.value)}
+                    placeholder="e.g. admin123"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
                     style={{ borderRadius: '12px' }}
                   />
                 </div>
@@ -493,8 +440,8 @@ const SurveyorManagement = () => {
                     type="tel"
                     className="input-field"
                     placeholder="10-digit mobile number"
-                    value={surveyorMobile}
-                    onChange={(e) => setSurveyorMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    value={adminMobile}
+                    onChange={(e) => setAdminMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     style={{ borderRadius: '12px' }}
                   />
                 </div>
@@ -513,9 +460,9 @@ const SurveyorManagement = () => {
                   className="btn btn-primary btn-inline"
                   style={{ flex: 1, borderRadius: '30px', padding: '12px', opacity: submitting ? 0.7 : 1 }}
                 >
-                  {submitting ? 'Creating Surveyor...' : 'Create Surveyor (खाता बनाएँ)'}
+                  {submitting ? 'Creating Admin...' : 'Create Admin Account (एडमिन बनाएँ)'}
                 </button>
-                <button type="button" onClick={() => setShowAddSurveyorModal(false)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
+                <button type="button" onClick={() => setShowAddAdminModal(false)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
                   Cancel
                 </button>
               </div>
@@ -524,8 +471,8 @@ const SurveyorManagement = () => {
         </div>
       )}
 
-      {/* EDIT FIELD SURVEYOR MODAL */}
-      {editingSurveyor && (
+      {/* EDIT COMPANY ADMIN MODAL */}
+      {editAdmin && (
         <div
           style={{
             position: 'fixed',
@@ -541,7 +488,7 @@ const SurveyorManagement = () => {
             zIndex: 9999,
             padding: '16px',
           }}
-          onClick={() => setEditingSurveyor(null)}
+          onClick={() => setEditAdmin(null)}
         >
           <div
             style={{
@@ -557,34 +504,17 @@ const SurveyorManagement = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                ✏️ Edit Field Surveyor Details
+                ✏️ Edit Company Admin Details
               </h2>
-              <button onClick={() => setEditingSurveyor(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+              <button onClick={() => setEditAdmin(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateSurveyor}>
+            <form onSubmit={handleUpdateAdmin}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
                 <div>
-                  <label className="form-label">Assign Company Admin (कंपनी एडमिन) *</label>
-                  <select
-                    required
-                    className="input-field"
-                    value={editAdminId}
-                    onChange={(e) => setEditAdminId(e.target.value)}
-                    style={{ borderRadius: '12px', padding: '10px', fontWeight: 700 }}
-                  >
-                    {safeAdmins.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        🏢 {a.name} ({a.username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label">Full Name (सर्वेक्षक का नाम) *</label>
+                  <label className="form-label">Company / Admin Name (नाम) *</label>
                   <input
                     type="text"
                     required
@@ -596,7 +526,7 @@ const SurveyorManagement = () => {
                 </div>
 
                 <div>
-                  <label className="form-label">Username (यूज़रनेम) *</label>
+                  <label className="form-label">Admin Username (यूज़रनेम) *</label>
                   <input
                     type="text"
                     required
@@ -646,7 +576,7 @@ const SurveyorManagement = () => {
                 >
                   {submitting ? 'Saving Changes...' : 'Save Changes (बदलाव सहेजें)'}
                 </button>
-                <button type="button" onClick={() => setEditingSurveyor(null)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
+                <button type="button" onClick={() => setEditAdmin(null)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
                   Cancel
                 </button>
               </div>
@@ -655,8 +585,8 @@ const SurveyorManagement = () => {
         </div>
       )}
 
-      {/* DELETE FIELD SURVEYOR CONFIRMATION MODAL */}
-      {deletingSurveyor && (
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteAdmin && (
         <div
           style={{
             position: 'fixed',
@@ -672,7 +602,7 @@ const SurveyorManagement = () => {
             zIndex: 9999,
             padding: '16px',
           }}
-          onClick={() => setDeletingSurveyor(null)}
+          onClick={() => setDeleteAdmin(null)}
         >
           <div
             style={{
@@ -687,22 +617,22 @@ const SurveyorManagement = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: '0 0 10px 0' }}>
-              🗑️ Delete Field Surveyor Account?
+              🗑️ Delete Company Admin?
             </h3>
             <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0 0 20px 0' }}>
-              Are you sure you want to delete Field Surveyor <strong>"{deletingSurveyor.name}"</strong> (`{deletingSurveyor.username}`)? This action cannot be undone.
+              Are you sure you want to delete Company Admin account <strong>"{deleteAdmin.name}"</strong> (`{deleteAdmin.username}`)? This action cannot be undone.
             </p>
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
-                onClick={handleDeleteSurveyor}
+                onClick={handleDeleteAdmin}
                 disabled={submitting}
                 className="btn btn-danger btn-inline"
                 style={{ flex: 1, borderRadius: '30px', padding: '12px', background: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 800, cursor: 'pointer' }}
               >
-                {submitting ? 'Deleting...' : 'Yes, Delete Surveyor'}
+                {submitting ? 'Deleting...' : 'Yes, Delete Admin'}
               </button>
-              <button onClick={() => setDeletingSurveyor(null)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
+              <button onClick={() => setDeleteAdmin(null)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
                 Cancel
               </button>
             </div>
@@ -710,8 +640,8 @@ const SurveyorManagement = () => {
         </div>
       )}
 
-      {/* VIEW SURVEYOR PROFILE MODAL */}
-      {selectedProfileSurveyor && (
+      {/* VIEW ADMIN PROFILE MODAL */}
+      {selectedProfileAdmin && (
         <div
           style={{
             position: 'fixed',
@@ -727,7 +657,7 @@ const SurveyorManagement = () => {
             zIndex: 9999,
             padding: '16px',
           }}
-          onClick={() => setSelectedProfileSurveyor(null)}
+          onClick={() => setSelectedProfileAdmin(null)}
         >
           <div
             style={{
@@ -744,28 +674,27 @@ const SurveyorManagement = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
-                  👤
+                  🏢
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>{selectedProfileSurveyor.name}</h3>
-                  <div style={{ fontSize: '0.8rem', color: '#15803d', fontWeight: 700 }}>Field Surveyor Profile</div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>{selectedProfileAdmin.name}</h3>
+                  <div style={{ fontSize: '0.8rem', color: '#15803d', fontWeight: 700 }}>Company Admin Profile</div>
                 </div>
               </div>
-              <button onClick={() => setSelectedProfileSurveyor(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>
+              <button onClick={() => setSelectedProfileAdmin(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>
                 <X size={18} color="#64748b" />
               </button>
             </div>
 
             <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '14px', marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.88rem' }}>
-              <div><strong>Username:</strong> {selectedProfileSurveyor.username}</div>
-              <div><strong>Assigned Company Admin:</strong> 🏢 {selectedProfileSurveyor.admin_name || 'System Admin'}</div>
-              <div><strong>Passkey:</strong> <code style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>{selectedProfileSurveyor.raw_passkey || 'field123'}</code></div>
-              <div><strong>Mobile:</strong> {selectedProfileSurveyor.mobile ? `+91 ${selectedProfileSurveyor.mobile}` : 'N/A'}</div>
-              <div><strong>Registrations:</strong> {selectedProfileSurveyor.registrations_count || 0} Farmers</div>
-              <div><strong>Visits Logged:</strong> {selectedProfileSurveyor.surveys_count || 0} Visits</div>
+              <div><strong>Company / Admin Name:</strong> {selectedProfileAdmin.name}</div>
+              <div><strong>Username:</strong> {selectedProfileAdmin.username}</div>
+              <div><strong>Passkey:</strong> <code style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>{selectedProfileAdmin.raw_passkey || 'admin123'}</code></div>
+              <div><strong>Mobile:</strong> {selectedProfileAdmin.mobile ? `+91 ${selectedProfileAdmin.mobile}` : 'N/A'}</div>
+              <div><strong>Team Farmers:</strong> {selectedProfileAdmin.registrations_count || 0} Farmers</div>
             </div>
 
-            <button onClick={() => setSelectedProfileSurveyor(null)} className="btn btn-primary btn-inline" style={{ width: '100%', borderRadius: '30px', padding: '10px' }}>
+            <button onClick={() => setSelectedProfileAdmin(null)} className="btn btn-primary btn-inline" style={{ width: '100%', borderRadius: '30px', padding: '10px' }}>
               Close Profile
             </button>
           </div>
@@ -775,4 +704,4 @@ const SurveyorManagement = () => {
   );
 };
 
-export default SurveyorManagement;
+export default CompanyAdminManagement;

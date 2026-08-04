@@ -7,6 +7,7 @@ import {
   Database,
   LogOut,
   UserCheck,
+  Building2,
 } from 'lucide-react';
 
 const AdminLayout = ({ children }) => {
@@ -19,10 +20,17 @@ const AdminLayout = ({ children }) => {
     navigate('/login');
   };
 
+  const isSuper = user?.username === 'superadmin' || user?.role === 'superadmin';
+
   const navItems = [
-    { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+    { label: isSuper ? 'Super Dashboard' : 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { label: 'Total Farmers', path: '/admin/farmers', icon: UserCheck },
-    { label: 'Surveyors', path: '/admin/surveyors', icon: Users },
+    ...(isSuper
+      ? [
+          { label: 'Company Admins', path: '/admin/admins', icon: Building2 },
+          { label: 'Field Surveyors', path: '/admin/surveyors', icon: Users },
+        ]
+      : [{ label: 'Field Surveyors', path: '/admin/surveyors', icon: Users }]),
     { label: 'Export Data', path: '/admin/export', icon: Database },
   ];
 

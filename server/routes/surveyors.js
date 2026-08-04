@@ -2,31 +2,97 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { query, run } from '../db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { cacheGet, cacheSet, cacheClear } from '../cache.js';
 
 const router = express.Router();
 
-// GET /api/surveyors - Admin only: List all surveyors with detailed submission counts & profile info
-router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
-  try {
-    const surveyors = await query(
-      "SELECT id, username, name, mobile, raw_passkey, created_at FROM users WHERE role = 'surveyor' ORDER BY id ASC"
-    );
+// GET /api/surveyors/my-stats - Get stats for currently logged in field surveyor
+router.get('/my-stats', authenticateToken, async (req, res) => {
+  const user = req.user;
+  const todayStr = new Date().toISOString().split('T')[0];
 
+  try {
+    const [totalReg, todayReg, totalSurv, todaySurv] = await Promise.all([
+      query(
+        'SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)',
+        [user.id, user.username, user.name || '']
+      ),
+      query(
+        "SELECT COUNT(*) as count FROM farmers WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)) AND (date = ? OR created_at::text LIKE ?)",
+        [user.id, user.username, user.name || '', todayStr, `${todayStr}%`]
+      ),
+      query(
+        'SELECT COUNT(*) as count FROM surveys WHERE surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)',
+        [user.id, user.username, user.name || '']
+      ),
+      query(
+        "SELECT COUNT(*) as count FROM surveys WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)) AND (visit_date = ? OR created_at::text LIKE ?)",
+        [user.id, user.username, user.name || '', todayStr, `${todayStr}%`]
+      ),
+    ]);
+
+    const tReg = parseInt(totalReg[0]?.count || 0, 10);
+    const tdReg = parseInt(todayReg[0]?.count || 0, 10);
+    const tSurv = parseInt(totalSurv[0]?.count || 0, 10);
+    const tdSurv = parseInt(todaySurv[0]?.count || 0, 10);
+
+    res.json({
+      todaysReg: tdReg,
+      todaysSurveys: tdSurv,
+      totalReg: tReg,
+      totalSurveys: tSurv,
+    });
+  } catch (err) {
+    console.error('Fetch surveyor my-stats error:', err);
+    res.status(500).json({ error: 'Failed to fetch surveyor stats' });
+  }
+});
+
+// GET /api/surveyors - Admin: List surveyors with assigned company admin name
+router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
+  const user = req.user;
+  const isSuper = user.username === 'superadmin' || user.role === 'superadmin';
+
+  const cacheKey = `surveyors_${user.id}_${isSuper}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return res.json(cached);
+
+  try {
+    let sql = `SELECT u.id, u.username, u.name, u.mobile, u.raw_passkey, u.admin_id, u.created_at, COALESCE(a.name, 'System Admin') as admin_name
+               FROM users u
+               LEFT JOIN users a ON u.admin_id = a.id
+               WHERE u.role = 'surveyor'`;
+    const params = [];
+
+    if (!isSuper && user.role === 'admin') {
+      sql += " AND (u.admin_id = ? OR u.admin_id IS NULL OR u.admin_id = 0)";
+      params.push(user.id);
+    }
+
+    sql += " ORDER BY u.id ASC";
+
+    const surveyors = await query(sql, params);
     const todayStr = new Date().toISOString().split('T')[0];
 
     // Get submission counts (Today & Total)
     const withCounts = await Promise.all(
       surveyors.map(async (s) => {
-        const totalRegRes = await query('SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ?', [s.id]);
+        const totalRegRes = await query(
+          'SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)',
+          [s.id, s.username, s.name]
+        );
         const todayRegRes = await query(
-          "SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ? AND (date = ? OR created_at::text LIKE ?)",
-          [s.id, todayStr, `${todayStr}%`]
+          "SELECT COUNT(*) as count FROM farmers WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)) AND (date = ? OR created_at::text LIKE ?)",
+          [s.id, s.username, s.name, todayStr, `${todayStr}%`]
         );
 
-        const totalSurvRes = await query('SELECT COUNT(*) as count FROM surveys WHERE surveyor_id = ?', [s.id]);
+        const totalSurvRes = await query(
+          'SELECT COUNT(*) as count FROM surveys WHERE surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)',
+          [s.id, s.username, s.name]
+        );
         const todaySurvRes = await query(
-          "SELECT COUNT(*) as count FROM surveys WHERE surveyor_id = ? AND (visit_date = ? OR created_at::text LIKE ?)",
-          [s.id, todayStr, `${todayStr}%`]
+          "SELECT COUNT(*) as count FROM surveys WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)) AND (visit_date = ? OR created_at::text LIKE ?)",
+          [s.id, s.username, s.name, todayStr, `${todayStr}%`]
         );
 
         return {
@@ -39,6 +105,7 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
       })
     );
 
+    cacheSet(cacheKey, withCounts, 30);
     res.json(withCounts);
   } catch (err) {
     console.error('Fetch surveyors error:', err);
@@ -46,9 +113,10 @@ router.get('/', authenticateToken, requireRole('admin'), async (req, res) => {
   }
 });
 
-// POST /api/surveyors - Admin only: Add new surveyor account with custom username & password & mobile
+// POST /api/surveyors - Admin only: Add new surveyor account under chosen Company Admin
 router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
-  const { username, mobile, name, password } = req.body;
+  cacheClear();
+  const { username, mobile, name, password, admin_id } = req.body;
   if (!username || !name) {
     return res.status(400).json({ error: 'Username and name are required' });
   }
@@ -56,6 +124,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
   const cleanUsername = (username || '').trim();
   const cleanName = (name || '').trim();
   const finalPasskey = (password && password.trim()) ? password.trim() : (mobile && mobile.trim()) ? mobile.trim() : 'field123';
+  const targetAdminId = admin_id ? parseInt(admin_id, 10) : req.user.id;
 
   try {
     const existing = await query('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', [cleanUsername]);
@@ -65,8 +134,8 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 
     const passwordHash = await bcrypt.hash(finalPasskey, 10);
     const result = await run(
-      "INSERT INTO users (username, password_hash, name, role, mobile, raw_passkey) VALUES (?, ?, ?, 'surveyor', ?, ?)",
-      [cleanUsername, passwordHash, cleanName, mobile || '', finalPasskey]
+      "INSERT INTO users (username, password_hash, name, role, mobile, raw_passkey, admin_id) VALUES (?, ?, ?, 'surveyor', ?, ?, ?)",
+      [cleanUsername, passwordHash, cleanName, mobile || '', finalPasskey, targetAdminId]
     );
 
     const newSurveyorObj = {

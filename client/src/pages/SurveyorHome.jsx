@@ -11,33 +11,17 @@ const SurveyorHome = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/surveys/live-feed', {
+        const res = await fetch('/api/surveyors/my-stats', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data)) {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const sName = user?.name || user?.username;
-
-            const todaysReg = data.filter(
-              (e) => e.entry_type === 'registration' && (e.timestamp?.startsWith(todayStr) || e.visit_date === todayStr) && (e.surveyor_name === sName || e.surveyor_id === user?.id)
-            ).length;
-
-            const todaysSurveys = data.filter(
-              (e) => e.entry_type === 'survey' && (e.timestamp?.startsWith(todayStr) || e.visit_date === todayStr) && (e.surveyor_name === sName || e.surveyor_id === user?.id)
-            ).length;
-
-            const totalReg = data.filter(
-              (e) => e.entry_type === 'registration' && (e.surveyor_name === sName || e.surveyor_id === user?.id)
-            ).length;
-
-            const totalSurveys = data.filter(
-              (e) => e.entry_type === 'survey' && (e.surveyor_name === sName || e.surveyor_id === user?.id)
-            ).length;
-
-            setStats({ todaysReg, todaysSurveys, totalReg, totalSurveys });
-          }
+          setStats({
+            todaysReg: data.todaysReg || 0,
+            todaysSurveys: data.todaysSurveys || 0,
+            totalReg: data.totalReg || 0,
+            totalSurveys: data.totalSurveys || 0,
+          });
         }
       } catch (err) {
         console.error('Failed to fetch surveyor stats:', err);
@@ -45,7 +29,7 @@ const SurveyorHome = () => {
     };
 
     fetchStats();
-  }, [token, user?.name, user?.id]);
+  }, [token]);
 
   const todayCount = stats.todaysReg + stats.todaysSurveys;
   const totalCount = stats.totalReg + stats.totalSurveys;

@@ -36,6 +36,9 @@ try {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
   });
+  pgPool.on('error', (err) => {
+    console.warn('⚠️ Idle PostgreSQL pool connection warning:', err.message);
+  });
   console.log('🐘 Neon PostgreSQL Pool Initialized');
 } catch (err) {
   console.warn('⚠️ Failed to initialize PG Pool, falling back to local storage:', err.message);
@@ -137,20 +140,23 @@ export const initDb = async () => {
         );
 
         -- Automatic migrations
-        ALTER TABLE surveys ADD COLUMN IF NOT EXISTS irrigation_depth VARCHAR(100) DEFAULT '';
-        ALTER TABLE farmers ADD COLUMN IF NOT EXISTS crop_growth_stage VARCHAR(100) DEFAULT '';
-        ALTER TABLE farmers ADD COLUMN IF NOT EXISTS crop_height VARCHAR(100) DEFAULT '';
-        ALTER TABLE farmers ADD COLUMN IF NOT EXISTS flowering_status VARCHAR(100) DEFAULT '';
-        ALTER TABLE farmers ADD COLUMN IF NOT EXISTS seed_age VARCHAR(100) DEFAULT '';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile VARCHAR(50) DEFAULT '';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS raw_passkey VARCHAR(100) DEFAULT '';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_id INTEGER DEFAULT 0;
 
         CREATE INDEX IF NOT EXISTS idx_farmers_id_desc ON farmers(id DESC);
         CREATE INDEX IF NOT EXISTS idx_farmers_fid ON farmers(farmer_id);
         CREATE INDEX IF NOT EXISTS idx_surveys_fid ON surveys(farmer_id);
+        CREATE INDEX IF NOT EXISTS idx_farmers_surveyor_id ON farmers(surveyor_id);
+        CREATE INDEX IF NOT EXISTS idx_users_admin_id ON users(admin_id);
+        CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+        CREATE INDEX IF NOT EXISTS idx_surveys_surveyor_id ON surveys(surveyor_id);
       `);
 
       // Seed initial users if table is empty
       const userCheck = await pgPool.query('SELECT COUNT(*) FROM users');
       if (parseInt(userCheck.rows[0].count, 10) === 0) {
+        const superPass = await bcrypt.hash('superadmin123', 10);
         const indPass = await bcrypt.hash('ind@123', 10);
         const adminPass = await bcrypt.hash('admin123', 10);
         const surveyorPass = await bcrypt.hash('field123', 10);
@@ -160,8 +166,10 @@ export const initDb = async () => {
            ($1, $2, $3, $4, $5),
            ($6, $7, $8, $9, $10),
            ($11, $12, $13, $14, $15),
-           ($16, $17, $18, $19, $20)`,
+           ($16, $17, $18, $19, $20),
+           ($21, $22, $23, $24, $25)`,
           [
+            'superadmin', superPass, 'Super Admin', 'admin', 'superadmin123',
             'indliberatas', indPass, 'Indliberatas Admin', 'admin', 'ind@123',
             'admin', adminPass, 'System Admin', 'admin', 'admin123',
             'surveyor1', surveyorPass, 'Ramesh Kumar', 'surveyor', 'field123',

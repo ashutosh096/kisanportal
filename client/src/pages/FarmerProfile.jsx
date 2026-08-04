@@ -188,8 +188,8 @@ const FarmerProfile = () => {
             <div><strong>Growth Stage:</strong> {farmer.crop_growth_stage || '-'}</div>
             <div><strong>Crop Height:</strong> {farmer.crop_height || '-'}</div>
             <div><strong>Flowering Status:</strong> {farmer.flowering_status || '-'}</div>
-            <div><strong>Expert Advice:</strong> {farmer.expert_advice === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
-            <div><strong>Registered By:</strong> {farmer.surveyor_name}</div>
+            <div><strong>Company Admin (कंपनी/एडमिन):</strong> <strong style={{ color: '#0d3c26' }}>🏢 {farmer.admin_name || 'System Admin'}</strong></div>
+            <div><strong>Registered By (सर्वेक्षक):</strong> 👤 {farmer.surveyor_name}</div>
           </div>
         </div>
       </div>

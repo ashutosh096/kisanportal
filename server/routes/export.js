@@ -14,11 +14,11 @@ router.get('/excel', authenticateToken, requireRole('admin'), async (req, res) =
     const params = [];
 
     if (location) {
-      farmerSql += ' AND location LIKE ?';
+      farmerSql += ' AND LOWER(location) LIKE LOWER(?)';
       params.push(`%${location}%`);
     }
     if (surveyor) {
-      farmerSql += ' AND surveyor_name LIKE ?';
+      farmerSql += ' AND LOWER(surveyor_name) LIKE LOWER(?)';
       params.push(`%${surveyor}%`);
     }
     if (startDate) {
@@ -42,11 +42,11 @@ router.get('/excel', authenticateToken, requireRole('admin'), async (req, res) =
     const surveyParams = [];
 
     if (location) {
-      surveySql += ' AND f.location LIKE ?';
+      surveySql += ' AND LOWER(f.location) LIKE LOWER(?)';
       surveyParams.push(`%${location}%`);
     }
     if (surveyor) {
-      surveySql += ' AND s.surveyor_name LIKE ?';
+      surveySql += ' AND LOWER(s.surveyor_name) LIKE LOWER(?)';
       surveyParams.push(`%${surveyor}%`);
     }
     if (startDate) {

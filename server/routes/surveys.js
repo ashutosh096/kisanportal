@@ -1,6 +1,7 @@
 import express from 'express';
 import { query, run } from '../db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { cacheGet, cacheSet, cacheClear } from '../cache.js';
 
 const router = express.Router();
 
@@ -92,6 +93,8 @@ router.post('/', authenticateToken, async (req, res) => {
       timestamp: new Date().toISOString(),
     };
 
+    cacheClear();
+
     if (io) {
       io.emit('new_entry', newSurveyEntry);
     }
@@ -105,24 +108,82 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/surveys/live-feed - Admin live feed combining registrations & surveys
+// GET /api/surveys/live-feed - Live feed combining registrations & surveys (isolated by role)
 router.get('/live-feed', authenticateToken, async (req, res) => {
-  try {
-    const regList = await query(
-      `SELECT 'registration' as entry_type, farmer_id, name, contact, location, gps_location, photo_url, surveyor_name, created_at as timestamp, date as visit_date
-       FROM farmers ORDER BY id DESC LIMIT 50`
-    );
+  const user = req.user;
 
-    const surveyList = await query(
-      `SELECT 'survey' as entry_type, s.farmer_id, f.name, f.contact, f.location, s.gps_location, f.photo_url, s.surveyor_name, s.created_at as timestamp, s.visit_date
-       FROM surveys s JOIN farmers f ON s.farmer_id = f.farmer_id
-       ORDER BY s.id DESC LIMIT 50`
-    );
+  const cacheKey = `live_feed_${user.id}_${user.role}`;
+  const cachedFeed = cacheGet(cacheKey);
+  if (cachedFeed) {
+    return res.json(cachedFeed);
+  }
+
+  try {
+    let regSql = `SELECT 'registration' as entry_type, f.farmer_id, f.name, f.contact, f.location, f.gps_location, f.photo_url, f.surveyor_name, f.created_at as timestamp, f.date as visit_date, COALESCE(a.name, 'System Admin') as admin_name
+                  FROM farmers f
+                  LEFT JOIN users u ON f.surveyor_id = u.id OR LOWER(f.surveyor_name) = LOWER(u.username) OR LOWER(f.surveyor_name) = LOWER(u.name)
+                  LEFT JOIN users a ON u.admin_id = a.id OR (u.role = 'admin' AND u.id = a.id)
+                  WHERE 1=1`;
+    let surveySql = `SELECT 'survey' as entry_type, s.farmer_id, f.name, f.contact, f.location, s.gps_location, f.photo_url, s.surveyor_name, s.created_at as timestamp, s.visit_date, COALESCE(a.name, 'System Admin') as admin_name
+                     FROM surveys s
+                     JOIN farmers f ON s.farmer_id = f.farmer_id
+                     LEFT JOIN users u ON s.surveyor_id = u.id OR LOWER(s.surveyor_name) = LOWER(u.username) OR LOWER(s.surveyor_name) = LOWER(u.name)
+                     LEFT JOIN users a ON u.admin_id = a.id OR (u.role = 'admin' AND u.id = a.id)
+                     WHERE 1=1`;
+    const regParams = [];
+    const surveyParams = [];
+
+    const isSuper = user.username === 'superadmin' || user.role === 'superadmin';
+
+    if (!isSuper) {
+      if (user.role === 'surveyor') {
+        const userAdminId = user.admin_id || user.id;
+        const teamFilter = ` (
+          surveyor_id = ? 
+          OR surveyor_id IN (
+            SELECT id FROM users 
+            WHERE admin_id = ? 
+               OR id = ? 
+               OR admin_id = (SELECT admin_id FROM users WHERE id = ?)
+          )
+          OR LOWER(surveyor_name) = LOWER(?)
+        )`;
+        regSql += ` AND ${teamFilter}`;
+        regParams.push(user.id, userAdminId, userAdminId, user.id, user.name || user.username);
+
+        surveySql += ` AND (
+          s.surveyor_id = ? 
+          OR s.surveyor_id IN (
+            SELECT id FROM users 
+            WHERE admin_id = ? 
+               OR id = ? 
+               OR admin_id = (SELECT admin_id FROM users WHERE id = ?)
+          )
+          OR LOWER(s.surveyor_name) = LOWER(?)
+        )`;
+        surveyParams.push(user.id, userAdminId, userAdminId, user.id, user.name || user.username);
+      } else if (user.role === 'admin') {
+        regSql += ` AND (surveyor_id IN (SELECT id FROM users WHERE admin_id = ? OR id = ? OR admin_id IS NULL OR admin_id = 0)
+                        OR LOWER(surveyor_name) IN (SELECT LOWER(name) FROM users WHERE admin_id = ? OR id = ? OR admin_id IS NULL OR admin_id = 0))`;
+        regParams.push(user.id, user.id, user.id, user.id);
+
+        surveySql += ` AND (s.surveyor_id IN (SELECT id FROM users WHERE admin_id = ? OR id = ? OR admin_id IS NULL OR admin_id = 0)
+                          OR LOWER(s.surveyor_name) IN (SELECT LOWER(name) FROM users WHERE admin_id = ? OR id = ? OR admin_id IS NULL OR admin_id = 0))`;
+        surveyParams.push(user.id, user.id, user.id, user.id);
+      }
+    }
+
+    regSql += ' ORDER BY f.id DESC LIMIT 50';
+    surveySql += ' ORDER BY s.id DESC LIMIT 50';
+
+    const regList = await query(regSql, regParams);
+    const surveyList = await query(surveySql, surveyParams);
 
     const combined = [...regList, ...surveyList].sort(
       (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
     );
 
+    cacheSet(cacheKey, combined, 30);
     res.json(combined);
   } catch (err) {
     console.error('Fetch live feed error:', err);
