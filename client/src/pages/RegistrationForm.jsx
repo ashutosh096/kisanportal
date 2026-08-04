@@ -1049,10 +1049,9 @@ const RegistrationForm = () => {
                     onChange={(e) => handleLandAreaChange(areaNum, e.target.value)}
                     style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
                   >
+                    <option value="Katha (कट्ठा)">Katha (कट्ठा)</option>
                     <option value="Acres (एकड़)">Acres (एकड़)</option>
                     <option value="Hectares (हेक्टेयर)">Hectares (हेक्टेयर)</option>
-                    <option value="Bigha (बीघा)">Bigha (बीघा)</option>
-                    <option value="Katha (कट्ठा)">Katha (कट्ठा)</option>
                   </select>
 
                   {/* Area Number Input */}
@@ -1148,10 +1147,12 @@ const RegistrationForm = () => {
                 </div>
 
                 <div className="form-group" style={{ flex: '1 1 200px' }}>
-                  <label className="form-label">Seed Condition (बीज नया या पुराना?)</label>
+                  <label className="form-label">Seed Age (बीज की आयु)</label>
                   <select className="select-field" name="seed_age" value={formData.seed_age} onChange={handleChange}>
-                    <option value="New Seed (नया बीज)">New Seed (नया बीज)</option>
-                    <option value="Old Seed (पुराना बीज)">Old Seed (पुराना / सहेजा बीज)</option>
+                    <option value="1-3 Months (1-3 महीने)">1 to 3 Months</option>
+                    <option value="3-6 Months (3-6 महीने)">3 to 6 Months</option>
+                    <option value="6-12 Months (6-12 महीने)">6 to 12 Months</option>
+                    <option value="More than 1 Year (1 साल से ज़्यादा)">More than 1 Year</option>
                   </select>
                 </div>
               </div>
