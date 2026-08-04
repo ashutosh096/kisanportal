@@ -168,98 +168,100 @@ const FarmersList = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* CUSTOM STYLED COMPANY FILTER DROPDOWN */}
-          <div ref={dropdownRef} style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              style={{
-                background: isDropdownOpen ? '#ecfdf5' : '#ffffff',
-                border: '2px solid #0d3c26',
-                borderRadius: '30px',
-                padding: '8px 18px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                boxShadow: '0 2px 10px rgba(13, 60, 38, 0.1)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-              }}
-            >
-              <Building2 size={16} color="#0d3c26" />
-              <span style={{ fontWeight: 800, fontSize: '0.85rem', color: '#64748b' }}>Company:</span>
-              <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>{currentOption.icon}</span> {currentOption.label}
-              </span>
-              <ChevronDown
-                size={16}
-                color="#0d3c26"
+          {/* CUSTOM STYLED COMPANY FILTER DROPDOWN — SuperAdmin Only */}
+          {user?.username === 'superadmin' && (
+            <div ref={dropdownRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 style={{
-                  transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease',
-                }}
-              />
-            </button>
-
-            {isDropdownOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
-                  width: '320px',
-                  maxHeight: '300px',
-                  overflowY: 'auto',
-                  background: '#ffffff',
-                  borderRadius: '16px',
-                  border: '1.5px solid #cbd5e1',
-                  boxShadow: '0 12px 32px -4px rgba(13, 60, 38, 0.2), 0 4px 12px rgba(0, 0, 0, 0.05)',
-                  zIndex: 1000,
-                  padding: '6px',
+                  background: isDropdownOpen ? '#ecfdf5' : '#ffffff',
+                  border: '2px solid #0d3c26',
+                  borderRadius: '30px',
+                  padding: '8px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 2px 10px rgba(13, 60, 38, 0.1)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  outline: 'none',
                 }}
               >
-                {filterOptions.map((opt) => {
-                  const isSelected = selectedCompanyFilter === opt.value;
-                  return (
-                    <div
-                      key={opt.value}
-                      onClick={() => {
-                        setSelectedCompanyFilter(opt.value);
-                        setIsDropdownOpen(false);
-                      }}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        fontSize: '0.88rem',
-                        fontWeight: isSelected ? 800 : 600,
-                        color: isSelected ? '#0d3c26' : '#1e293b',
-                        background: isSelected ? '#dcfce7' : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        transition: 'background 0.15s ease',
-                        marginBottom: '2px',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) e.currentTarget.style.background = '#f1f5f9';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) e.currentTarget.style.background = 'transparent';
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontSize: '1.1rem' }}>{opt.icon}</span>
-                        <span>{opt.label}</span>
+                <Building2 size={16} color="#0d3c26" />
+                <span style={{ fontWeight: 800, fontSize: '0.85rem', color: '#64748b' }}>Company:</span>
+                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{currentOption.icon}</span> {currentOption.label}
+                </span>
+                <ChevronDown
+                  size={16}
+                  color="#0d3c26"
+                  style={{
+                    transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                  }}
+                />
+              </button>
+
+              {isDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    width: '320px',
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    background: '#ffffff',
+                    borderRadius: '16px',
+                    border: '1.5px solid #cbd5e1',
+                    boxShadow: '0 12px 32px -4px rgba(13, 60, 38, 0.2), 0 4px 12px rgba(0, 0, 0, 0.05)',
+                    zIndex: 1000,
+                    padding: '6px',
+                  }}
+                >
+                  {filterOptions.map((opt) => {
+                    const isSelected = selectedCompanyFilter === opt.value;
+                    return (
+                      <div
+                        key={opt.value}
+                        onClick={() => {
+                          setSelectedCompanyFilter(opt.value);
+                          setIsDropdownOpen(false);
+                        }}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          fontSize: '0.88rem',
+                          fontWeight: isSelected ? 800 : 600,
+                          color: isSelected ? '#0d3c26' : '#1e293b',
+                          background: isSelected ? '#dcfce7' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                          transition: 'background 0.15s ease',
+                          marginBottom: '2px',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = '#f1f5f9';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: '1.1rem' }}>{opt.icon}</span>
+                          <span>{opt.label}</span>
+                        </div>
+                        {isSelected && <Check size={16} color="#15803d" style={{ flexShrink: 0 }} />}
                       </div>
-                      {isSelected && <Check size={16} color="#15803d" style={{ flexShrink: 0 }} />}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <div
             style={{
