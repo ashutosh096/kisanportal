@@ -24,22 +24,21 @@ router.get('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'v
   try {
     let users;
     if (req.user.role === 'superadmin') {
-      // SuperAdmin: ONLY show users created directly by SuperAdmin (Company Admins & Direct SuperAdmin staff)
-      // Members created by Company Admins belong in the Roles tab hierarchy
+      // SuperAdmin: ONLY show direct Company Admins & direct SuperAdmin staff
+      // Members created by Company Admins belong strictly in the Roles tab hierarchy
       users = await query(
         `SELECT id, username, name, role, mobile, status, admin_id, must_change_password, locked_by_user_id, locked_at, created_at, updated_at
          FROM users 
-         WHERE admin_id IS NULL OR admin_id = ? OR role = 'admin' OR role = 'superadmin'
+         WHERE role = 'admin' OR (admin_id = ? AND role != 'surveyor')
          ORDER BY created_at DESC LIMIT 200`,
         [req.user.id]
       );
     } else {
-      // Admin: their team has admin_id = their own ID
-      // Co-Admin / Manager / Viewer: their team has admin_id = their parent Admin's ID
+      // Company Admin / Staff: show team members belonging to their organization
       const teamAdminId = getTeamAdminId(req.user);
       users = await query(
         `SELECT id, username, name, role, mobile, status, admin_id, must_change_password, locked_by_user_id, locked_at, created_at, updated_at
-         FROM users WHERE admin_id = ? OR id = ?
+         FROM users WHERE (admin_id = ? OR id = ?) AND role != 'surveyor'
          ORDER BY created_at DESC`,
         [teamAdminId, teamAdminId]
       );
@@ -57,8 +56,8 @@ router.get('/roles-hierarchy', authenticateToken, requireRole('admin', 'coadmin'
     const isSuper = req.user.role === 'superadmin';
     const teamAdminId = getTeamAdminId(req.user);
 
-    // 1. Fetch Company Admins
-    let adminsSql = `SELECT id, username, name, role, mobile, status, created_at FROM users WHERE role = 'admin' OR role = 'superadmin'`;
+    // 1. Fetch Company Admins (role = 'admin')
+    let adminsSql = `SELECT id, username, name, role, mobile, status, created_at FROM users WHERE role = 'admin'`;
     let adminsParams = [];
 
     if (!isSuper && teamAdminId) {

@@ -67,9 +67,13 @@ const RolesManagement = () => {
       if (res.ok && data.success) {
         const list = Array.isArray(data.data) ? data.data : [];
         setHierarchy(list);
-        // Expand first admin by default
+        // Expand all Company Admin cards by default
         if (list.length > 0) {
-          setExpandedAdminIds((prev) => ({ ...prev, [list[0].admin.id]: true }));
+          const initialExpanded = {};
+          list.forEach((group) => {
+            initialExpanded[group.admin.id] = true;
+          });
+          setExpandedAdminIds(initialExpanded);
         }
       } else {
         setHierarchy([]);
