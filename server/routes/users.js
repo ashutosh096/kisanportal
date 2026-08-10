@@ -46,8 +46,8 @@ router.get('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'v
   }
 });
 
-// ─── POST /api/users ─── Create new team member (Co-Admin, Manager, Viewer)
-router.post('/', authenticateToken, requireRole('admin', 'coadmin', 'superadmin'), async (req, res) => {
+// ─── POST /api/users ─── Create new team member or surveyor (Admin, Co-Admin, Manager, SuperAdmin)
+router.post('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'superadmin'), async (req, res) => {
   const { username, name, password, mobile, role } = req.body;
 
   if (!username || !name || !password) {
@@ -57,6 +57,11 @@ router.post('/', authenticateToken, requireRole('admin', 'coadmin', 'superadmin'
   const allowedRoles = ['admin', 'coadmin', 'manager', 'viewer', 'surveyor'];
   if (!allowedRoles.includes(role)) {
     return res.status(400).json({ success: false, message: `Invalid role. Allowed: ${allowedRoles.join(', ')}` });
+  }
+
+  // Managers can only create surveyor accounts
+  if (req.user.role === 'manager' && role !== 'surveyor') {
+    return res.status(403).json({ success: false, message: 'Managers are only permitted to create Field Surveyor accounts' });
   }
 
   // Only superadmin can create admins

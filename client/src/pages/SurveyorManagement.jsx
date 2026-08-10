@@ -1293,7 +1293,9 @@ const SurveyorManagement = () => {
                     {profileDashboard.recentFarmers.map((f) => (
                       <div key={f.farmer_id} style={{ background: '#ffffff', borderRadius: '14px', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
-                          <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem' }}>🌾 {f.name}</span>
+                          <Link to={`/admin/farmer/${f.farmer_id}`} style={{ fontWeight: 800, color: '#0d3c26', fontSize: '0.95rem', textDecoration: 'none' }}>
+                            🌾 {f.name}
+                          </Link>
                           <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, marginLeft: '10px' }}>{f.farmer_id}</span>
                         </div>
                         <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
