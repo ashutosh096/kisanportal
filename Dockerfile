@@ -16,7 +16,7 @@ RUN cd server && npm install
 COPY . .
 
 # Build frontend
-RUN npm run build --prefix client
+RUN cd client && npm run build
 
 EXPOSE 5050
 
