@@ -24,9 +24,14 @@ router.get('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'v
   try {
     let users;
     if (req.user.role === 'superadmin') {
+      // SuperAdmin: ONLY show users created directly by SuperAdmin (Company Admins & Direct SuperAdmin staff)
+      // Members created by Company Admins belong in the Roles tab hierarchy
       users = await query(
         `SELECT id, username, name, role, mobile, status, admin_id, must_change_password, locked_by_user_id, locked_at, created_at, updated_at
-         FROM users ORDER BY created_at DESC LIMIT 200`
+         FROM users 
+         WHERE admin_id IS NULL OR admin_id = ? OR role = 'admin' OR role = 'superadmin'
+         ORDER BY created_at DESC LIMIT 200`,
+        [req.user.id]
       );
     } else {
       // Admin: their team has admin_id = their own ID
