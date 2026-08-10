@@ -74,26 +74,35 @@ router.get('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'v
     const surveyors = await query(sql, params);
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Get submission counts (Today & Total)
+    // Get submission counts (Today & Total scoped by team admin)
+    const userAdminId = getTeamAdminId(user);
     const withCounts = await Promise.all(
       surveyors.map(async (s) => {
-        const totalRegRes = await query(
-          'SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)',
-          [s.id, s.username, s.name]
-        );
-        const todayRegRes = await query(
-          "SELECT COUNT(*) as count FROM farmers WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?)) AND (date = ? OR created_at::text LIKE ?)",
-          [s.id, s.username, todayStr, `${todayStr}%`]
-        );
+        let regSql = 'SELECT COUNT(*) as count FROM farmers WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?))';
+        let regParams = [s.id, s.username];
+        if (userAdminId) {
+          regSql += ' AND (admin_id = ? OR surveyor_id IN (SELECT id FROM users WHERE admin_id = ?))';
+          regParams.push(userAdminId, userAdminId);
+        }
 
-        const totalSurvRes = await query(
-          'SELECT COUNT(*) as count FROM form2b_visits WHERE surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?) OR LOWER(surveyor_name) = LOWER(?)',
-          [s.id, s.username, s.name]
-        );
-        const todaySurvRes = await query(
-          "SELECT COUNT(*) as count FROM form2b_visits WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?)) AND (visit_date::text LIKE ? OR created_at::text LIKE ?)",
-          [s.id, s.username, `${todayStr}%`, `${todayStr}%`]
-        );
+        let todayRegSql = regSql + ' AND (date = ? OR created_at::text LIKE ?)';
+        let todayRegParams = [...regParams, todayStr, `${todayStr}%`];
+
+        const totalRegRes = await query(regSql, regParams);
+        const todayRegRes = await query(todayRegSql, todayRegParams);
+
+        let survSql = 'SELECT COUNT(*) as count FROM form2b_visits WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?))';
+        let survParams = [s.id, s.username];
+        if (userAdminId) {
+          survSql += ' AND (admin_id = ? OR farmer_id IN (SELECT farmer_id FROM farmers WHERE admin_id = ?))';
+          survParams.push(userAdminId, userAdminId);
+        }
+
+        let todaySurvSql = survSql + ' AND (visit_date::text LIKE ? OR created_at::text LIKE ?)';
+        let todaySurvParams = [...survParams, `${todayStr}%`, `${todayStr}%`];
+
+        const totalSurvRes = await query(survSql, survParams);
+        const todaySurvRes = await query(todaySurvSql, todaySurvParams);
 
         return {
           ...s,

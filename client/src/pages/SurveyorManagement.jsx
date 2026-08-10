@@ -1231,12 +1231,12 @@ const SurveyorManagement = () => {
 
               <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Total Farmers Onboarded</span>
-                <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>🌾 {profileDashboard?.stats?.totalReg || selectedProfileSurveyor.registrations_count || 0} Farmers</strong>
+                <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>🌾 {profileDashboard?.stats?.totalReg ?? selectedProfileSurveyor.registrations_count ?? 0} Farmers</strong>
               </div>
 
               <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Total Farm Visits Logged</span>
-                <strong style={{ color: '#1d4ed8', fontSize: '0.95rem' }}>📍 {profileDashboard?.stats?.totalVisits || selectedProfileSurveyor.surveys_count || 0} Visits</strong>
+                <strong style={{ color: '#1d4ed8', fontSize: '0.95rem' }}>📍 {profileDashboard?.stats?.totalVisits ?? selectedProfileSurveyor.surveys_count ?? 0} Visits</strong>
               </div>
             </div>
           </div>
