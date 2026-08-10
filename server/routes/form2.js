@@ -85,7 +85,7 @@ router.delete('/2a/:farmer_id', authenticateToken, requireRole('admin', 'coadmin
 });
 
 // ─── GET /api/form2/surveyor/:surveyor_id/stats ─── Surveyor dashboard stats for admin view
-router.get('/surveyor/:surveyor_id/stats', authenticateToken, requireRole('admin', 'coadmin', 'superadmin'), async (req, res) => {
+router.get('/surveyor/:surveyor_id/stats', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'viewer', 'superadmin'), async (req, res) => {
   const { surveyor_id } = req.params;
   const todayStr = new Date().toISOString().split('T')[0];
   try {

@@ -1245,7 +1245,7 @@ const SurveyorManagement = () => {
 
               <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Total Farm Visits Logged</span>
-                <strong style={{ color: '#1d4ed8', fontSize: '0.95rem' }}>📍 {profileDashboard?.stats?.totalVisits ?? selectedProfileSurveyor.surveys_count ?? 0} Visits</strong>
+                <strong style={{ color: '#1d4ed8', fontSize: '0.95rem' }}>📍 {profileDashboard?.stats?.totalVisits ?? selectedProfileSurveyor?.surveys_count ?? 0} Visits</strong>
               </div>
             </div>
           </div>
@@ -1255,14 +1255,14 @@ const SurveyorManagement = () => {
             <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontWeight: 700 }}>
               Loading surveyor activity dashboard...
             </div>
-          ) : profileDashboard ? (
+          ) : (
             <>
               {/* 3. 4 STAT COUNTERS */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                 <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <span style={{ fontSize: '2.2rem' }}>🌾</span>
                   <div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#15803d', lineHeight: 1 }}>{profileDashboard.stats.totalReg}</div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#15803d', lineHeight: 1 }}>{profileDashboard?.stats?.totalReg ?? selectedProfileSurveyor?.registrations_count ?? 0}</div>
                     <div style={{ fontSize: '0.82rem', color: '#166534', fontWeight: 800, marginTop: '4px' }}>Total Farmers Onboarded</div>
                   </div>
                 </div>
@@ -1270,7 +1270,7 @@ const SurveyorManagement = () => {
                 <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <span style={{ fontSize: '2.2rem' }}>📋</span>
                   <div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#0284c7', lineHeight: 1 }}>{profileDashboard.stats.todayReg}</div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#0284c7', lineHeight: 1 }}>{profileDashboard?.stats?.todayReg ?? selectedProfileSurveyor?.todays_registrations_count ?? 0}</div>
                     <div style={{ fontSize: '0.82rem', color: '#0369a1', fontWeight: 800, marginTop: '4px' }}>Today's Onboarded Farmers</div>
                   </div>
                 </div>
@@ -1278,7 +1278,7 @@ const SurveyorManagement = () => {
                 <div style={{ background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <span style={{ fontSize: '2.2rem' }}>📍</span>
                   <div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#7c3aed', lineHeight: 1 }}>{profileDashboard.stats.totalVisits}</div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#7c3aed', lineHeight: 1 }}>{profileDashboard?.stats?.totalVisits ?? selectedProfileSurveyor?.surveys_count ?? 0}</div>
                     <div style={{ fontSize: '0.82rem', color: '#6d28d9', fontWeight: 800, marginTop: '4px' }}>Total Farm Visits Logged</div>
                   </div>
                 </div>
@@ -1286,7 +1286,7 @@ const SurveyorManagement = () => {
                 <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <span style={{ fontSize: '2.2rem' }}>🚜</span>
                   <div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#d97706', lineHeight: 1 }}>{profileDashboard.stats.todayVisits}</div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#d97706', lineHeight: 1 }}>{profileDashboard?.stats?.todayVisits ?? selectedProfileSurveyor?.todays_surveys_count ?? 0}</div>
                     <div style={{ fontSize: '0.82rem', color: '#b45309', fontWeight: 800, marginTop: '4px' }}>Today's Logged Visits</div>
                   </div>
                 </div>
@@ -1295,9 +1295,9 @@ const SurveyorManagement = () => {
               {/* 4. RECENT FARMERS ONBOARDED BY THIS SURVEYOR */}
               <div style={{ background: '#f8fafc', borderRadius: '20px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
                 <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', fontWeight: 900, color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  🌾 Farmers Onboarded By {selectedProfileSurveyor.name} ({profileDashboard.recentFarmers?.length || 0})
+                  🌾 Farmers Onboarded By {selectedProfileSurveyor?.name || 'Surveyor'} ({profileDashboard?.recentFarmers?.length || 0})
                 </h3>
-                {profileDashboard.recentFarmers?.length > 0 ? (
+                {profileDashboard?.recentFarmers?.length > 0 ? (
                   <div style={{ display: 'grid', gap: '10px' }}>
                     {profileDashboard.recentFarmers.map((f) => (
                       <div key={f.farmer_id} style={{ background: '#ffffff', borderRadius: '14px', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '10px' }}>
@@ -1321,9 +1321,9 @@ const SurveyorManagement = () => {
               {/* 5. RECENT FARM VISITS LOGGED */}
               <div style={{ background: '#f8fafc', borderRadius: '20px', padding: '24px', border: '1px solid #e2e8f0' }}>
                 <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', fontWeight: 900, color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  📍 Farm Visit Logbook History ({profileDashboard.recentVisits?.length || 0})
+                  📍 Farm Visit Logbook History ({profileDashboard?.recentVisits?.length || 0})
                 </h3>
-                {profileDashboard.recentVisits?.length > 0 ? (
+                {profileDashboard?.recentVisits?.length > 0 ? (
                   <div style={{ display: 'grid', gap: '10px' }}>
                     {profileDashboard.recentVisits.map((v, i) => (
                       <div key={i} style={{ background: '#ffffff', borderRadius: '14px', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '10px' }}>
@@ -1341,7 +1341,7 @@ const SurveyorManagement = () => {
                 )}
               </div>
             </>
-          ) : null}
+          )}
         </div>
       ) : (
         /* ══ MAIN FIELD SURVEYORS LIST (WITH FARMER-STYLE CARDS & QUICK DETAILS ACCORDION) ══ */
