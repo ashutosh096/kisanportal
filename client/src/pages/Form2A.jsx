@@ -643,16 +643,14 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
             </div>
           </div>
 
-          {/* 7TH QUESTION: SEED TYPE */}
+          {/* 7TH QUESTION: SEED TYPE (RESTRICTED TO OP & HYBRID ONLY) */}
           <div className="form-group" style={{ marginBottom: '16px' }}>
             <label className="form-label" style={{ fontWeight: 700 }}>
               7. Seed Type (बीज का प्रकार)
             </label>
             <select className="select-field" name="seed_type" value={formData.seed_type} onChange={handleChange} style={{ borderRadius: '12px', fontWeight: 700 }}>
-              <option value="Hybrid Seed (हाइब्रिड बीज)">Hybrid Seed (हाइब्रिड बीज)</option>
-              <option value="Certified Seed (प्रमाणित बीज)">Certified Seed (प्रमाणित बीज)</option>
-              <option value="OP Seed (ओपी बीज / उन्नत किस्म)">OP Seed (ओपी बीज)</option>
-              <option value="Home Saved Seed (घर का सहेजा बीज)">Home Saved Seed (घर का बीज)</option>
+              <option value="OP Seed (ओपी बीज / Open Pollinated)">OP Seed (ओ.पी. बीज / OP)</option>
+              <option value="Hybrid Seed (हाइब्रिड बीज / Hybrid)">Hybrid Seed (हाइब्रिड बीज / Hybrid)</option>
             </select>
           </div>
 

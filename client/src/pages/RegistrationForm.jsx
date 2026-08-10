@@ -81,6 +81,52 @@ const RegistrationForm = () => {
   const [selectedState, setSelectedState] = useState('Uttar Pradesh (उत्तर प्रदेश)');
   const [districtVillage, setDistrictVillage] = useState('');
   const [pincodeVal, setPincodeVal] = useState('');
+  const [fetchingPin, setFetchingPin] = useState(false);
+  const [pinSuccessMsg, setPinSuccessMsg] = useState('');
+
+  const handlePincodeChange = async (e) => {
+    const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setPincodeVal(pin);
+    setPinSuccessMsg('');
+
+    if (pin.length === 6) {
+      setFetchingPin(true);
+      try {
+        const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+        const data = await res.json();
+        if (Array.isArray(data) && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+          const poList = data[0].PostOffice;
+          const mainPo = poList[0];
+          const poName = mainPo.Name || mainPo.Block || '';
+          const distName = mainPo.District || '';
+          const stName = mainPo.State || '';
+
+          const combinedLoc = poName && distName 
+            ? `${poName}, ${distName}` 
+            : (distName || poName);
+
+          if (combinedLoc) {
+            setDistrictVillage(combinedLoc);
+          }
+
+          if (stName) {
+            const matchedState = INDIAN_STATES.find((st) => st.toLowerCase().includes(stName.toLowerCase()));
+            if (matchedState) {
+              setSelectedState(matchedState);
+            }
+          }
+
+          setPinSuccessMsg(`⚡ Auto-filled location for PIN ${pin}: ${combinedLoc}`);
+        } else {
+          setPinSuccessMsg('⚠️ Pincode not found. Please enter village/district manually.');
+        }
+      } catch (err) {
+        console.warn('Pincode lookup error:', err);
+      } finally {
+        setFetchingPin(false);
+      }
+    }
+  };
 
   const [totalLandNum, setTotalLandNum] = useState('');
   const [totalLandUnit, setTotalLandUnit] = useState('Katha (कट्ठा)');
@@ -477,14 +523,42 @@ const RegistrationForm = () => {
               <MapPin size={16} color="#15803d" /> Address & Location (पता और स्थान विवरण)
             </div>
 
-            {/* TOP ROW: VILLAGE & DISTRICT (FULL WIDTH) */}
+            {/* FIRST FIELD: PINCODE WITH AUTOMATIC LOOKUP */}
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>
+                  Pincode (पिनकोड) — Auto-lookup (ऑटो खोज)
+                </label>
+                {fetchingPin && (
+                  <span style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    ⚡ Fetching location...
+                  </span>
+                )}
+              </div>
+              <input
+                type="text"
+                className="input-field"
+                placeholder="Type 6-digit Pincode (e.g. 209202)..."
+                value={pincodeVal}
+                onChange={handlePincodeChange}
+                maxLength={6}
+                style={{ borderRadius: '12px', fontWeight: 700, letterSpacing: '0.5px' }}
+              />
+              {pinSuccessMsg && (
+                <div style={{ color: pinSuccessMsg.startsWith('⚡') ? '#15803d' : '#b45309', fontSize: '0.8rem', marginTop: '4px', fontWeight: 700 }}>
+                  {pinSuccessMsg}
+                </div>
+              )}
+            </div>
+
+            {/* SECOND FIELD: VILLAGE & DISTRICT */}
             <div className="form-group" style={{ marginBottom: '12px' }}>
               <label className="form-label">Village & District (गाँव और जिला) *</label>
               <input
                 ref={districtInputRef}
                 type="text"
                 className="input-field"
-                placeholder="Type Village & District (e.g. Bilhaur, Kanpur)..."
+                placeholder="Village & District (auto-filled from PIN or type manually)..."
                 value={districtVillage}
                 onChange={(e) => setDistrictVillage(e.target.value)}
                 required
@@ -492,38 +566,21 @@ const RegistrationForm = () => {
               />
             </div>
 
-            {/* SECOND ROW: STATE DROPDOWN & PINCODE (SIDE BY SIDE) */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-              {/* STATE DROPDOWN */}
-              <div className="form-group" style={{ flex: '1 1 200px', marginBottom: 0 }}>
-                <label className="form-label">State (राज्य) *</label>
-                <select
-                  className="select-field"
-                  value={selectedState}
-                  onChange={(e) => setSelectedState(e.target.value)}
-                  style={{ borderRadius: '12px', fontWeight: 700 }}
-                >
-                  {INDIAN_STATES.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* PINCODE */}
-              <div className="form-group" style={{ flex: '1 1 120px', marginBottom: 0 }}>
-                <label className="form-label">Pincode (पिनकोड)</label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="6-digit PIN"
-                  value={pincodeVal}
-                  onChange={(e) => setPincodeVal(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  maxLength={6}
-                  style={{ borderRadius: '12px', textAlign: 'center' }}
-                />
-              </div>
+            {/* THIRD FIELD: STATE DROPDOWN */}
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">State (राज्य) *</label>
+              <select
+                className="select-field"
+                value={selectedState}
+                onChange={(e) => setSelectedState(e.target.value)}
+                style={{ borderRadius: '12px', fontWeight: 700 }}
+              >
+                {INDIAN_STATES.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

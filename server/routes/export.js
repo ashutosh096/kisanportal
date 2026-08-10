@@ -5,6 +5,25 @@ import { authenticateToken, requireRole, getTeamAdminId } from '../middleware/au
 
 const router = express.Router();
 
+// Helper: Format any date string to DD-MM-YYYY
+function formatDDMMYYYY(dateVal) {
+  if (!dateVal) return '-';
+  try {
+    const clean = String(dateVal).trim().split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    const d = new Date(dateVal);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}-${month}-${d.getFullYear()}`;
+    }
+  } catch (e) {}
+  return String(dateVal);
+}
+
 // Helper: Draw horizontal table line in PDF
 function drawTableLine(doc, y) {
   doc.strokeColor('#cbd5e1').lineWidth(0.5).moveTo(40, y).lineTo(570, y).stroke();
@@ -170,7 +189,7 @@ router.get('/pdf', authenticateToken, requireRole('admin', 'coadmin', 'manager',
             doc.addPage();
             y = 40;
           }
-          const vDate = v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN') : 'N/A';
+          const vDate = formatDDMMYYYY(v.visit_date);
           doc.fillColor('#1e293b').fontSize(8).font('Helvetica-Bold');
           doc.text(v.farmer_name || v.farmer_id || 'N/A', 45, y, { width: 120 });
           doc.font('Helvetica').fontSize(7.5).text(`ID: ${v.farmer_id}`, 45, y + 10, { width: 120 });
@@ -226,7 +245,7 @@ router.get('/pdf-matrix', authenticateToken, requireRole('admin', 'coadmin', 'ma
     // Title Header
     doc.rect(40, 40, 515, 55).fill('#0d3c26');
     doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold').text('Farm Management Matrix Logbook', 55, 50);
-    doc.fontSize(8.5).font('Helvetica').text(`Comprehensive per-farmer visit history matrix  |  Exported on ${new Date().toLocaleDateString('en-IN')}`, 55, 72);
+    doc.fontSize(8.5).font('Helvetica').text(`Comprehensive per-farmer visit history matrix  |  Exported on ${formatDDMMYYYY(new Date())}`, 55, 72);
 
     let isFirstPage = true;
 
@@ -264,7 +283,7 @@ router.get('/pdf-matrix', authenticateToken, requireRole('admin', 'coadmin', 'ma
         { label: 'Fertilizer Applied', getValue: (v) => (v.fertilizer_used === 'yes' ? `${v.fertilizer_brand || 'Yes'} (${v.fertilizer_qty || '-'})` : 'No') },
         { label: 'Irrigation Operation', getValue: (v) => (v.irrigation_done === 'yes' ? `${v.irrigation_type || 'Yes'} (${v.irrigation_source || '-'})` : 'No') },
         { label: 'Weeding Operation', getValue: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No') },
-        { label: 'Visit Date', getValue: (v) => (v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN') : '-') },
+        { label: 'Visit Date', getValue: (v) => (v.visit_date ? formatDDMMYYYY(v.visit_date) : '-') },
       ];
 
       rowsDef.forEach((r) => {
