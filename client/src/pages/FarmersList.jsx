@@ -20,7 +20,8 @@ import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const FarmersList = () => {
   const { user, token } = useContext(AuthContext);
-  const basePath = user?.role === 'admin' ? '/admin' : '/surveyor';
+  const isStaff = ['admin', 'coadmin', 'superadmin', 'manager', 'viewer'].includes(user?.role);
+  const basePath = isStaff ? '/admin' : '/surveyor';
   const [farmers, setFarmers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

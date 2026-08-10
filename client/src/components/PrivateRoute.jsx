@@ -24,7 +24,7 @@ const PrivateRoute = ({ children, roleRequired }) => {
         return <Navigate to="/login" replace />;
       }
     } else if (roleRequired === 'surveyor') {
-      const allowedSurveyorRoles = ['surveyor', 'admin', 'superadmin'];
+      const allowedSurveyorRoles = ['surveyor', 'admin', 'superadmin', 'coadmin', 'manager', 'viewer'];
       if (!allowedSurveyorRoles.includes(user.role)) {
         return <Navigate to="/login" replace />;
       }

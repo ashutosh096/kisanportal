@@ -134,26 +134,32 @@ const UsersManagement = () => {
               Manage Co-Admins, Managers &amp; Viewers for your organization
             </p>
           </div>
-          <button
-            onClick={() => { setShowAdd(true); setFormErr(''); }}
-            style={{
-              background: '#0d3c26',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '30px',
-              padding: '12px 24px',
-              fontWeight: 800,
-              fontSize: '0.9rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 14px rgba(13,60,38,0.25)',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <UserPlus size={18} /> Add Member (सदस्य जोड़ें)
-          </button>
+          {user?.role === 'viewer' ? (
+            <div style={{ background: '#e0f0ff', color: '#0284c7', padding: '8px 18px', borderRadius: '30px', fontWeight: 800, fontSize: '0.84rem', border: '1.5px solid #bae6fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Eye size={16} /> 🔒 Read-Only Viewer Mode
+            </div>
+          ) : (
+            <button
+              onClick={() => { setShowAdd(true); setFormErr(''); }}
+              style={{
+                background: '#0d3c26',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '30px',
+                padding: '12px 24px',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 14px rgba(13,60,38,0.25)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <UserPlus size={18} /> Add Member (सदस्य जोड़ें)
+            </button>
+          )}
         </div>
 
         {/* ── Stat Cards ── */}
@@ -224,11 +230,15 @@ const UsersManagement = () => {
                   </div>
                   {/* Buttons */}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button onClick={() => setProfile(u)} style={{ background: '#ffffff', color: '#15803d', border: '1.5px solid #bbf7d0', borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}><Eye size={14} /> View</button>
-                    <button onClick={() => resetPassword(u)} style={{ background: '#eff6ff', color: '#1d4ed8', border: '1.5px solid #bfdbfe', borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}><RefreshCw size={14} /> Reset Pass</button>
-                    <button onClick={() => toggleLock(u)} style={{ background: locked ? '#f0fdf4' : '#fef2f2', color: locked ? '#15803d' : '#dc2626', border: `1.5px solid ${locked ? '#bbf7d0' : '#fecaca'}`, borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      {locked ? <><Unlock size={14} /> Unlock</> : <><Lock size={14} /> Lock</>}
-                    </button>
+                    <button onClick={() => setProfile(u)} style={{ background: '#ffffff', color: '#15803d', border: '1.5px solid #bbf7d0', borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}><Eye size={14} /> View Details</button>
+                    {user?.role !== 'viewer' && (
+                      <>
+                        <button onClick={() => resetPassword(u)} style={{ background: '#eff6ff', color: '#1d4ed8', border: '1.5px solid #bfdbfe', borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}><RefreshCw size={14} /> Reset Pass</button>
+                        <button onClick={() => toggleLock(u)} style={{ background: locked ? '#f0fdf4' : '#fef2f2', color: locked ? '#15803d' : '#dc2626', border: `1.5px solid ${locked ? '#bbf7d0' : '#fecaca'}`, borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          {locked ? <><Unlock size={14} /> Unlock</> : <><Lock size={14} /> Lock</>}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );

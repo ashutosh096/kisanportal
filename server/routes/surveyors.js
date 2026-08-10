@@ -47,8 +47,8 @@ router.get('/my-stats', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/surveyors - Admin: List surveyors with assigned company admin name
-router.get('/', authenticateToken, requireRole('admin', 'coadmin', 'superadmin'), async (req, res) => {
+// GET /api/surveyors - Admin/Team: List surveyors with assigned company admin name
+router.get('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'viewer', 'superadmin'), async (req, res) => {
   const user = req.user;
   const isSuper = user.username === 'superadmin' || user.role === 'superadmin';
 

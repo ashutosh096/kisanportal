@@ -482,23 +482,29 @@ const SurveyorManagement = () => {
             Total Surveyors: {safeSurveyors.length}
           </div>
 
-          <button
-            onClick={() => {
-              setSurveyorUsername(getNextSurveyorUsername());
-              setSurveyorName('');
-              setSurveyorPassword('field123');
-              setSurveyorMobile('');
-              if (safeAdmins.length > 0) setSelectedAdminId(safeAdmins[0].id);
-              setMsg('');
-              setError('');
-              setModalError('');
-              setShowAddSurveyorModal(true);
-            }}
-            className="btn btn-primary btn-inline"
-            style={{ borderRadius: '30px', padding: '10px 22px', fontSize: '0.88rem' }}
-          >
-            <UserPlus size={16} /> Add Surveyor (सर्वेक्षक जोड़ें)
-          </button>
+          {user?.role === 'viewer' ? (
+            <div style={{ background: '#e0f2fe', color: '#0284c7', padding: '8px 18px', borderRadius: '30px', fontWeight: 800, fontSize: '0.84rem', border: '1.5px solid #bae6fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Eye size={16} /> 🔒 Read-Only Viewer Mode
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setSurveyorUsername(getNextSurveyorUsername());
+                setSurveyorName('');
+                setSurveyorPassword('field123');
+                setSurveyorMobile('');
+                if (safeAdmins.length > 0) setSelectedAdminId(safeAdmins[0].id);
+                setMsg('');
+                setError('');
+                setModalError('');
+                setShowAddSurveyorModal(true);
+              }}
+              className="btn btn-primary btn-inline"
+              style={{ borderRadius: '30px', padding: '10px 22px', fontSize: '0.88rem' }}
+            >
+              <UserPlus size={16} /> Add Surveyor (सर्वेक्षक जोड़ें)
+            </button>
+          )}
         </div>
       </div>
 
@@ -1103,101 +1109,107 @@ const SurveyorManagement = () => {
                 </div>
               </div>
 
-              {/* 4 Management Action Buttons Control Bar */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => requestResetPassword(selectedProfileSurveyor)}
-                  style={{
-                    background: '#eff6ff',
-                    color: '#1d4ed8',
-                    border: '1.5px solid #bfdbfe',
-                    borderRadius: '24px',
-                    padding: '9px 18px',
-                    fontSize: '0.84rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 2px 6px rgba(29, 78, 216, 0.08)',
-                  }}
-                >
-                  <RefreshCw size={15} /> Reset Pass
-                </button>
+              {/* 4 Management Action Buttons Control Bar (Hidden for Viewer Role) */}
+              {user?.role === 'viewer' ? (
+                <div style={{ background: '#e0f2fe', color: '#0284c7', padding: '8px 18px', borderRadius: '24px', fontWeight: 800, fontSize: '0.84rem', border: '1.5px solid #bae6fd', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Eye size={16} /> 🔒 Read-Only Viewer Mode (संपादक अधिकार लॉक हैं)
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => requestResetPassword(selectedProfileSurveyor)}
+                    style={{
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
+                      border: '1.5px solid #bfdbfe',
+                      borderRadius: '24px',
+                      padding: '9px 18px',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 2px 6px rgba(29, 78, 216, 0.08)',
+                    }}
+                  >
+                    <RefreshCw size={15} /> Reset Pass
+                  </button>
 
-                <button
-                  onClick={() => requestToggleLock(selectedProfileSurveyor)}
-                  style={{
-                    background: selectedProfileSurveyor.status === 'inactive' ? '#f0fdf4' : '#fef2f2',
-                    color: selectedProfileSurveyor.status === 'inactive' ? '#15803d' : '#dc2626',
-                    border: `1.5px solid ${selectedProfileSurveyor.status === 'inactive' ? '#bbf7d0' : '#fecaca'}`,
-                    borderRadius: '24px',
-                    padding: '9px 18px',
-                    fontSize: '0.84rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: `0 2px 6px ${selectedProfileSurveyor.status === 'inactive' ? 'rgba(21, 128, 61, 0.1)' : 'rgba(220, 38, 38, 0.1)'}`,
-                  }}
-                >
-                  {selectedProfileSurveyor.status === 'inactive' ? <><Unlock size={15} /> Unlock</> : <><Lock size={15} /> Lock</>}
-                </button>
+                  <button
+                    onClick={() => requestToggleLock(selectedProfileSurveyor)}
+                    style={{
+                      background: selectedProfileSurveyor.status === 'inactive' ? '#f0fdf4' : '#fef2f2',
+                      color: selectedProfileSurveyor.status === 'inactive' ? '#15803d' : '#dc2626',
+                      border: `1.5px solid ${selectedProfileSurveyor.status === 'inactive' ? '#bbf7d0' : '#fecaca'}`,
+                      borderRadius: '24px',
+                      padding: '9px 18px',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: `0 2px 6px ${selectedProfileSurveyor.status === 'inactive' ? 'rgba(21, 128, 61, 0.1)' : 'rgba(220, 38, 38, 0.1)'}`,
+                    }}
+                  >
+                    {selectedProfileSurveyor.status === 'inactive' ? <><Unlock size={15} /> Unlock</> : <><Lock size={15} /> Lock</>}
+                  </button>
 
-                <button
-                  onClick={() => {
-                    const s = selectedProfileSurveyor;
-                    setEditingSurveyor(s);
-                    setEditName(s.name || '');
-                    setEditUsername(s.username || '');
-                    setEditPassword('');
-                    setEditMobile(s.mobile || '');
-                    setEditAdminId(s.admin_id || '');
-                    setModalError('');
-                  }}
-                  style={{
-                    background: '#f5f3ff',
-                    color: '#7c3aed',
-                    border: '1.5px solid #ddd6fe',
-                    borderRadius: '24px',
-                    padding: '9px 18px',
-                    fontSize: '0.84rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 2px 6px rgba(124, 58, 237, 0.08)',
-                  }}
-                >
-                  <Edit2 size={15} /> Edit
-                </button>
+                  <button
+                    onClick={() => {
+                      const s = selectedProfileSurveyor;
+                      setEditingSurveyor(s);
+                      setEditName(s.name || '');
+                      setEditUsername(s.username || '');
+                      setEditPassword('');
+                      setEditMobile(s.mobile || '');
+                      setEditAdminId(s.admin_id || '');
+                      setModalError('');
+                    }}
+                    style={{
+                      background: '#f5f3ff',
+                      color: '#7c3aed',
+                      border: '1.5px solid #ddd6fe',
+                      borderRadius: '24px',
+                      padding: '9px 18px',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 2px 6px rgba(124, 58, 237, 0.08)',
+                    }}
+                  >
+                    <Edit2 size={15} /> Edit
+                  </button>
 
-                <button
-                  onClick={() => setDeletingSurveyor(selectedProfileSurveyor)}
-                  style={{
-                    background: '#fff1f2',
-                    color: '#e11d48',
-                    border: '1.5px solid #fecdd3',
-                    borderRadius: '24px',
-                    padding: '9px 18px',
-                    fontSize: '0.84rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 2px 6px rgba(225, 29, 72, 0.08)',
-                  }}
-                >
-                  <Trash2 size={15} /> Delete
-                </button>
-              </div>
+                  <button
+                    onClick={() => setDeletingSurveyor(selectedProfileSurveyor)}
+                    style={{
+                      background: '#fff1f2',
+                      color: '#e11d48',
+                      border: '1.5px solid #fecdd3',
+                      borderRadius: '24px',
+                      padding: '9px 18px',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 2px 6px rgba(225, 29, 72, 0.08)',
+                    }}
+                  >
+                    <Trash2 size={15} /> Delete
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Structured Info Grid Cards (Clean UX Form Grid) */}
