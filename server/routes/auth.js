@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { query, run } from '../db.js';
 import { JWT_SECRET, authenticateToken, requireRole, canManageUser } from '../middleware/auth.js';
 import { loginLimiter, signupLimiter } from '../middleware/rateLimiter.js';
+import { cacheClear } from '../cache.js';
 
 const router = express.Router();
 
@@ -285,6 +286,7 @@ router.put('/users/:id', authenticateToken, requireRole('admin', 'coadmin', 'sup
       );
     }
 
+    cacheClear();
     return res.json({ success: true, message: 'User updated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to update user' });
@@ -319,6 +321,7 @@ router.delete('/users/:id', authenticateToken, requireRole('admin', 'coadmin', '
       ['inactive', targetId]
     );
 
+    cacheClear();
     return res.json({ success: true, message: 'User account deactivated successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to deactivate user' });

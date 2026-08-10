@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { query, run } from '../db.js';
 import { authenticateToken, requireRole, canManageUser, getTeamAdminId } from '../middleware/auth.js';
+import { cacheClear } from '../cache.js';
 
 const router = express.Router();
 
@@ -77,6 +78,7 @@ router.post('/', authenticateToken, requireRole('admin', 'coadmin', 'superadmin'
       [username.trim(), passwordHash, name.trim(), role, mobile || '', adminId, 'active']
     );
 
+    cacheClear();
     return res.status(201).json({ success: true, message: `${role} account created successfully`, data: { id: result.lastID } });
   } catch (err) {
     console.error('Create user error:', err);
@@ -116,6 +118,7 @@ router.post('/:id/reset-password', authenticateToken, requireRole('admin', 'coad
       [req.user.id, 'PASSWORD_RESET', `Reset password for user ID: ${targetId} (${targetUser.name})`, req.ip || '']
     );
 
+    cacheClear();
     return res.json({
       success: true,
       message: 'Temporary password generated. Share this with the user securely.',
@@ -176,6 +179,7 @@ router.post('/:id/toggle-lock', authenticateToken, requireRole('admin', 'coadmin
       [req.user.id, action, `${action} for user ID: ${targetId} (${targetUser.name})`, req.ip || '']
     );
 
+    cacheClear();
     return res.json({
       success: true,
       message: newStatus === 'inactive' ? `🔒 ${targetUser.name}'s account has been locked` : `🔓 ${targetUser.name}'s account has been unlocked`,

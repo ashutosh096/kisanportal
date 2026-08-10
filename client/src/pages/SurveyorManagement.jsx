@@ -108,6 +108,7 @@ const SurveyorManagement = () => {
   const [tempPasswordModal, setTempPasswordModal] = useState(null);
   const [editingSurveyor, setEditingSurveyor] = useState(null);
   const [deletingSurveyor, setDeletingSurveyor] = useState(null);
+  const [confirmActionModal, setConfirmActionModal] = useState(null);
   const [expandedSurveyorId, setExpandedSurveyorId] = useState(null);
 
   // Form State for Add
@@ -155,6 +156,11 @@ const SurveyorManagement = () => {
         const sorted = [...data].sort((a, b) => a.id - b.id);
         setSurveyors(sorted);
         setSurveyorUsername(getNextSurveyorUsername(sorted));
+        setSelectedProfileSurveyor((prev) => {
+          if (!prev) return null;
+          const fresh = sorted.find((item) => item.id === prev.id);
+          return fresh ? { ...prev, ...fresh } : prev;
+        });
       }
 
       // Fetch Admins for Dropdown Selection
@@ -308,7 +314,8 @@ const SurveyorManagement = () => {
   const safeAdmins = Array.isArray(adminsList) ? adminsList : [];
 
   const openSurveyorProfile = async (s) => {
-    setSelectedProfileSurveyor(s);
+    const latestSurveyor = surveyors.find((item) => item.id === s.id) || s;
+    setSelectedProfileSurveyor(latestSurveyor);
     setProfileDashboard(null);
     setProfileDashLoading(true);
     try {
@@ -321,30 +328,112 @@ const SurveyorManagement = () => {
     finally { setProfileDashLoading(false); }
   };
 
-  const handleResetSurveyorPassword = async (s) => {
-    if (!window.confirm(`Reset password for ${s.name}?`)) return;
-    const res = await fetch(`/api/users/${s.id}/reset-password`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json();
-    if (res.ok) {
-      setTempPasswordModal({ name: s.name, username: s.username, password: data.data.temporaryPassword });
-    } else {
-      setError(data.message || 'Failed to reset password');
-      setTimeout(() => setError(''), 3000);
+  const requestResetPassword = (s) => {
+    setConfirmActionModal({
+      type: 'reset_password',
+      surveyor: s,
+    });
+  };
+
+  const requestToggleLock = (s) => {
+    setConfirmActionModal({
+      type: 'toggle_lock',
+      surveyor: s,
+    });
+  };
+
+  const executeResetPassword = async (s) => {
+    setConfirmActionModal(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/users/${s.id}/reset-password`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTempPasswordModal({
+          name: s.name,
+          username: s.username,
+          password: data.data.temporaryPassword,
+        });
+      } else {
+        setError(data.message || 'Failed to reset password');
+        setTimeout(() => setError(''), 4000);
+      }
+    } catch (e) {
+      setError('Connection error while resetting password');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleToggleLockSurveyor = async (s) => {
-    const action = s.status === 'active' ? '🔒 Lock' : '🔓 Unlock';
-    if (!window.confirm(`${action} ${s.name}'s account?`)) return;
-    const res = await fetch(`/api/users/${s.id}/toggle-lock`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json();
-    if (res.ok) {
-      setMsg(data.message);
-      fetchSurveyorsAndAdmins();
-      setTimeout(() => setMsg(''), 3000);
-    } else {
-      setError(data.message || 'Failed');
-      setTimeout(() => setError(''), 3000);
+  const executeToggleLock = async (s) => {
+    setConfirmActionModal(null);
+    setSubmitting(true);
+    const targetStatus = s.status === 'inactive' ? 'active' : 'inactive';
+
+    // 1. Optimistic UI update — instant button & badge change
+    setSurveyors((prev) =>
+      prev.map((item) => (item.id === s.id ? { ...item, status: targetStatus } : item))
+    );
+    if (selectedProfileSurveyor && selectedProfileSurveyor.id === s.id) {
+      setSelectedProfileSurveyor((prev) => ({
+        ...prev,
+        status: targetStatus,
+      }));
+    }
+
+    try {
+      const res = await fetch(`/api/users/${s.id}/toggle-lock`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const updatedStatus = data.data?.status || targetStatus;
+
+        setSurveyors((prev) =>
+          prev.map((item) => (item.id === s.id ? { ...item, status: updatedStatus } : item))
+        );
+        if (selectedProfileSurveyor && selectedProfileSurveyor.id === s.id) {
+          setSelectedProfileSurveyor((prev) => ({
+            ...prev,
+            status: updatedStatus,
+          }));
+        }
+
+        setMsg(data.message || (updatedStatus === 'inactive' ? `🔒 ${s.name}'s account locked` : `🔓 ${s.name}'s account unlocked`));
+        setTimeout(() => setMsg(''), 4000);
+        await fetchSurveyorsAndAdmins();
+      } else {
+        // Rollback on error
+        setSurveyors((prev) =>
+          prev.map((item) => (item.id === s.id ? { ...item, status: s.status } : item))
+        );
+        if (selectedProfileSurveyor && selectedProfileSurveyor.id === s.id) {
+          setSelectedProfileSurveyor((prev) => ({
+            ...prev,
+            status: s.status,
+          }));
+        }
+        setError(data.message || 'Failed to update account lock status');
+        setTimeout(() => setError(''), 4000);
+      }
+    } catch (e) {
+      // Rollback on network error
+      setSurveyors((prev) =>
+        prev.map((item) => (item.id === s.id ? { ...item, status: s.status } : item))
+      );
+      if (selectedProfileSurveyor && selectedProfileSurveyor.id === s.id) {
+        setSelectedProfileSurveyor((prev) => ({
+          ...prev,
+          status: s.status,
+        }));
+      }
+      setError('Connection error while changing lock status');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -696,7 +785,8 @@ const SurveyorManagement = () => {
             right: 0,
             bottom: 0,
             background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(5px)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -711,17 +801,38 @@ const SurveyorManagement = () => {
               borderRadius: '24px',
               maxWidth: '440px',
               width: '100%',
-              padding: '24px',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
+              padding: '24px 28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
               borderTop: '6px solid #dc2626',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: '0 0 10px 0' }}>
-              🗑️ Delete Field Surveyor Account?
-            </h3>
-            <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0 0 20px 0' }}>
-              Are you sure you want to delete Field Surveyor <strong>"{deletingSurveyor.name}"</strong> (`{deletingSurveyor.username}`)? This action cannot be undone.
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '14px',
+                  background: '#fff1f2',
+                  color: '#e11d48',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.25rem',
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  Delete Field Surveyor Account?
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.92rem', color: '#475569', margin: '0 0 24px 0', lineHeight: '1.45', fontWeight: 500 }}>
+              Are you sure you want to delete Field Surveyor <strong>"{deletingSurveyor.name}"</strong> (`@{deletingSurveyor.username}`)? This action cannot be undone.
             </p>
 
             <div style={{ display: 'flex', gap: '12px' }}>
@@ -729,11 +840,158 @@ const SurveyorManagement = () => {
                 onClick={handleDeleteSurveyor}
                 disabled={submitting}
                 className="btn btn-danger btn-inline"
-                style={{ flex: 1, borderRadius: '30px', padding: '12px', background: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 800, cursor: 'pointer' }}
+                style={{ flex: 1, borderRadius: '30px', padding: '12px', background: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: '0.92rem' }}
               >
                 {submitting ? 'Deleting...' : 'Yes, Delete Surveyor'}
               </button>
-              <button onClick={() => setDeletingSurveyor(null)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
+              <button onClick={() => setDeletingSurveyor(null)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px', fontSize: '0.92rem' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRMATION ACTION MODAL (REPLACES BROWSER CONFIRM) */}
+      {confirmActionModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={() => setConfirmActionModal(null)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '24px',
+              maxWidth: '440px',
+              width: '100%',
+              padding: '24px 28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+              borderTop: `6px solid ${
+                confirmActionModal.type === 'reset_password'
+                  ? '#1d4ed8'
+                  : confirmActionModal.surveyor.status === 'inactive'
+                  ? '#15803d'
+                  : '#dc2626'
+              }`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '14px',
+                  background:
+                    confirmActionModal.type === 'reset_password'
+                      ? '#eff6ff'
+                      : confirmActionModal.surveyor.status === 'inactive'
+                      ? '#f0fdf4'
+                      : '#fef2f2',
+                  color:
+                    confirmActionModal.type === 'reset_password'
+                      ? '#1d4ed8'
+                      : confirmActionModal.surveyor.status === 'inactive'
+                      ? '#15803d'
+                      : '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.25rem',
+                  flexShrink: 0,
+                }}
+              >
+                {confirmActionModal.type === 'reset_password' ? (
+                  <RefreshCw size={22} />
+                ) : confirmActionModal.surveyor.status === 'inactive' ? (
+                  <Unlock size={22} />
+                ) : (
+                  <Lock size={22} />
+                )}
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  {confirmActionModal.type === 'reset_password'
+                    ? 'Reset Surveyor Password?'
+                    : confirmActionModal.surveyor.status === 'inactive'
+                    ? 'Unlock Surveyor Account?'
+                    : 'Lock Surveyor Account?'}
+                </h3>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.92rem', color: '#475569', margin: '0 0 24px 0', lineHeight: '1.45', fontWeight: 500 }}>
+              {confirmActionModal.type === 'reset_password' ? (
+                <>
+                  Are you sure you want to reset password for Field Surveyor{' '}
+                  <strong>"{confirmActionModal.surveyor.name}"</strong> (`@{confirmActionModal.surveyor.username}`)? A new temporary password will be generated.
+                </>
+              ) : confirmActionModal.surveyor.status === 'inactive' ? (
+                <>
+                  Are you sure you want to unlock Field Surveyor account{' '}
+                  <strong>"{confirmActionModal.surveyor.name}"</strong> (`@{confirmActionModal.surveyor.username}`)? Field operations and login will be re-enabled.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to lock Field Surveyor account{' '}
+                  <strong>"{confirmActionModal.surveyor.name}"</strong> (`@{confirmActionModal.surveyor.username}`)? Field access will be immediately disabled.
+                </>
+              )}
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() =>
+                  confirmActionModal.type === 'reset_password'
+                    ? executeResetPassword(confirmActionModal.surveyor)
+                    : executeToggleLock(confirmActionModal.surveyor)
+                }
+                disabled={submitting}
+                className="btn btn-primary btn-inline"
+                style={{
+                  flex: 1,
+                  borderRadius: '30px',
+                  padding: '12px',
+                  background:
+                    confirmActionModal.type === 'reset_password'
+                      ? '#1d4ed8'
+                      : confirmActionModal.surveyor.status === 'inactive'
+                      ? '#15803d'
+                      : '#dc2626',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  fontSize: '0.92rem',
+                }}
+              >
+                {submitting
+                  ? 'Processing...'
+                  : confirmActionModal.type === 'reset_password'
+                  ? 'Yes, Reset Password'
+                  : confirmActionModal.surveyor.status === 'inactive'
+                  ? 'Yes, Unlock Account'
+                  : 'Yes, Lock Account'}
+              </button>
+              <button
+                onClick={() => setConfirmActionModal(null)}
+                className="btn btn-secondary btn-inline"
+                style={{ borderRadius: '30px', padding: '12px 20px', fontSize: '0.92rem' }}
+              >
                 Cancel
               </button>
             </div>
@@ -848,15 +1106,43 @@ const SurveyorManagement = () => {
               {/* 4 Management Action Buttons Control Bar */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
-                  onClick={() => handleResetSurveyorPassword(selectedProfileSurveyor)}
-                  style={{ background: '#eff6ff', color: '#1d4ed8', border: '1.5px solid #bfdbfe', borderRadius: '24px', padding: '9px 18px', fontSize: '0.84rem', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s ease' }}
+                  onClick={() => requestResetPassword(selectedProfileSurveyor)}
+                  style={{
+                    background: '#eff6ff',
+                    color: '#1d4ed8',
+                    border: '1.5px solid #bfdbfe',
+                    borderRadius: '24px',
+                    padding: '9px 18px',
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 6px rgba(29, 78, 216, 0.08)',
+                  }}
                 >
                   <RefreshCw size={15} /> Reset Pass
                 </button>
 
                 <button
-                  onClick={() => handleToggleLockSurveyor(selectedProfileSurveyor)}
-                  style={{ background: selectedProfileSurveyor.status === 'inactive' ? '#f0fdf4' : '#fef2f2', color: selectedProfileSurveyor.status === 'inactive' ? '#15803d' : '#dc2626', border: `1.5px solid ${selectedProfileSurveyor.status === 'inactive' ? '#bbf7d0' : '#fecaca'}`, borderRadius: '24px', padding: '9px 18px', fontSize: '0.84rem', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s ease' }}
+                  onClick={() => requestToggleLock(selectedProfileSurveyor)}
+                  style={{
+                    background: selectedProfileSurveyor.status === 'inactive' ? '#f0fdf4' : '#fef2f2',
+                    color: selectedProfileSurveyor.status === 'inactive' ? '#15803d' : '#dc2626',
+                    border: `1.5px solid ${selectedProfileSurveyor.status === 'inactive' ? '#bbf7d0' : '#fecaca'}`,
+                    borderRadius: '24px',
+                    padding: '9px 18px',
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: `0 2px 6px ${selectedProfileSurveyor.status === 'inactive' ? 'rgba(21, 128, 61, 0.1)' : 'rgba(220, 38, 38, 0.1)'}`,
+                  }}
                 >
                   {selectedProfileSurveyor.status === 'inactive' ? <><Unlock size={15} /> Unlock</> : <><Lock size={15} /> Lock</>}
                 </button>
@@ -872,14 +1158,42 @@ const SurveyorManagement = () => {
                     setEditAdminId(s.admin_id || '');
                     setModalError('');
                   }}
-                  style={{ background: '#f5f3ff', color: '#7c3aed', border: '1.5px solid #ddd6fe', borderRadius: '24px', padding: '9px 18px', fontSize: '0.84rem', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s ease' }}
+                  style={{
+                    background: '#f5f3ff',
+                    color: '#7c3aed',
+                    border: '1.5px solid #ddd6fe',
+                    borderRadius: '24px',
+                    padding: '9px 18px',
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 6px rgba(124, 58, 237, 0.08)',
+                  }}
                 >
                   <Edit2 size={15} /> Edit
                 </button>
 
                 <button
                   onClick={() => setDeletingSurveyor(selectedProfileSurveyor)}
-                  style={{ background: '#fef2f2', color: '#dc2626', border: '1.5px solid #fecaca', borderRadius: '24px', padding: '9px 18px', fontSize: '0.84rem', fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s ease' }}
+                  style={{
+                    background: '#fff1f2',
+                    color: '#e11d48',
+                    border: '1.5px solid #fecdd3',
+                    borderRadius: '24px',
+                    padding: '9px 18px',
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 6px rgba(225, 29, 72, 0.08)',
+                  }}
                 >
                   <Trash2 size={15} /> Delete
                 </button>
