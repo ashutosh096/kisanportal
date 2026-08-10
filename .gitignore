@@ -1,8 +1,29 @@
+# Node dependencies
 node_modules
 server/node_modules
 client/node_modules
+
+# Build output
 client/dist
-.DS_Store
-*.log
+dist
+build
+
+# Environment files & secrets (CRITICAL)
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs & temp files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
+# Scratch & export files
 scratch/
+full_codebase.md
+export-codebase.js

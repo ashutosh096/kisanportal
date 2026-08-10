@@ -1,9 +1,15 @@
 import React, { createContext, useState, useEffect, useRef } from 'react';
 import { fetchCurrentGpsPosition } from '../services/geoService';
+import { initSyncEngine } from '../offline/syncEngine';
 
 export const AuthContext = createContext();
 
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes auto-lock timeout
+
+const getCsrfCookie = () => {
+  const match = document.cookie.match(/csrf_token=([^;]+)/);
+  return match ? match[1] : '';
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
@@ -35,6 +41,19 @@ export const AuthProvider = ({ children }) => {
     }
     return localStorage.getItem('farmer_token') || '';
   });
+
+  const tokenRef = useRef(token);
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
+
+  // Wire sync engine once on mount with tokenRef
+  useEffect(() => {
+    const cleanup = initSyncEngine(() => tokenRef.current);
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, []);
 
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(() => {
     const lastActive = localStorage.getItem('farmer_last_active');
@@ -136,6 +155,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = (msg = '') => {
+    try {
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': getCsrfCookie(),
+        },
+      }).catch(() => {});
+    } catch (e) {}
+
     setUser(null);
     setToken('');
     if (msg) setSessionExpiredMsg(msg);

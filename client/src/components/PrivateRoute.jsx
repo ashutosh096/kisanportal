@@ -17,8 +17,20 @@ const PrivateRoute = ({ children, roleRequired }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (roleRequired && user.role !== roleRequired) {
-    return <Navigate to="/login" replace />;
+  if (roleRequired) {
+    if (roleRequired === 'admin') {
+      const allowedAdminRoles = ['admin', 'coadmin', 'superadmin', 'manager', 'viewer'];
+      if (!allowedAdminRoles.includes(user.role)) {
+        return <Navigate to="/login" replace />;
+      }
+    } else if (roleRequired === 'surveyor') {
+      const allowedSurveyorRoles = ['surveyor', 'admin', 'superadmin'];
+      if (!allowedSurveyorRoles.includes(user.role)) {
+        return <Navigate to="/login" replace />;
+      }
+    } else if (user.role !== roleRequired) {
+      return <Navigate to="/login" replace />;
+    }
   }
 
   return children;

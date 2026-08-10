@@ -18,14 +18,13 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        if (Array.isArray(data)) {
-          setRecentFarmers(data);
-        }
+        const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        setRecentFarmers(list);
       } catch (err) {
         console.error('Failed to fetch recent farmers:', err);
       }
     };
-    fetchRecentFarmers();
+    if (token) fetchRecentFarmers();
   }, [token]);
 
   useEffect(() => {
@@ -42,7 +41,8 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        setFarmers(data);
+        const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        setFarmers(list);
         setShowDropdown(true);
       } catch (err) {
         console.error('Farmer search failed:', err);
@@ -148,12 +148,14 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                   WebkitOverflowScrolling: 'touch',
                 }}
               >
-                {recentFarmers.map((f) => {
-                  const initialLetter = f.name ? f.name.charAt(0).toUpperCase() : 'F';
+                {(Array.isArray(recentFarmers) ? recentFarmers : []).map((f, idx) => {
+                  if (!f || typeof f !== 'object') return null;
+                  const initialLetter = f.name ? String(f.name).charAt(0).toUpperCase() : 'F';
+                  const farmerLoc = typeof f.location === 'string' ? f.location.split(',')[0] : (f.location || '');
 
                   return (
                     <div
-                      key={f.farmer_id}
+                      key={f.farmer_id || `rf-${idx}`}
                       onClick={() => handleSelect(f)}
                       style={{
                         background: '#f8fafc',
@@ -178,7 +180,7 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                       {f.photo_url ? (
                         <img
                           src={f.photo_url}
-                          alt={f.name}
+                          alt={f.name || 'Farmer'}
                           style={{
                             width: '42px',
                             height: '42px',
@@ -220,13 +222,13 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
 
                       <div style={{ overflow: 'hidden', textAlign: 'left', flex: 1 }}>
                         <div style={{ fontWeight: 800, fontSize: '0.96rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {f.name}
+                          {f.name || 'Unnamed Farmer'}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#15803d', fontWeight: 700, marginTop: '2px' }}>
-                          📞 {f.contact}
+                          📞 {f.contact || 'N/A'}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '1px' }}>
-                          {f.farmer_id} • {f.location ? f.location.split(',')[0] : ''}
+                          {f.farmer_id || ''} {farmerLoc ? `• ${farmerLoc}` : ''}
                         </div>
                       </div>
                     </div>
@@ -257,24 +259,25 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
             >
               {loading ? (
                 <p style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Searching database...</p>
-              ) : farmers.length === 0 ? (
+              ) : !Array.isArray(farmers) || farmers.length === 0 ? (
                 <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8' }}>
                   No farmer found. Check spelling or Farmer ID.
                 </div>
               ) : (
-                farmers.map((f) => {
-                  const initialLetter = f.name ? f.name.charAt(0).toUpperCase() : 'F';
+                farmers.map((f, idx) => {
+                  if (!f || typeof f !== 'object') return null;
+                  const initialLetter = f.name ? String(f.name).charAt(0).toUpperCase() : 'F';
 
                   return (
                     <div
-                      key={f.farmer_id}
+                      key={f.farmer_id || `sf-${idx}`}
                       onClick={() => handleSelect(f)}
                       style={{
                         padding: '14px 16px',
                         borderRadius: '16px',
                         cursor: 'pointer',
                         display: 'flex',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
                         transition: 'all 0.15s ease-in-out',
                         marginBottom: '6px',
@@ -295,7 +298,7 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                         {f.photo_url ? (
                           <img
                             src={f.photo_url}
-                            alt={f.name}
+                            alt={f.name || 'Farmer'}
                             style={{
                               width: '46px',
                               height: '46px',
@@ -324,7 +327,7 @@ const FarmerSearch = ({ onSelectFarmer, selectedFarmer }) => {
                               color: '#ffffff',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              justify: 'center',
+                              justifyContent: 'center',
                               fontWeight: 800,
                               fontSize: '1.2rem',
                               lineHeight: 1,

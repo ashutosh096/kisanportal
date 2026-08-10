@@ -1,297 +1,277 @@
 import express from 'express';
 import { query, run } from '../db.js';
-import { authenticateToken } from '../middleware/auth.js';
-import { cacheGet, cacheSet, cacheClear } from '../cache.js';
+import { authenticateToken, requireRole, getTeamAdminId } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Helper to generate unique Farmer ID sequentially (+1 increment, no gaps)
+// ─── Helper: Generate sequential farmer ID ───
 const generateFarmerId = async () => {
   const year = new Date().getFullYear();
   const rows = await query(
-    "SELECT farmer_id FROM farmers WHERE farmer_id LIKE ? ORDER BY id DESC",
+    "SELECT farmer_id FROM farmers WHERE farmer_id LIKE ? ORDER BY id DESC LIMIT 1",
     [`F-${year}-%`]
   );
 
   let maxNum = 0;
   if (rows && rows.length > 0) {
-    rows.forEach((r) => {
-      const match = (r.farmer_id || '').match(/F-\d+-(\d+)/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
-      }
-    });
+    const match = (rows[0].farmer_id || '').match(/F-\d+-(\d+)/);
+    if (match) maxNum = parseInt(match[1], 10);
   }
-
-  const nextNum = maxNum + 1;
-  return `F-${year}-${String(nextNum).padStart(3, '0')}`;
+  return `F-${year}-${String(maxNum + 1).padStart(3, '0')}`;
 };
 
-// POST /api/farmers - Register new farmer with photo & live GPS location
-router.post('/', authenticateToken, async (req, res) => {
-  const io = req.app.get('io');
-  const {
-    name,
-    contact,
-    location,
-    gps_location,
-    date,
-    photo_url,
-    soil_testing,
-    water_testing,
-    cow_dung_used,
-    cow_dung_qty,
-    crop,
-    crop_reason,
-    area,
-    sowing_date,
-    variety,
-    seed_qty_per_acre,
-    seed_type,
-    sowing_type,
-    harvest_date,
-    yield: cropYield,
-    expert_advice,
-    crop_growth_stage,
-    crop_height,
-    flowering_status,
-    seed_age,
-  } = req.body;
-
-  if (!name || name.trim().length < 2 || /\d/.test(name) || !/^[a-zA-Z\u0900-\u097F\s.']{2,60}$/.test(name.trim())) {
-    return res.status(400).json({ error: 'Valid farmer name without numbers is required' });
-  }
-
-  if (!location) {
-    return res.status(400).json({ error: 'Location is required' });
-  }
-
-  // Format contact number with +91 if 10 digits provided, or default to N/A
-  let formattedContact = 'N/A';
-  if (contact && contact.trim() !== '') {
-    const digitsOnly = contact.replace(/\D/g, '');
-    const cleanDigits = digitsOnly.length === 12 && digitsOnly.startsWith('91') ? digitsOnly.slice(2) : digitsOnly;
-    if (cleanDigits.length === 10) {
-      formattedContact = `+91 ${cleanDigits}`;
-    } else {
-      formattedContact = contact;
-    }
-  }
-
-  try {
-    const farmerId = await generateFarmerId();
-    const currentDate = date || new Date().toISOString().split('T')[0];
-    const surveyorName = req.user.name || req.user.username;
-    const surveyorId = req.user.id;
-
-    await run(
-      `INSERT INTO farmers (
-        farmer_id, name, contact, location, gps_location, date, photo_url,
-        soil_testing, water_testing, cow_dung_used, cow_dung_qty,
-        crop, crop_reason, area, sowing_date, variety,
-        seed_qty_per_acre, seed_type, sowing_type, harvest_date,
-        yield, expert_advice, crop_growth_stage, crop_height, flowering_status, seed_age, surveyor_id, surveyor_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        farmerId,
-        name,
-        formattedContact,
-        location,
-        gps_location || '',
-        currentDate,
-        photo_url || '',
-        soil_testing || 'no',
-        water_testing || 'no',
-        cow_dung_used || 'no',
-        cow_dung_qty || '',
-        crop || '',
-        crop_reason || '',
-        area || '',
-        sowing_date || '',
-        variety || '',
-        seed_qty_per_acre || '',
-        seed_type || '',
-        sowing_type || '',
-        harvest_date || '',
-        cropYield || '',
-        expert_advice || 'no',
-        crop_growth_stage || '',
-        crop_height || '',
-        flowering_status || '',
-        seed_age || '',
-        surveyorId,
-        surveyorName,
-      ]
-    );
-
-    const newFarmerEntry = {
-      entry_type: 'registration',
-      farmer_id: farmerId,
-      name,
-      contact,
-      location,
-      gps_location: gps_location || '',
-      photo_url: photo_url || '',
-      surveyor_name: surveyorName,
-      timestamp: new Date().toISOString(),
-    };
-
-    cacheClear();
-
-    // Broadcast live event to all connected admin clients!
-    if (io) {
-      io.emit('new_entry', newFarmerEntry);
-    }
-
-    res.status(201).json({
-      message: 'Farmer registered successfully',
-      farmer_id: farmerId,
-    });
-  } catch (err) {
-    console.error('Farmer registration error:', err);
-    res.status(500).json({ error: 'Failed to register farmer' });
-  }
-});
-
-// GET /api/farmers - List farmers filtered by role (surveyor sees own, admin sees company team, superadmin sees all)
+// ─── GET /api/farmers ─── Paginated, admin-scoped farmer list
 router.get('/', authenticateToken, async (req, res) => {
-  const { search, location } = req.query;
-  const user = req.user;
-
-  const cacheKey = `farmers_${user.id}_${user.role}_${search || ''}_${location || ''}`;
-  const cachedData = cacheGet(cacheKey);
-  if (cachedData) {
-    return res.json(cachedData);
-  }
+  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+  const offset = parseInt(req.query.offset) || 0;
+  const search = req.query.search || '';
 
   try {
-    let sql = `SELECT f.*, 
-                      COALESCE(a.name, 'System Admin') AS admin_name, 
-                      COALESCE(a.username, 'admin') AS admin_username, 
-                      COALESCE(a.id, 0) AS admin_user_id
-               FROM farmers f
-               LEFT JOIN users u ON f.surveyor_id = u.id OR LOWER(f.surveyor_name) = LOWER(u.username) OR LOWER(f.surveyor_name) = LOWER(u.name)
-               LEFT JOIN users a ON u.admin_id = a.id OR (u.role = 'admin' AND u.id = a.id)
-               WHERE 1=1`;
-    const params = [];
+    let baseWhere = '';
+    let params = [];
 
-    const isSuper = user.username === 'superadmin' || user.role === 'superadmin';
-
-    // Data Isolation by Role (SuperAdmin sees ALL farmers)
-    if (!isSuper) {
-      if (user.role === 'surveyor') {
-        const userAdminId = user.admin_id || user.id;
-        sql += ` AND (
-          f.surveyor_id = ?
-          OR f.surveyor_id IN (
-            SELECT id FROM users 
-            WHERE admin_id = ? 
-               OR id = ? 
-               OR admin_id = (SELECT admin_id FROM users WHERE id = ?)
-          )
-          OR LOWER(f.surveyor_name) = LOWER(?)
-          OR (f.surveyor_id IS NULL OR f.surveyor_id = 0)
-        )`;
-        params.push(user.id, userAdminId, userAdminId, user.id, user.name || user.username);
-      } else if (user.role === 'admin') {
-        sql += ` AND (f.surveyor_id IN (SELECT id FROM users WHERE admin_id = ? OR id = ? OR admin_id IS NULL OR admin_id = 0)
-                      OR LOWER(f.surveyor_name) IN (SELECT LOWER(name) FROM users WHERE admin_id = ? OR id = ? OR admin_id IS NULL OR admin_id = 0))`;
-        params.push(user.id, user.id, user.id, user.id);
-      }
+    const teamAdminId = getTeamAdminId(req.user);
+    if (teamAdminId) {
+      baseWhere = 'WHERE (f.admin_id = ? OR u.admin_id = ? OR f.surveyor_id = ?)';
+      params = [teamAdminId, teamAdminId, teamAdminId];
     }
 
     if (search) {
-      sql += ' AND (LOWER(f.name) LIKE LOWER(?) OR LOWER(f.farmer_id) LIKE LOWER(?) OR LOWER(f.contact) LIKE LOWER(?) OR LOWER(f.location) LIKE LOWER(?))';
-      const term = `%${search}%`;
-      params.push(term, term, term, term);
+      const searchParam = `%${search}%`;
+      baseWhere += params.length ? ' AND' : ' WHERE';
+      baseWhere += ' (f.name ILIKE ? OR f.farmer_id ILIKE ? OR f.contact ILIKE ?)';
+      params.push(searchParam, searchParam, searchParam);
     }
 
-    if (location) {
-      sql += ' AND LOWER(f.location) LIKE LOWER(?)';
-      params.push(`%${location}%`);
-    }
+    const farmers = await query(
+      `SELECT f.*, u.name as surveyor_display_name,
+              s2a.crop, s2a.area, s2a.season_name, s2a.is_active as has_active_season
+       FROM farmers f
+       LEFT JOIN users u ON u.id = f.surveyor_id
+       LEFT JOIN form2a_seasonal s2a ON s2a.farmer_id = f.farmer_id AND s2a.is_active = true
+       ${baseWhere}
+       ORDER BY f.id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
 
-    sql += ' ORDER BY f.id DESC';
+    const countParams = params.slice(0, params.length); // all except limit/offset
+    const total = await query(
+      `SELECT COUNT(*) as count FROM farmers f LEFT JOIN users u ON u.id = f.surveyor_id ${baseWhere}`,
+      countParams
+    );
 
-    const farmers = await query(sql, params);
-    cacheSet(cacheKey, farmers, 30);
-    res.json(farmers);
+    return res.json({
+      success: true,
+      data: farmers,
+      total: parseInt(total[0]?.count || 0),
+      limit,
+      offset,
+    });
   } catch (err) {
-    console.error('Fetch farmers error:', err);
-    res.status(500).json({ error: 'Failed to fetch farmers' });
+    console.error('Get farmers error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch farmers' });
   }
 });
 
-// GET /api/farmers/:farmer_id - Get single farmer details + visit logbook
+// ─── GET /api/farmers/:farmer_id ─── Get single farmer profile with all forms
 router.get('/:farmer_id', authenticateToken, async (req, res) => {
   const { farmer_id } = req.params;
-
   try {
-    const [farmers, visits] = await Promise.all([
-      query(
-        `SELECT f.*, COALESCE(a.name, 'System Admin') as admin_name
-         FROM farmers f
-         LEFT JOIN users u ON f.surveyor_id = u.id OR LOWER(f.surveyor_name) = LOWER(u.username) OR LOWER(f.surveyor_name) = LOWER(u.name)
-         LEFT JOIN users a ON u.admin_id = a.id OR (u.role = 'admin' AND u.id = a.id)
-         WHERE f.farmer_id = ?`,
-        [farmer_id]
-      ),
-      query('SELECT * FROM surveys WHERE farmer_id = ? ORDER BY visit_date DESC, id DESC', [farmer_id]),
-    ]);
+    const farmers = await query(
+      `SELECT f.*, u.name as surveyor_display_name
+       FROM farmers f
+       LEFT JOIN users u ON u.id = f.surveyor_id
+       WHERE f.farmer_id = ?`,
+      [farmer_id]
+    );
+    if (farmers.length === 0) return res.status(404).json({ success: false, message: 'Farmer not found' });
 
-    if (farmers.length === 0) {
-      return res.status(404).json({ error: 'Farmer not found' });
+    const farmer = farmers[0];
+
+    // Get Admin Name
+    let admin_name = 'System Admin';
+    if (farmer.admin_id) {
+      const adminRows = await query('SELECT name, username FROM users WHERE id = ?', [farmer.admin_id]);
+      if (adminRows.length > 0) admin_name = adminRows[0].name || adminRows[0].username;
     }
 
-    res.json({
-      farmer: farmers[0],
+    // Get Active Form 2A
+    const form2aRows = await query(
+      'SELECT * FROM form2a_seasonal WHERE farmer_id = ? AND is_active = true LIMIT 1',
+      [farmer_id]
+    );
+    const form2a = form2aRows[0] || null;
+
+    // Get ALL Form 2B visits for Profile Logbook History
+    const visits = await query(
+      `SELECT v.*, u.name as surveyor_display_name
+       FROM form2b_visits v
+       LEFT JOIN users u ON u.id = v.surveyor_id
+       WHERE v.farmer_id = ?
+       ORDER BY v.visit_date DESC`,
+      [farmer_id]
+    );
+
+    const farmerObj = {
+      ...farmer,
+      admin_name,
+      surveyor_name: farmer.surveyor_display_name || farmer.surveyor_name || 'System Admin',
+      form2a,
+    };
+
+    return res.json({
+      success: true,
+      farmer: farmerObj,
       visits: visits || [],
+      data: farmerObj,
     });
   } catch (err) {
     console.error('Fetch farmer profile error:', err);
-    res.status(500).json({ error: 'Failed to fetch farmer profile' });
+    res.status(500).json({ success: false, message: 'Failed to fetch farmer profile' });
   }
 });
 
+// ─── POST /api/farmers ─── Register new farmer (idempotent via client_generated_id)
+router.post('/', authenticateToken, async (req, res) => {
+  const io = req.app.get('io');
+  const {
+    name, contact, location, gps_latitude, gps_longitude,
+    date, total_land, ownership, client_generated_id,
+  } = req.body;
 
-// DELETE /api/farmers/:farmer_id - SuperAdmin only: Delete farmer record
-// mode=full → deletes farmer + all visits
-// mode=surveys → deletes only the visit surveys (keeps farmer registration)
-router.delete('/:farmer_id', authenticateToken, async (req, res) => {
-  const user = req.user;
-  const isSuper = user.username === 'superadmin' || user.role === 'superadmin';
-  if (!isSuper) {
-    return res.status(403).json({ error: 'Only SuperAdmin can delete farmer records' });
+  if (!name || !contact || !location) {
+    return res.status(400).json({ success: false, message: 'Name, contact, and location are required' });
   }
 
+  try {
+    // ─── Idempotency: check client_generated_id ───
+    if (client_generated_id) {
+      const dup = await query('SELECT farmer_id FROM farmers WHERE client_generated_id::text = ?', [client_generated_id]);
+      if (dup.length > 0) {
+        return res.json({ success: true, message: 'Farmer already registered (idempotent)', data: { farmer_id: dup[0].farmer_id } });
+      }
+    }
+
+    const adminId = req.user.role === 'superadmin' ? null : (req.user.admin_id || req.user.id);
+    let farmer_id = '';
+    let success = false;
+    let attempts = 0;
+
+    while (!success && attempts < 5) {
+      attempts++;
+      farmer_id = await generateFarmerId();
+      try {
+        await run(
+          `INSERT INTO farmers (
+            farmer_id, client_generated_id, name, contact, location,
+            gps_latitude, gps_longitude, date, total_land, ownership,
+            surveyor_id, surveyor_name, admin_id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            farmer_id, client_generated_id || null,
+            name.trim(), contact.trim(), location.trim(),
+            gps_latitude || null, gps_longitude || null,
+            date || new Date().toISOString().split('T')[0],
+            total_land || '', ownership || 'Owned (निजी / अपनी)',
+            req.user.id, req.user.name, adminId,
+          ]
+        );
+        success = true;
+      } catch (insertErr) {
+        // Catch Postgres error code 23505 (unique constraint violation) or duplicate farmer_id key error
+        if (
+          (insertErr.code === '23505' || (insertErr.message && (insertErr.message.includes('farmers_farmer_id_key') || insertErr.message.includes('duplicate key')))) &&
+          attempts < 5
+        ) {
+          console.warn(`Farmer ID collision on ${farmer_id}, retrying (attempt ${attempts + 1})...`);
+          continue; // Retry with next ID
+        }
+        throw insertErr;
+      }
+    }
+
+    if (io) io.emit('farmer_registered', { farmer_id, admin_id: adminId, surveyor_id: req.user.id });
+
+    return res.status(201).json({ success: true, message: 'Farmer registered successfully', data: { farmer_id } });
+  } catch (err) {
+    console.error('Register farmer error:', err);
+    res.status(500).json({ success: false, message: 'Failed to register farmer' });
+  }
+});
+
+// ─── PUT /api/farmers/:farmer_id ─── Update farmer details
+router.put('/:farmer_id', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'superadmin'), async (req, res) => {
   const { farmer_id } = req.params;
-  const { mode } = req.query; // 'full' or 'surveys'
+  const { name, contact, location, gps_latitude, gps_longitude, total_land, ownership } = req.body;
 
   try {
-    // First check the farmer exists
-    const existing = await query('SELECT id FROM farmers WHERE farmer_id = ?', [farmer_id]);
-    if (!existing || existing.length === 0) {
-      return res.status(404).json({ error: 'Farmer not found' });
-    }
+    const existing = await query('SELECT * FROM farmers WHERE farmer_id = ?', [farmer_id]);
+    if (existing.length === 0) return res.status(404).json({ success: false, message: 'Farmer not found' });
 
-    if (mode === 'surveys') {
-      // Delete only farm visit surveys — keep the farmer registration
-      await run('DELETE FROM surveys WHERE farmer_id = ?', [farmer_id]);
-      cacheClear();
-      return res.json({ message: `All visit logs for farmer ${farmer_id} deleted. Farmer registration kept.` });
-    }
+    await run(
+      `UPDATE farmers SET name = ?, contact = ?, location = ?, gps_latitude = ?, gps_longitude = ?,
+       total_land = ?, ownership = ?, updated_at = NOW() WHERE farmer_id = ?`,
+      [
+        name || existing[0].name,
+        contact || existing[0].contact,
+        location || existing[0].location,
+        gps_latitude !== undefined ? gps_latitude : existing[0].gps_latitude,
+        gps_longitude !== undefined ? gps_longitude : existing[0].gps_longitude,
+        total_land || existing[0].total_land,
+        ownership || existing[0].ownership,
+        farmer_id,
+      ]
+    );
 
-    // Default: full delete — remove surveys first (FK), then farmer
-    await run('DELETE FROM surveys WHERE farmer_id = ?', [farmer_id]);
-    await run('DELETE FROM farmers WHERE farmer_id = ?', [farmer_id]);
-    cacheClear();
-    res.json({ message: `Farmer ${farmer_id} and all visit logs permanently deleted.` });
+    return res.json({ success: true, message: 'Farmer updated successfully' });
   } catch (err) {
-    console.error('Delete farmer error:', err);
-    res.status(500).json({ error: 'Failed to delete farmer record' });
+    res.status(500).json({ success: false, message: 'Failed to update farmer' });
+  }
+});
+
+// ─── GET /api/farmers/stats/summary ─── Dashboard stats (admin-scoped)
+router.get('/stats/summary', authenticateToken, async (req, res) => {
+  try {
+    const adminId = getTeamAdminId(req.user);
+
+    let farmerWhere = '';
+    let farmerParams = [];
+    if (adminId) {
+      farmerWhere = 'FROM farmers f LEFT JOIN users u ON u.id = f.surveyor_id WHERE (f.admin_id = ? OR u.admin_id = ? OR f.surveyor_id = ?)';
+      farmerParams = [adminId, adminId, adminId];
+    } else {
+      farmerWhere = 'FROM farmers f';
+    }
+
+    let visitWhere = '';
+    let visitParams = [];
+    if (adminId) {
+      visitWhere = 'FROM form2b_visits v JOIN farmers f ON f.farmer_id = v.farmer_id LEFT JOIN users u ON u.id = v.surveyor_id WHERE (v.admin_id = ? OR f.admin_id = ? OR u.admin_id = ? OR v.surveyor_id = ?)';
+      visitParams = [adminId, adminId, adminId, adminId];
+    } else {
+      visitWhere = 'FROM form2b_visits v';
+    }
+
+    const totalFarmers = await query(`SELECT COUNT(*) as count ${farmerWhere}`, farmerParams);
+    const todayVisits = await query(
+      `SELECT COUNT(*) as count ${visitWhere} ${adminId ? 'AND' : 'WHERE'} (v.visit_date::text LIKE ? OR v.created_at::text LIKE ?)`,
+      [...visitParams, `${new Date().toISOString().split('T')[0]}%`, `${new Date().toISOString().split('T')[0]}%`]
+    );
+    const totalVisits = await query(`SELECT COUNT(*) as count ${visitWhere}`, visitParams);
+
+    return res.json({
+      success: true,
+      data: {
+        totalFarmers: parseInt(totalFarmers[0]?.count || 0),
+        todayVisits: parseInt(todayVisits[0]?.count || 0),
+        totalVisits: parseInt(totalVisits[0]?.count || 0),
+      },
+    });
+  } catch (err) {
+    console.error('Stats summary error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch stats' });
   }
 });
 
 export default router;
-

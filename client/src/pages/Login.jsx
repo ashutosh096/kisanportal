@@ -57,17 +57,21 @@ const Login = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.user?.role !== 'admin') {
+        const userObj = data.data?.user || data.user;
+        const tokenVal = data.data?.accessToken || data.token;
+        const allowedAdminRoles = ['admin', 'coadmin', 'superadmin', 'manager', 'viewer'];
+        if (!userObj || !allowedAdminRoles.includes(userObj.role)) {
           setError('Invalid username or password for Admin login');
           setLoading(false);
           return;
         }
-        login(data.user, data.token);
+        login(userObj, tokenVal);
         navigate('/admin');
         return;
       } else {
         const errData = await res.json().catch(() => ({}));
-        setError(errData.error || 'Invalid username or password for Admin login');
+        const msg = typeof errData.message === 'string' ? errData.message : (typeof errData.error === 'string' ? errData.error : (errData.error?.details || 'Invalid username or password for Admin login'));
+        setError(msg);
       }
     } catch (err) {
       console.error('API login error:', err);
@@ -103,17 +107,21 @@ const Login = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.user?.role !== 'surveyor') {
+        const userObj = data.data?.user || data.user;
+        const tokenVal = data.data?.accessToken || data.token;
+        const allowedSurveyorRoles = ['surveyor', 'admin', 'superadmin'];
+        if (!userObj || !allowedSurveyorRoles.includes(userObj.role)) {
           setError('Invalid username or password for Surveyor login');
           setLoading(false);
           return;
         }
-        login(data.user, data.token);
+        login(userObj, tokenVal);
         navigate('/surveyor');
         return;
       } else {
         const errData = await res.json().catch(() => ({}));
-        setError(errData.error || 'Invalid username or password for Surveyor login');
+        const msg = typeof errData.message === 'string' ? errData.message : (typeof errData.error === 'string' ? errData.error : (errData.error?.details || 'Invalid username or password for Surveyor login'));
+        setError(msg);
       }
     } catch (err) {
       console.error('API surveyor login error:', err);

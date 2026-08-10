@@ -1,4 +1,6 @@
 // Lightweight In-Memory RAM Cache for Ultra-Fast API Responses (< 20ms)
+// NOTE FOR SCALING: This in-memory JavaScript Map is optimized for single-instance deployments.
+// If scaling to multi-node server clusters behind a load balancer, replace this with a shared cache (e.g. Redis).
 
 const cacheStore = new Map();
 

@@ -1,211 +1,291 @@
 import express from 'express';
-import ExcelJS from 'exceljs';
+import PDFDocument from 'pdfkit';
 import { query } from '../db.js';
-import { authenticateToken, requireRole } from '../middleware/auth.js';
+import { authenticateToken, requireRole, getTeamAdminId } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/export/excel - Standard export
-router.get('/excel', authenticateToken, requireRole('admin'), async (req, res) => {
-  const { location, surveyor, startDate, endDate } = req.query;
+// Helper: Draw horizontal table line in PDF
+function drawTableLine(doc, y) {
+  doc.strokeColor('#cbd5e1').lineWidth(0.5).moveTo(40, y).lineTo(570, y).stroke();
+}
+
+// ─── GET /api/export/pdf - Standard PDF Report Export ───
+router.get('/pdf', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'viewer', 'superadmin'), async (req, res) => {
+  const { type, location, surveyor, startDate, endDate } = req.query;
+  const teamAdminId = getTeamAdminId(req.user);
+
+  try {
+    // 1. Fetch Farmers Data
+    let farmerSql = `
+      SELECT f.*, u.name as surveyor_display_name,
+             s2a.crop, s2a.area, s2a.season_name
+      FROM farmers f
+      LEFT JOIN users u ON u.id = f.surveyor_id
+      LEFT JOIN form2a_seasonal s2a ON s2a.farmer_id = f.farmer_id AND s2a.is_active = true
+      WHERE 1=1
+    `;
+    const farmerParams = [];
+
+    if (teamAdminId) {
+      farmerSql += ' AND (f.admin_id = ? OR f.surveyor_id IN (SELECT id FROM users WHERE admin_id = ?))';
+      farmerParams.push(teamAdminId, teamAdminId);
+    }
+    if (location) {
+      farmerSql += ' AND (LOWER(f.location) LIKE LOWER(?) OR LOWER(f.name) LIKE LOWER(?))';
+      farmerParams.push(`%${location}%`, `%${location}%`);
+    }
+    if (surveyor) {
+      farmerSql += ' AND (LOWER(f.surveyor_name) LIKE LOWER(?) OR LOWER(u.name) LIKE LOWER(?))';
+      farmerParams.push(`%${surveyor}%`, `%${surveyor}%`);
+    }
+    if (startDate) {
+      farmerSql += ' AND f.date >= ?';
+      farmerParams.push(startDate);
+    }
+    if (endDate) {
+      farmerSql += ' AND f.date <= ?';
+      farmerParams.push(endDate);
+    }
+    farmerSql += ' ORDER BY f.id DESC';
+    const farmers = await query(farmerSql, farmerParams);
+
+    // 2. Fetch Form2b Visits Data
+    let visitSql = `
+      SELECT v.*, f.name as farmer_name, f.location as farmer_location,
+             u.name as surveyor_display_name
+      FROM form2b_visits v
+      JOIN farmers f ON v.farmer_id = f.farmer_id
+      LEFT JOIN users u ON u.id = v.surveyor_id
+      WHERE 1=1
+    `;
+    const visitParams = [];
+
+    if (teamAdminId) {
+      visitSql += ' AND (v.admin_id = ? OR f.admin_id = ?)';
+      visitParams.push(teamAdminId, teamAdminId);
+    }
+    if (location) {
+      visitSql += ' AND (LOWER(f.location) LIKE LOWER(?) OR LOWER(f.name) LIKE LOWER(?))';
+      visitParams.push(`%${location}%`, `%${location}%`);
+    }
+    if (surveyor) {
+      visitSql += ' AND (LOWER(v.surveyor_name) LIKE LOWER(?) OR LOWER(u.name) LIKE LOWER(?))';
+      visitParams.push(`%${surveyor}%`, `%${surveyor}%`);
+    }
+    if (startDate) {
+      visitSql += ' AND v.visit_date >= ?';
+      visitParams.push(startDate);
+    }
+    if (endDate) {
+      visitSql += ' AND v.visit_date <= ?';
+      visitParams.push(endDate);
+    }
+    visitSql += ' ORDER BY v.id DESC';
+    const visits = await query(visitSql, visitParams);
+
+    // 3. Create PDF Document
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Farmer_Survey_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.pipe(res);
+
+    // Header Banner
+    doc.rect(40, 40, 515, 60).fill('#0d3c26');
+    doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold').text('KisanSurvey Analytics Report', 55, 52);
+    doc.fontSize(9).font('Helvetica').text(`Generated on: ${new Date().toLocaleString('en-IN')}  |  Exported by: ${req.user.name || req.user.username} (${req.user.role.toUpperCase()})`, 55, 76);
+
+    let y = 115;
+
+    // Filters Applied Summary
+    doc.fillColor('#0f172a').fontSize(10).font('Helvetica-Bold').text('Report Filters & Summary:', 40, y);
+    y += 16;
+    doc.fontSize(8.5).font('Helvetica').fillColor('#475569');
+    doc.text(`Total Farmers: ${farmers.length}  |  Total Farm Visits Logged: ${visits.length}  |  Location Filter: ${location || 'All Villages'}  |  Date Range: ${startDate || 'All Time'} to ${endDate || 'Present'}`, 40, y);
+    y += 24;
+
+    // SECTION 1: Farmer Registrations (if not explicitly filtered to visits only)
+    if (type !== 'surveys') {
+      doc.fillColor('#0d3c26').fontSize(12).font('Helvetica-Bold').text('1. Farmer Registrations (Master Profile)', 40, y);
+      y += 18;
+
+      // Table Headers
+      doc.rect(40, y, 515, 20).fill('#e2e8f0');
+      doc.fillColor('#0f172a').fontSize(8).font('Helvetica-Bold');
+      doc.text('Farmer ID', 45, y + 6, { width: 75 });
+      doc.text('Farmer Name', 125, y + 6, { width: 110 });
+      doc.text('Contact', 240, y + 6, { width: 80 });
+      doc.text('Village / Location', 325, y + 6, { width: 110 });
+      doc.text('Crop / Area', 440, y + 6, { width: 110 });
+      y += 22;
+
+      if (farmers.length === 0) {
+        doc.fillColor('#64748b').fontSize(8.5).font('Helvetica').text('No registered farmers match the specified criteria.', 45, y);
+        y += 20;
+      } else {
+        farmers.slice(0, 100).forEach((f) => {
+          if (y > 750) {
+            doc.addPage();
+            y = 40;
+          }
+          doc.fillColor('#1e293b').fontSize(8).font('Helvetica');
+          doc.text(f.farmer_id || 'N/A', 45, y, { width: 75 });
+          doc.font('Helvetica-Bold').text(f.name || 'N/A', 125, y, { width: 110 });
+          doc.font('Helvetica').text(f.contact || 'N/A', 240, y, { width: 80 });
+          doc.text((f.location || 'N/A').substring(0, 25), 325, y, { width: 110 });
+          doc.text(`${f.crop || 'N/A'} (${f.area || '-'})`, 440, y, { width: 110 });
+          y += 16;
+          drawTableLine(doc, y - 4);
+        });
+      }
+      y += 15;
+    }
+
+    // SECTION 2: Farm Visits Logbook (if not explicitly filtered to farmers only)
+    if (type !== 'farmers') {
+      if (y > 650) {
+        doc.addPage();
+        y = 40;
+      }
+      doc.fillColor('#0d3c26').fontSize(12).font('Helvetica-Bold').text('2. Farm Visits Logbook (Recurring Surveys)', 40, y);
+      y += 18;
+
+      // Table Headers
+      doc.rect(40, y, 515, 20).fill('#e2e8f0');
+      doc.fillColor('#0f172a').fontSize(8).font('Helvetica-Bold');
+      doc.text('Farmer ID & Name', 45, y + 6, { width: 120 });
+      doc.text('Visit Date', 170, y + 6, { width: 75 });
+      doc.text('Plowing / Pesticide', 250, y + 6, { width: 100 });
+      doc.text('Fertilizer / Supplement', 355, y + 6, { width: 110 });
+      doc.text('Irrigation / Weeding', 470, y + 6, { width: 80 });
+      y += 22;
+
+      if (visits.length === 0) {
+        doc.fillColor('#64748b').fontSize(8.5).font('Helvetica').text('No farm visits recorded matching the specified criteria.', 45, y);
+        y += 20;
+      } else {
+        visits.slice(0, 100).forEach((v) => {
+          if (y > 740) {
+            doc.addPage();
+            y = 40;
+          }
+          const vDate = v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN') : 'N/A';
+          doc.fillColor('#1e293b').fontSize(8).font('Helvetica-Bold');
+          doc.text(v.farmer_name || v.farmer_id || 'N/A', 45, y, { width: 120 });
+          doc.font('Helvetica').fontSize(7.5).text(`ID: ${v.farmer_id}`, 45, y + 10, { width: 120 });
+
+          doc.fillColor('#1e293b').fontSize(8).text(vDate, 170, y, { width: 75 });
+
+          const plowingText = v.plowing === 'yes' ? `Plow: Yes (${v.plowing_count || 1}x)` : 'Plow: No';
+          const pestText = v.pesticide_used === 'yes' ? `Pest: ${v.pesticide_brand || 'Yes'}` : 'Pest: No';
+          doc.text(`${plowingText}\n${pestText}`, 250, y, { width: 100 });
+
+          const fertText = v.fertilizer_used === 'yes' ? `Fert: ${v.fertilizer_brand || 'Yes'}` : 'Fert: No';
+          const suppText = v.supplement_used === 'yes' ? `Supp: ${v.supplement_brand || 'Yes'}` : 'Supp: No';
+          doc.text(`${fertText}\n${suppText}`, 355, y, { width: 110 });
+
+          const irrigText = v.irrigation_done === 'yes' ? `Irrig: ${v.irrigation_type || 'Yes'}` : 'Irrig: No';
+          const weedText = v.weeding_done === 'yes' ? 'Weed: Yes' : 'Weed: No';
+          doc.text(`${irrigText}\n${weedText}`, 470, y, { width: 80 });
+
+          y += 26;
+          drawTableLine(doc, y - 4);
+        });
+      }
+    }
+
+    doc.end();
+  } catch (err) {
+    console.error('PDF export error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate PDF report' });
+    }
+  }
+});
+
+// ─── GET /api/export/pdf-matrix - Export Per-Farmer PDF Matrix Report ───
+router.get('/pdf-matrix', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'viewer', 'superadmin'), async (req, res) => {
+  const teamAdminId = getTeamAdminId(req.user);
 
   try {
     let farmerSql = 'SELECT * FROM farmers WHERE 1=1';
     const params = [];
-
-    if (location) {
-      farmerSql += ' AND LOWER(location) LIKE LOWER(?)';
-      params.push(`%${location}%`);
+    if (teamAdminId) {
+      farmerSql += ' AND (admin_id = ? OR surveyor_id IN (SELECT id FROM users WHERE admin_id = ?))';
+      params.push(teamAdminId, teamAdminId);
     }
-    if (surveyor) {
-      farmerSql += ' AND LOWER(surveyor_name) LIKE LOWER(?)';
-      params.push(`%${surveyor}%`);
-    }
-    if (startDate) {
-      farmerSql += ' AND date >= ?';
-      params.push(startDate);
-    }
-    if (endDate) {
-      farmerSql += ' AND date <= ?';
-      params.push(endDate);
-    }
-
-    farmerSql += ' ORDER BY id DESC';
+    farmerSql += ' ORDER BY id ASC';
     const farmers = await query(farmerSql, params);
 
-    let surveySql = `
-      SELECT s.*, f.name as farmer_name, f.location as farmer_location 
-      FROM surveys s 
-      JOIN farmers f ON s.farmer_id = f.farmer_id 
-      WHERE 1=1
-    `;
-    const surveyParams = [];
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Farmer_Matrix_Logbook_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.pipe(res);
 
-    if (location) {
-      surveySql += ' AND LOWER(f.location) LIKE LOWER(?)';
-      surveyParams.push(`%${location}%`);
-    }
-    if (surveyor) {
-      surveySql += ' AND LOWER(s.surveyor_name) LIKE LOWER(?)';
-      surveyParams.push(`%${surveyor}%`);
-    }
-    if (startDate) {
-      surveySql += ' AND s.visit_date >= ?';
-      surveyParams.push(startDate);
-    }
-    if (endDate) {
-      surveySql += ' AND s.visit_date <= ?';
-      surveyParams.push(endDate);
-    }
+    // Title Header
+    doc.rect(40, 40, 515, 55).fill('#0d3c26');
+    doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold').text('Farm Management Matrix Logbook', 55, 50);
+    doc.fontSize(8.5).font('Helvetica').text(`Comprehensive per-farmer visit history matrix  |  Exported on ${new Date().toLocaleDateString('en-IN')}`, 55, 72);
 
-    surveySql += ' ORDER BY s.id DESC';
-    const surveys = await query(surveySql, surveyParams);
-
-    const workbook = new ExcelJS.Workbook();
-
-    // Sheet 1: Farmer Registrations
-    const farmerSheet = workbook.addWorksheet('Farmer Registrations');
-    farmerSheet.columns = [
-      { header: 'Farmer ID', key: 'farmer_id', width: 15 },
-      { header: 'Farmer Name', key: 'name', width: 22 },
-      { header: 'Contact', key: 'contact', width: 15 },
-      { header: 'Location / Village', key: 'location', width: 20 },
-      { header: 'Registration Date', key: 'date', width: 15 },
-      { header: 'Soil Testing', key: 'soil_testing', width: 12 },
-      { header: 'Water Testing', key: 'water_testing', width: 12 },
-      { header: 'Cow Dung Used', key: 'cow_dung_used', width: 15 },
-      { header: 'Cow Dung Qty', key: 'cow_dung_qty', width: 15 },
-      { header: 'Crop', key: 'crop', width: 15 },
-      { header: 'Reason Chosen', key: 'crop_reason', width: 25 },
-      { header: 'Area (Acre/Ha)', key: 'area', width: 15 },
-      { header: 'Sowing Date', key: 'sowing_date', width: 15 },
-      { header: 'Variety', key: 'variety', width: 15 },
-      { header: 'Seed Qty/Acre', key: 'seed_qty_per_acre', width: 15 },
-      { header: 'Seed Type', key: 'seed_type', width: 12 },
-      { header: 'Sowing Type', key: 'sowing_type', width: 15 },
-      { header: 'Harvest Date', key: 'harvest_date', width: 15 },
-      { header: 'Yield', key: 'yield', width: 15 },
-      { header: 'Expert Advice', key: 'expert_advice', width: 15 },
-      { header: 'Surveyor Name', key: 'surveyor_name', width: 20 },
-    ];
-    farmerSheet.addRows(farmers);
-
-    // Sheet 2: Farm Visit Surveys
-    const surveySheet = workbook.addWorksheet('Farm Visits Logbook');
-    surveySheet.columns = [
-      { header: 'Farmer ID', key: 'farmer_id', width: 15 },
-      { header: 'Farmer Name', key: 'farmer_name', width: 22 },
-      { header: 'Location', key: 'farmer_location', width: 20 },
-      { header: 'Visit Date', key: 'visit_date', width: 15 },
-      { header: 'Plowing Done', key: 'plowing', width: 15 },
-      { header: 'Plowing Count', key: 'plowing_count', width: 15 },
-      { header: 'Pesticide Used', key: 'pesticide_used', width: 15 },
-      { header: 'Pesticide Qty', key: 'pesticide_qty', width: 15 },
-      { header: 'Pesticide Brand', key: 'pesticide_brand', width: 18 },
-      { header: 'Supplement Used', key: 'supplement_used', width: 18 },
-      { header: 'Supplement Qty', key: 'supplement_qty', width: 15 },
-      { header: 'Supplement Brand', key: 'supplement_brand', width: 18 },
-      { header: 'Fertilizer Used', key: 'fertilizer_used', width: 15 },
-      { header: 'Fertilizer Qty', key: 'fertilizer_qty', width: 15 },
-      { header: 'Fertilizer Brand', key: 'fertilizer_brand', width: 18 },
-      { header: 'Irrigation Done', key: 'irrigation_done', width: 15 },
-      { header: 'Irrigation Source', key: 'irrigation_source', width: 18 },
-      { header: 'Irrigation Type', key: 'irrigation_type', width: 18 },
-      { header: 'Irrigation Depth', key: 'irrigation_depth', width: 15 },
-      { header: 'Weeding Done', key: 'weeding_done', width: 15 },
-      { header: 'Additional Notes', key: 'additional_activities', width: 30 },
-      { header: 'Surveyor Name', key: 'surveyor_name', width: 20 },
-    ];
-    surveySheet.addRows(surveys);
-
-    [farmerSheet, surveySheet].forEach((sheet) => {
-      sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
-      sheet.getRow(1).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: '0D3C26' },
-      };
-    });
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Farmer_Survey_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
-
-    await workbook.xlsx.write(res);
-    res.end();
-  } catch (err) {
-    console.error('Excel export error:', err);
-    res.status(500).json({ error: 'Failed to export Excel file' });
-  }
-});
-
-// GET /api/export/excel-matrix - Export Per-Farmer Multi-Tab Matrix Workbook matching user's template exactly!
-router.get('/excel-matrix', authenticateToken, requireRole('admin'), async (req, res) => {
-  try {
-    const farmers = await query('SELECT * FROM farmers ORDER BY id ASC');
-    const workbook = new ExcelJS.Workbook();
+    let isFirstPage = true;
 
     for (const farmer of farmers) {
-      const visits = await query('SELECT * FROM surveys WHERE farmer_id = ? ORDER BY visit_date ASC', [farmer.farmer_id]);
-      
-      const cleanSheetName = (farmer.name || farmer.farmer_id).replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 30) || 'Farmer Sheet';
-      const sheet = workbook.addWorksheet(cleanSheetName);
+      const visits = await query(
+        'SELECT * FROM form2b_visits WHERE farmer_id = ? ORDER BY visit_date ASC',
+        [farmer.farmer_id]
+      );
 
-      // Row 1: Farm Management Details Header
-      sheet.addRow(['Farm Management Details']);
-      sheet.getRow(1).font = { bold: true, size: 14, color: { argb: 'FFFFFF' } };
-      sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0D3C26' } };
+      if (!isFirstPage) doc.addPage();
+      isFirstPage = false;
 
-      // Row 2: Farmer Name
-      sheet.addRow(['Farmer Name', farmer.name]);
-      sheet.getRow(2).font = { bold: true };
+      let y = 110;
+      doc.rect(40, y, 515, 28).fill('#f1f5f9');
+      doc.fillColor('#0d3c26').fontSize(11).font('Helvetica-Bold').text(`Farmer: ${farmer.name} (ID: ${farmer.farmer_id})`, 50, y + 8);
+      doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text(`Location: ${farmer.location || 'N/A'}  |  Contact: ${farmer.contact || 'N/A'}`, 320, y + 9);
+      y += 36;
 
-      // Row 3: Dates Header
-      const dateHeaders = ['Date', ...visits.map((v) => v.visit_date)];
-      sheet.addRow(dateHeaders);
-      sheet.getRow(3).font = { bold: true, color: { argb: '15803D' } };
-      sheet.getRow(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'DCFCE7' } };
+      if (visits.length === 0) {
+        doc.fillColor('#94a3b8').fontSize(9).font('Helvetica').text('No recurring farm visit surveys logged for this farmer.', 50, y);
+        continue;
+      }
 
-      // Rows 4 to 22: Activity Rows matching paper form template
+      // Matrix Table Headers
+      doc.rect(40, y, 515, 18).fill('#e2e8f0');
+      doc.fillColor('#0f172a').fontSize(8).font('Helvetica-Bold');
+      doc.text('Activity / Operation', 45, y + 5, { width: 170 });
+      doc.text(`Recorded Visit Logs (${visits.length} Visits)`, 220, y + 5, { width: 330 });
+      y += 22;
+
       const rowsDef = [
-        { label: 'Ploughing (Yes/No)', getValue: (v) => (v.plowing === 'yes' ? 'Yes' : 'No') },
-        { label: 'No. Of ploughing', getValue: (v) => (v.plowing === 'yes' ? `${v.plowing_count || 1} times` : '-') },
-        { label: 'Pesticide (yes/no)', getValue: (v) => (v.pesticide_used === 'yes' ? 'Yes' : 'No') },
-        { label: 'Pesticide Quantity', getValue: (v) => v.pesticide_qty || '-' },
-        { label: 'Pesticide Brand', getValue: (v) => v.pesticide_brand || '-' },
-        { label: 'Supplement (Yes/No)', getValue: (v) => (v.supplement_used === 'yes' ? 'Yes' : 'No') },
-        { label: 'Supplement Quantity', getValue: (v) => v.supplement_qty || '-' },
-        { label: 'Supplement Brand', getValue: (v) => v.supplement_brand || '-' },
-        { label: 'Fertilizer (Yes/No)', getValue: (v) => (v.fertilizer_used === 'yes' ? 'Yes' : 'No') },
-        { label: 'Fertilizer Quantity', getValue: (v) => v.fertilizer_qty || '-' },
-        { label: 'Fertilizer Brand', getValue: (v) => v.fertilizer_brand || '-' },
-        { label: 'Irrigation (Yes/No)', getValue: (v) => (v.irrigation_done === 'yes' ? 'Yes' : 'No') },
-        { label: 'Irrigation Source (Tubewell/Canal)', getValue: (v) => v.irrigation_source || '-' },
-        { label: 'Irrigation type (sprinkle/Flood)', getValue: (v) => v.irrigation_type || '-' },
-        { label: 'Irrigation Depth', getValue: (v) => v.irrigation_depth || '-' },
-        { label: 'Weeding', getValue: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No') },
-        { label: 'Additional Activities', getValue: (v) => v.additional_activities || '-' },
-        { label: 'Data Collection Date', getValue: (v) => v.visit_date || '-' },
+        { label: 'Ploughing Done', getValue: (v) => (v.plowing === 'yes' ? `Yes (${v.plowing_count || 1}x)` : 'No') },
+        { label: 'Pesticide Applied', getValue: (v) => (v.pesticide_used === 'yes' ? `${v.pesticide_brand || 'Yes'} (${v.pesticide_qty || '-'})` : 'No') },
+        { label: 'Supplement Applied', getValue: (v) => (v.supplement_used === 'yes' ? `${v.supplement_brand || 'Yes'} (${v.supplement_qty || '-'})` : 'No') },
+        { label: 'Fertilizer Applied', getValue: (v) => (v.fertilizer_used === 'yes' ? `${v.fertilizer_brand || 'Yes'} (${v.fertilizer_qty || '-'})` : 'No') },
+        { label: 'Irrigation Operation', getValue: (v) => (v.irrigation_done === 'yes' ? `${v.irrigation_type || 'Yes'} (${v.irrigation_source || '-'})` : 'No') },
+        { label: 'Weeding Operation', getValue: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No') },
+        { label: 'Visit Date', getValue: (v) => (v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN') : '-') },
       ];
 
       rowsDef.forEach((r) => {
-        const rowVals = [r.label, ...visits.map((v) => r.getValue(v))];
-        sheet.addRow(rowVals);
+        if (y > 750) {
+          doc.addPage();
+          y = 40;
+        }
+        doc.fillColor('#0f172a').fontSize(8).font('Helvetica-Bold').text(r.label, 45, y, { width: 170 });
+        const visitValues = visits.map((v) => r.getValue(v)).join('  |  ');
+        doc.fillColor('#334155').fontSize(8).font('Helvetica').text(visitValues, 220, y, { width: 330 });
+        y += 18;
+        drawTableLine(doc, y - 4);
       });
-
-      sheet.getColumn(1).width = 32;
-      for (let i = 2; i <= visits.length + 1; i++) {
-        sheet.getColumn(i).width = 16;
-      }
     }
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=Farmer_Matrix_Logbook_${new Date().toISOString().split('T')[0]}.xlsx`);
-
-    await workbook.xlsx.write(res);
-    res.end();
+    doc.end();
   } catch (err) {
-    console.error('Matrix export error:', err);
-    res.status(500).json({ error: 'Failed to export matrix workbook' });
+    console.error('PDF matrix export error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate PDF matrix report' });
+    }
   }
 });
 

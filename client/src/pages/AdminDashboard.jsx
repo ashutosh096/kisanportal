@@ -33,7 +33,7 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const feedRes = await fetch('/api/surveys/live-feed', {
+      const feedRes = await fetch('/api/form2/2b/recent', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const feedData = await feedRes.json();
@@ -43,7 +43,7 @@ const AdminDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const farmersData = await farmersRes.json();
-      setFarmers(Array.isArray(farmersData) ? farmersData : []);
+      setFarmers(Array.isArray(farmersData.data) ? farmersData.data : (Array.isArray(farmersData) ? farmersData : []));
 
       const surveyorsRes = await fetch('/api/surveyors', {
         headers: { Authorization: `Bearer ${token}` },

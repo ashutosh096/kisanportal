@@ -16,11 +16,12 @@ const SurveyorHome = () => {
         });
         if (res.ok) {
           const data = await res.json();
+          const d = data.data || data;
           setStats({
-            todaysReg: data.todaysReg || 0,
-            todaysSurveys: data.todaysSurveys || 0,
-            totalReg: data.totalReg || 0,
-            totalSurveys: data.totalSurveys || 0,
+            todaysReg: d.todaysReg || 0,
+            todaysSurveys: d.todaysSurveys || 0,
+            totalReg: d.totalReg || 0,
+            totalSurveys: d.totalSurveys || 0,
           });
         }
       } catch (err) {
@@ -155,13 +156,13 @@ const SurveyorHome = () => {
           </div>
 
           <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0d3c26', marginBottom: '6px' }}>
-            1. New Farmer Registration
+            Form 1: Farmer Registration
           </h2>
           <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#15803d', marginBottom: '8px' }}>
-            (नया किसान पंजीकरण)
+            (फॉर्म 1: नया किसान पंजीकरण - Lifetime)
           </div>
           <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '20px', lineHeight: 1.4 }}>
-            One-time baseline registration setup for new farmers in the village
+            One-time baseline registration profile for new farmers in the village
           </p>
 
           <div
@@ -180,11 +181,11 @@ const SurveyorHome = () => {
               boxShadow: '0 4px 12px rgba(13, 60, 38, 0.3)',
             }}
           >
-            Start Registration (नया किसान जोड़ें) <ArrowRight size={16} />
+            Fill Form 1 (किसान जोड़ें) <ArrowRight size={16} />
           </div>
         </Link>
 
-        {/* CARD 2: EXISTING FARMER VISIT SURVEY */}
+        {/* CARD 2: FORM 2 (FORM 2A SEASONAL & FORM 2B VISIT LOG) */}
         <Link
           to="/surveyor/survey"
           style={{
@@ -221,13 +222,13 @@ const SurveyorHome = () => {
           </div>
 
           <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0d3c26', marginBottom: '6px' }}>
-            2. Daily Farm Visit Survey
+            Form 2: Farm & Visit Logs
           </h2>
           <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#15803d', marginBottom: '8px' }}>
-            (रोजाना खेत दौरा सर्वे)
+            (फॉर्म 2: मौसमी 2A व दैनिक दौरा 2B)
           </div>
           <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '20px', lineHeight: 1.4 }}>
-            Record recurring farm visit logs (plowing, fertilizer, irrigation & pesticide)
+            Select farmer → Checks <strong>Form 2A</strong> (Crop/Soil) then opens <strong>Form 2B</strong> (Daily Visit Log)
           </p>
 
           <div
@@ -246,7 +247,7 @@ const SurveyorHome = () => {
               boxShadow: '0 4px 12px rgba(13, 60, 38, 0.3)',
             }}
           >
-            Record Visit (दौरा सर्वे दर्ज करें) <ArrowRight size={16} />
+            Open Form 2 (दौरा दर्ज करें) <ArrowRight size={16} />
           </div>
         </Link>
       </div>

@@ -17,7 +17,26 @@ const FarmerProfile = () => {
   const [deleting, setDeleting] = useState(false);
   const [deleteMsg, setDeleteMsg] = useState('');
 
-  const isSuperAdmin = user?.username === 'superadmin';
+  const [form2aData, setForm2aData] = useState(null);
+  const [form2aHistory, setForm2aHistory] = useState([]);
+  const [resetting2a, setResetting2a] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
+
+  const isAdminOrSuper = user?.role === 'admin' || user?.role === 'coadmin' || user?.role === 'superadmin';
+  const isSuperAdmin = user?.role === 'superadmin' || user?.username === 'superadmin';
+
+  const fetchForm2aInfo = async () => {
+    try {
+      const [res2a, resHist] = await Promise.all([
+        fetch(`/api/form2/2a/${farmer_id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/form2/2a/${farmer_id}/history`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const data2a = await res2a.json();
+      const dataHist = await resHist.json();
+      if (data2a.success) setForm2aData(data2a.data);
+      if (dataHist.success) setForm2aHistory(dataHist.data || []);
+    } catch (e) { console.error('Form2a fetch err', e); }
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -37,7 +56,31 @@ const FarmerProfile = () => {
     };
 
     fetchProfile();
+    fetchForm2aInfo();
   }, [farmer_id, token]);
+
+  const handleResetForm2a = async () => {
+    if (!window.confirm('🔄 Reset Form 2A for this farmer?\n\nThis will mark the current Form 2A as inactive and allow filing a new Form 2A. Past Form 2B visit logs will be preserved in history.')) return;
+    setResetting2a(true);
+    setResetMsg('');
+    try {
+      const res = await fetch(`/api/form2/2a/${farmer_id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setResetMsg('✅ ' + json.message);
+        fetchForm2aInfo();
+      } else {
+        setResetMsg('❌ Error: ' + (json.message || 'Failed to reset'));
+      }
+    } catch (e) {
+      setResetMsg('❌ Error: ' + e.message);
+    } finally {
+      setResetting2a(false);
+    }
+  };
 
   const handleDelete = async (mode) => {
     setDeleting(true);
@@ -85,7 +128,8 @@ const FarmerProfile = () => {
     );
   }
 
-  const { farmer, visits = [] } = data;
+  const farmer = data?.farmer || data?.data || data || {};
+  const visits = Array.isArray(data?.visits) ? data.visits : (Array.isArray(data?.data?.last3Visits) ? data.data.last3Visits : []);
 
   // Exact 20 activity rows matching user Excel template screenshot
   const excelMatrixRows = [
@@ -225,31 +269,167 @@ const FarmerProfile = () => {
         </div>
 
         {/* Baseline Form 1 Information Cards Grid */}
-        <div style={{ marginTop: '20px', background: '#f8fafc', padding: '18px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ color: '#0d3c26', fontSize: '1rem', fontWeight: 800, marginBottom: '14px', borderBottom: '1px solid #cbd5e1', paddingBottom: '6px' }}>
-            📋 Baseline Registration Info (प्रारंभिक आंकड़े)
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px', fontSize: '0.88rem' }}>
-            <div><strong>Soil Testing:</strong> {farmer.soil_testing === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
-            <div><strong>Water Testing:</strong> {farmer.water_testing === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
-            <div><strong>Cow Dung:</strong> {farmer.cow_dung_used === 'yes' ? `Yes (${farmer.cow_dung_qty})` : 'No (नहीं)'}</div>
-            <div><strong>Crop Name:</strong> <strong style={{ color: '#15803d' }}>{farmer.crop || '-'}</strong></div>
-            <div><strong>Crop Reason:</strong> {farmer.crop_reason || '-'}</div>
-            <div><strong>Land Area:</strong> <strong style={{ color: '#1d4ed8' }}>{farmer.area || '-'}</strong></div>
-            <div><strong>Sowing Date:</strong> {formatDateDDMMYYYY(farmer.sowing_date)}</div>
-            <div><strong>Seed Variety:</strong> {farmer.variety || '-'}</div>
-            <div><strong>Seed Qty/Acre:</strong> {farmer.seed_qty_per_acre || '-'}</div>
-            <div><strong>Seed Type:</strong> {farmer.seed_type || '-'}</div>
-            <div><strong>Sowing Type:</strong> {farmer.sowing_type || '-'}</div>
-            <div><strong>Expected Harvest Date:</strong> {formatDateDDMMYYYY(farmer.harvest_date)}</div>
-            <div><strong>Expected Yield:</strong> {farmer.yield || '-'}</div>
-            <div><strong>Growth Stage:</strong> {farmer.crop_growth_stage || '-'}</div>
-            <div><strong>Crop Height:</strong> {farmer.crop_height || '-'}</div>
-            <div><strong>Flowering Status:</strong> {farmer.flowering_status || '-'}</div>
-            <div><strong>Company Admin (कंपनी/एडमिन):</strong> <strong style={{ color: '#0d3c26' }}>🏢 {farmer.admin_name || 'System Admin'}</strong></div>
-            <div><strong>Registered By (सर्वेक्षक):</strong> 👤 {farmer.surveyor_name}</div>
+        <div style={{ marginTop: '20px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1.5px solid #bbf7d0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', borderBottom: '1.5px solid #cbd5e1', paddingBottom: '8px' }}>
+            <h3 style={{ color: '#0d3c26', fontSize: '1.05rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📋 Form 1: Farmer Baseline Registration Details (फॉर्म 1: किसान पंजीकरण विवरण)
+            </h3>
+            <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800 }}>
+              Form 1 Verified
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', fontSize: '0.88rem' }}>
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Farmer Name / किसान का नाम</span>
+              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>{farmer.name || 'N/A'}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Farmer System ID / किसान आईडी</span>
+              <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>{farmer.farmer_id || 'N/A'}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Contact Number / संपर्क नंबर</span>
+              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📞 {farmer.contact || 'N/A'}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Village & Address / गांव का नाम</span>
+              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📍 {farmer.location || 'N/A'}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Total Land Holding / कुल भूमि</span>
+              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>🌾 {farmer.total_land || 'N/A'}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Land Ownership / स्वामित्व स्थिति</span>
+              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>🏷️ {farmer.ownership || 'N/A'}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>GPS Coordinates / जीपीएस लोकेशन</span>
+              <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>🌐 {farmer.gps_location || (farmer.gps_latitude ? `${farmer.gps_latitude}, ${farmer.gps_longitude}` : 'Not Recorded')}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Registered By Surveyor / सर्वेक्षक</span>
+              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>👤 {farmer.surveyor_name || 'System Admin'}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Assigned Admin / कंपनी एडमिन</span>
+              <strong style={{ color: '#0d3c26', fontSize: '0.95rem' }}>🏢 {farmer.admin_name || 'System Admin'}</strong>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Registration Date / पंजीकरण तिथि</span>
+              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📅 {formatDateDDMMYYYY(farmer.date)}</strong>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Form 2A (Seasonal Setup) Card & Reset Button */}
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '24px',
+          padding: '24px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.03)',
+          marginBottom: '24px',
+          borderLeft: '6px solid #15803d',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0d3c26', margin: 0 }}>
+              🌾 Form 2A: Active Seasonal &amp; Crop Setup
+            </h2>
+            <p style={{ color: '#64748b', fontSize: '0.84rem', margin: '2px 0 0 0' }}>
+              Current season parameters for farm management
+            </p>
+          </div>
+          {isAdminOrSuper && form2aData && (
+            <button
+              onClick={handleResetForm2a}
+              disabled={resetting2a}
+              style={{
+                background: '#fef2f2',
+                color: '#dc2626',
+                border: '1.5px solid #fecaca',
+                borderRadius: '30px',
+                padding: '8px 18px',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              🔄 {resetting2a ? 'Resetting...' : 'Reset Form 2A (ऋतु सेटअप रीसेट करें)'}
+            </button>
+          )}
+        </div>
+
+        {resetMsg && (
+          <div style={{ padding: '10px 14px', borderRadius: '12px', background: resetMsg.startsWith('✅') ? '#f0fdf4' : '#fef2f2', color: resetMsg.startsWith('✅') ? '#15803d' : '#dc2626', fontWeight: 700, fontSize: '0.88rem', marginBottom: '14px' }}>
+            {resetMsg}
+          </div>
+        )}
+
+        {form2aData ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.86rem', background: '#f0fdf4', padding: '16px', borderRadius: '16px', border: '1px solid #bbf7d0' }}>
+            <div><strong>Season:</strong> {form2aData.season_name || '-'}</div>
+            <div><strong>Crop Name:</strong> <strong style={{ color: '#15803d' }}>{form2aData.crop || '-'}</strong></div>
+            <div><strong>Selection Reason:</strong> {form2aData.crop_reason || '-'}</div>
+            <div><strong>Crop Variety:</strong> {form2aData.variety || '-'}</div>
+            <div><strong>Land Area:</strong> {form2aData.area || '-'}</div>
+            <div><strong>Sowing Date:</strong> {formatDateDDMMYYYY(form2aData.sowing_date)}</div>
+            <div><strong>Seed Qty/Acre:</strong> {form2aData.seed_qty_per_acre || '-'}</div>
+            <div><strong>Seed Type:</strong> {form2aData.seed_type || '-'}</div>
+            <div><strong>Soil Testing:</strong> {form2aData.soil_testing === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
+            <div><strong>Water Testing:</strong> {form2aData.water_testing === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
+            <div><strong>Cow Dung Manure:</strong> {form2aData.cow_dung_used === 'yes' ? `Yes (${form2aData.cow_dung_qty || 'Used'})` : 'No (नहीं)'}</div>
+            <div><strong>Harvest Date:</strong> {formatDateDDMMYYYY(form2aData.harvest_date)}</div>
+            <div><strong>Expected Yield:</strong> {form2aData.expected_yield || '-'}</div>
+            <div><strong>Expert Advice:</strong> {form2aData.expert_advice === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
+          </div>
+        ) : (
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '14px', padding: '14px 18px', color: '#b45309', fontWeight: 700, fontSize: '0.88rem' }}>
+            ⚠️ No active Form 2A found for current season. (किसान का फॉर्म 2A सेटअप लंबित या रीसेट है)
+          </div>
+        )}
+
+        {/* Past Form 2A History Accordion */}
+        {form2aHistory.length > 0 && (
+          <div style={{ marginTop: '16px', borderTop: '1.5px dashed #cbd5e1', paddingTop: '14px' }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.92rem', fontWeight: 800, color: '#475569' }}>
+              📜 Previous Form 2A Records (पुराने रीसेट रिकॉर्ड)
+            </h4>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              {form2aHistory.map((h, i) => (
+                <div key={h.id || i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', fontSize: '0.82rem' }}>
+                  <div style={{ fontWeight: 800, color: '#64748b', marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Season: {h.season_name} | Crop: {h.crop || '-'}</span>
+                    <span style={{ color: '#94a3b8' }}>Reset on: {h.reset_at ? new Date(h.reset_at).toLocaleDateString('en-IN') : '—'}</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px', color: '#334155' }}>
+                    <div>Area: {h.area || '-'}</div>
+                    <div>Variety: {h.variety || '-'}</div>
+                    <div>Sowing: {formatDateDDMMYYYY(h.sowing_date)}</div>
+                    <div>Yield: {h.expected_yield || '-'}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* VIEW MODE TOGGLE TOOLBAR WRAPPED IN CRISP WHITE FLOATING CARD FOR 100% LEGIBILITY */}

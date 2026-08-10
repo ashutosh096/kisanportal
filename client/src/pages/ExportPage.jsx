@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Calendar, MapPin, FileSpreadsheet, Layers } from 'lucide-react';
+import { Download, Calendar, MapPin, FileText, Layers } from 'lucide-react';
 
 const ExportPage = () => {
   const [farmerStartDate, setFarmerStartDate] = useState('');
@@ -10,71 +10,72 @@ const ExportPage = () => {
   const [surveyEndDate, setSurveyEndDate] = useState('');
   const [surveyLocation, setSurveyLocation] = useState('');
 
-  const triggerExport = (type, startDate, endDate, location) => {
+  const triggerPdfExport = (type, startDate, endDate, location) => {
     const params = new URLSearchParams();
     if (type) params.append('type', type);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     if (location) params.append('location', location);
 
-    window.location.href = `/api/export/excel?${params.toString()}`;
+    window.location.href = `/api/export/pdf?${params.toString()}`;
   };
 
-  const triggerMatrixExport = () => {
-    window.location.href = `/api/export/excel-matrix`;
+  const triggerPdfMatrixExport = () => {
+    window.location.href = `/api/export/pdf-matrix`;
   };
 
   return (
     <div style={{ paddingBottom: '40px' }}>
-      {/* FLOATING CAPSULE HEADER BAR */}
+      {/* HEADER BAR */}
       <div
         style={{
           background: '#ffffff',
-          borderRadius: '40px',
-          padding: '16px 28px',
+          borderRadius: '28px',
+          padding: '24px 32px',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.03)',
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.05)',
           marginBottom: '24px',
+          borderTop: '6px solid #0d3c26',
         }}
       >
-        <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-          Export Data Reports
+        <h1 style={{ fontSize: '1.65rem', fontWeight: 900, color: '#0d3c26', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <FileText size={28} color="#0d3c26" /> Export PDF Data Reports (रिपोर्ट एक्सपोर्ट)
         </h1>
-        <p style={{ color: '#64748b', fontSize: '0.88rem', margin: '2px 0 0 0' }}>
-          Download raw Excel/CSV data or Multi-Tab Matrix Workbooks matching your paper template
+        <p style={{ color: '#64748b', fontSize: '0.88rem', margin: '4px 0 0 0', fontWeight: 600 }}>
+          Generate &amp; download official PDF analytics reports and per-farmer activity logbook matrix
         </p>
       </div>
 
-      {/* FEATURED SPECIAL BANNER: MULTI-TAB EXCEL MATRIX WORKBOOK */}
+      {/* FEATURED BANNER: MULTI-FARMER PDF MATRIX WORKBOOK */}
       <div
         style={{
           background: 'linear-gradient(135deg, #0d3c26 0%, #15803d 100%)',
           borderRadius: '24px',
-          padding: '24px 28px',
+          padding: '28px 32px',
           color: '#ffffff',
           marginBottom: '24px',
-          boxShadow: '0 8px 24px rgba(13, 60, 38, 0.2)',
+          boxShadow: '0 10px 30px rgba(13, 60, 38, 0.25)',
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '16px',
         }}
       >
         <div>
-          <span style={{ background: '#86efac', color: '#064e3b', fontWeight: 800, fontSize: '0.78rem', padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase' }}>
-            Featured Template Format
+          <span style={{ background: '#86efac', color: '#064e3b', fontWeight: 800, fontSize: '0.78rem', padding: '4px 14px', borderRadius: '20px', textTransform: 'uppercase' }}>
+            Featured PDF Matrix
           </span>
-          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#ffffff', margin: '8px 0 4px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Layers size={26} color="#86efac" /> Multi-Tab Excel Matrix Workbook (.xlsx)
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#ffffff', margin: '8px 0 4px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Layers size={26} color="#86efac" /> Farm Visit Matrix Logbook (.pdf)
           </h2>
-          <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, maxWidth: '600px' }}>
-            Generates an exact Excel workbook where each farmer gets their own worksheet tab (`Ranveer Singh`, `Dinesh Kumar`...) with activity rows and date columns matching your paper template.
+          <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, maxWidth: '640px', fontWeight: 500 }}>
+            Generates an official multi-page PDF matrix document where each registered farmer gets a detailed activity history breakdown matching your paper survey template.
           </p>
         </div>
 
         <button
-          onClick={triggerMatrixExport}
+          onClick={triggerPdfMatrixExport}
           className="btn btn-primary"
           style={{
             background: '#ffffff',
@@ -82,37 +83,41 @@ const ExportPage = () => {
             borderRadius: '30px',
             padding: '14px 28px',
             fontWeight: 800,
-            fontSize: '1rem',
+            fontSize: '0.95rem',
             border: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}
         >
-          <FileSpreadsheet size={20} color="#15803d" /> Download Multi-Tab Matrix Excel
+          <FileText size={20} color="#15803d" /> Download PDF Matrix Report
         </button>
       </div>
 
-      {/* CARD PANELS GRID (50% / 50%) */}
+      {/* CARD PANELS GRID */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
         
-        {/* CARD PANEL 1: Export Farmers */}
+        {/* CARD PANEL 1: Export Farmers PDF */}
         <div
           style={{
             background: '#ffffff',
-            borderRadius: '20px',
+            borderRadius: '24px',
             border: '1px solid #e2e8f0',
             padding: '28px',
-            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.03)',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.04)',
           }}
         >
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>
-            Export Farmers List
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>
+            Export Farmers List (PDF)
           </h2>
-          <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '20px' }}>
-            Download registered farmer database.
+          <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '20px', fontWeight: 600 }}>
+            Download registered farmer database in PDF format.
           </p>
 
           <div className="form-group">
-            <label className="form-label">Start Date</label>
+            <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>Start Date</label>
             <input
               type="date"
               className="input-field"
@@ -123,7 +128,7 @@ const ExportPage = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">End Date</label>
+            <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>End Date</label>
             <input
               type="date"
               className="input-field"
@@ -134,7 +139,7 @@ const ExportPage = () => {
           </div>
 
           <div className="form-group" style={{ marginBottom: '24px' }}>
-            <label className="form-label">Location / Village</label>
+            <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>Location / Village</label>
             <input
               type="text"
               className="input-field"
@@ -146,33 +151,33 @@ const ExportPage = () => {
           </div>
 
           <button
-            onClick={() => triggerExport('farmers', farmerStartDate, farmerEndDate, farmerLocation)}
+            onClick={() => triggerPdfExport('farmers', farmerStartDate, farmerEndDate, farmerLocation)}
             className="btn btn-primary"
-            style={{ borderRadius: '30px', padding: '14px', fontSize: '1rem', width: '100%' }}
+            style={{ borderRadius: '30px', padding: '14px', fontSize: '0.95rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
           >
-            <Download size={18} /> Download Farmers Excel
+            <Download size={18} /> Download Farmers PDF
           </button>
         </div>
 
-        {/* CARD PANEL 2: Export Surveys */}
+        {/* CARD PANEL 2: Export Visits PDF */}
         <div
           style={{
             background: '#ffffff',
-            borderRadius: '20px',
+            borderRadius: '24px',
             border: '1px solid #e2e8f0',
             padding: '28px',
-            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.03)',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.04)',
           }}
         >
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>
-            Export Visits Logbook
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>
+            Export Visits Logbook (PDF)
           </h2>
-          <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '20px' }}>
-            Download farm visit records.
+          <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '20px', fontWeight: 600 }}>
+            Download farm visit records in PDF format.
           </p>
 
           <div className="form-group">
-            <label className="form-label">Start Date</label>
+            <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>Start Date</label>
             <input
               type="date"
               className="input-field"
@@ -183,7 +188,7 @@ const ExportPage = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">End Date</label>
+            <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>End Date</label>
             <input
               type="date"
               className="input-field"
@@ -194,7 +199,7 @@ const ExportPage = () => {
           </div>
 
           <div className="form-group" style={{ marginBottom: '24px' }}>
-            <label className="form-label">Location / Village</label>
+            <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>Location / Village</label>
             <input
               type="text"
               className="input-field"
@@ -206,11 +211,11 @@ const ExportPage = () => {
           </div>
 
           <button
-            onClick={() => triggerExport('surveys', surveyStartDate, surveyEndDate, surveyLocation)}
+            onClick={() => triggerPdfExport('surveys', surveyStartDate, surveyEndDate, surveyLocation)}
             className="btn btn-primary"
-            style={{ borderRadius: '30px', padding: '14px', fontSize: '1rem', width: '100%' }}
+            style={{ borderRadius: '30px', padding: '14px', fontSize: '0.95rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
           >
-            <Download size={18} /> Download Visits Excel
+            <Download size={18} /> Download Visits PDF
           </button>
         </div>
 

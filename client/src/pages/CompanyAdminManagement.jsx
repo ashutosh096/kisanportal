@@ -8,7 +8,10 @@ import {
   X,
   Eye,
   Edit2,
-  Trash2
+  Trash2,
+  Lock,
+  Unlock,
+  RefreshCw,
 } from 'lucide-react';
 
 const CompanyAdminManagement = () => {
@@ -18,6 +21,51 @@ const CompanyAdminManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [selectedProfileAdmin, setSelectedProfileAdmin] = useState(null);
+  // Temp Password Modal State
+  const [tempPasswordModal, setTempPasswordModal] = useState(null);
+
+  const handleResetAdminPassword = async (a) => {
+    if (!window.confirm(`Reset password for Admin "${a.name}"?`)) return;
+    try {
+      const res = await fetch(`/api/users/${a.id}/reset-password`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTempPasswordModal({ name: a.name, username: a.username, password: data.data.temporaryPassword });
+      } else {
+        setError(data.message || 'Failed to reset password');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch {
+      setError('Network error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleToggleLockAdmin = async (a) => {
+    const action = a.status === 'inactive' ? '🔓 Unlock' : '🔒 Lock';
+    if (!window.confirm(`${action} Admin "${a.name}"'s account?`)) return;
+    try {
+      const res = await fetch(`/api/users/${a.id}/toggle-lock`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMsg(data.message);
+        fetchAdmins();
+        setTimeout(() => setMsg(''), 3000);
+      } else {
+        setError(data.message || 'Failed to update lock status');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch {
+      setError('Network error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
 
   // Edit / Delete State
   const [editAdmin, setEditAdmin] = useState(null);
@@ -69,7 +117,7 @@ const CompanyAdminManagement = () => {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/auth/add-admin', {
+      const res = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,6 +128,7 @@ const CompanyAdminManagement = () => {
           name: adminName,
           password: adminPassword,
           mobile: adminMobile,
+          role: 'admin',
         }),
       });
 
@@ -173,28 +222,34 @@ const CompanyAdminManagement = () => {
   const safeAdmins = Array.isArray(admins) ? admins : [];
 
   return (
-    <div>
-      {/* FLOATING CAPSULE HEADER BAR */}
+    <div
+      style={{
+        background: '#ffffff',
+        borderRadius: '28px',
+        padding: '32px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
+        borderTop: '6px solid #0d3c26',
+      }}
+    >
+      {/* HEADER BAR */}
       <div
         style={{
-          background: '#ffffff',
-          borderRadius: '40px',
-          padding: '16px 28px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.03)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '24px',
+          borderBottom: '1.5px solid #f1f5f9',
+          paddingBottom: '18px',
           flexWrap: 'wrap',
           gap: '12px',
         }}
       >
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Building2 size={24} color="#0d3c26" /> Company Admins (कंपनी एडमिन)
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#0d3c26', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Building2 size={26} color="#0d3c26" /> Company Admins (कंपनी एडमिन)
           </h1>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
+          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0', fontWeight: 600 }}>
             Manage active company admin accounts, login credentials &amp; team performance
           </p>
         </div>
@@ -239,8 +294,8 @@ const CompanyAdminManagement = () => {
       {msg && <div className="alert alert-success" style={{ marginBottom: '16px' }}><CheckCircle size={18} /> {msg}</div>}
       {error && <div className="alert alert-danger" style={{ marginBottom: '16px' }}><AlertCircle size={18} /> {error}</div>}
 
-      {/* COMPANY ADMINS TABLE */}
-      <div className="option3-panel-card">
+      {/* COMPANY ADMINS LIST */}
+      <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div className="option3-panel-title">
             <Building2 size={20} color="#0d3c26" /> Registered Company Admins List
@@ -258,7 +313,6 @@ const CompanyAdminManagement = () => {
                 <tr>
                   <th>Company / Admin Name</th>
                   <th>Username</th>
-                  <th>Login Passkey</th>
                   <th>Mobile Number</th>
                   <th>Team Farmers</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
@@ -269,15 +323,10 @@ const CompanyAdminManagement = () => {
                   <tr key={a.id}>
                     <td style={{ fontWeight: 800, color: '#0f172a' }}>🏢 {a.name}</td>
                     <td style={{ color: '#64748b', fontWeight: 600 }}>{a.username}</td>
-                    <td>
-                      <code style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '0.8rem' }}>
-                        {a.raw_passkey || 'admin123'}
-                      </code>
-                    </td>
                     <td style={{ color: '#64748b', fontSize: '0.85rem' }}>{a.mobile ? `+91 ${a.mobile}` : 'N/A'}</td>
                     <td style={{ color: '#15803d', fontWeight: 800 }}>{a.registrations_count || 0}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
+                      <div style={{ display: 'inline-flex', gap: '5px', flexWrap: 'wrap' }}>
                         <button
                           onClick={() => setSelectedProfileAdmin(a)}
                           style={{
@@ -285,8 +334,8 @@ const CompanyAdminManagement = () => {
                             color: '#15803d',
                             border: '1px solid #bbf7d0',
                             borderRadius: '20px',
-                            padding: '4px 12px',
-                            fontSize: '0.78rem',
+                            padding: '4px 11px',
+                            fontSize: '0.76rem',
                             fontWeight: 800,
                             cursor: 'pointer',
                             display: 'inline-flex',
@@ -298,21 +347,59 @@ const CompanyAdminManagement = () => {
                         </button>
 
                         <button
-                          onClick={() => {
-                            setEditAdmin(a);
-                            setEditName(a.name || '');
-                            setEditUsername(a.username || '');
-                            setEditPassword(a.raw_passkey || '');
-                            setEditMobile(a.mobile || '');
-                            setModalError('');
-                          }}
+                          onClick={() => handleResetAdminPassword(a)}
                           style={{
                             background: '#eff6ff',
                             color: '#1d4ed8',
                             border: '1px solid #bfdbfe',
                             borderRadius: '20px',
-                            padding: '4px 12px',
-                            fontSize: '0.78rem',
+                            padding: '4px 11px',
+                            fontSize: '0.76rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <RefreshCw size={13} /> Reset Pass
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleLockAdmin(a)}
+                          style={{
+                            background: a.status === 'inactive' ? '#f0fdf4' : '#fef2f2',
+                            color: a.status === 'inactive' ? '#15803d' : '#dc2626',
+                            border: `1px solid ${a.status === 'inactive' ? '#bbf7d0' : '#fecaca'}`,
+                            borderRadius: '20px',
+                            padding: '4px 11px',
+                            fontSize: '0.76rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          {a.status === 'inactive' ? <><Unlock size={13} /> Unlock</> : <><Lock size={13} /> Lock</>}
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setEditAdmin(a);
+                            setEditName(a.name || '');
+                            setEditUsername(a.username || '');
+                            setEditPassword('');
+                            setEditMobile(a.mobile || '');
+                            setModalError('');
+                          }}
+                          style={{
+                            background: '#f5f3ff',
+                            color: '#7c3aed',
+                            border: '1px solid #ddd6fe',
+                            borderRadius: '20px',
+                            padding: '4px 11px',
+                            fontSize: '0.76rem',
                             fontWeight: 800,
                             cursor: 'pointer',
                             display: 'inline-flex',
@@ -323,26 +410,24 @@ const CompanyAdminManagement = () => {
                           <Edit2 size={13} /> Edit
                         </button>
 
-                        {a.username !== 'superadmin' && a.id !== user?.id && (
-                          <button
-                            onClick={() => setDeleteAdmin(a)}
-                            style={{
-                              background: '#fef2f2',
-                              color: '#dc2626',
-                              border: '1px solid #fecaca',
-                              borderRadius: '20px',
-                              padding: '4px 12px',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                          >
-                            <Trash2 size={13} /> Delete
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setDeleteAdmin(a)}
+                          style={{
+                            background: '#fef2f2',
+                            color: '#dc2626',
+                            border: '1px solid #fecaca',
+                            borderRadius: '20px',
+                            padding: '4px 11px',
+                            fontSize: '0.76rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -422,12 +507,12 @@ const CompanyAdminManagement = () => {
                 </div>
 
                 <div>
-                  <label className="form-label">Admin Password / Passkey (पासवर्ड) *</label>
+                  <label className="form-label">Initial Password (पासवर्ड) *</label>
                   <input
-                    type="text"
+                    type="password"
                     required
                     className="input-field"
-                    placeholder="e.g. admin123"
+                    placeholder="Min 6 characters"
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
                     style={{ borderRadius: '12px' }}
@@ -538,9 +623,9 @@ const CompanyAdminManagement = () => {
                 </div>
 
                 <div>
-                  <label className="form-label">New Password / Passkey (पासवर्ड)</label>
+                  <label className="form-label">New Password (पासवर्ड)</label>
                   <input
-                    type="text"
+                    type="password"
                     className="input-field"
                     placeholder="Leave blank to keep unchanged"
                     value={editPassword}
@@ -689,7 +774,6 @@ const CompanyAdminManagement = () => {
             <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '14px', marginBottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.88rem' }}>
               <div><strong>Company / Admin Name:</strong> {selectedProfileAdmin.name}</div>
               <div><strong>Username:</strong> {selectedProfileAdmin.username}</div>
-              <div><strong>Passkey:</strong> <code style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>{selectedProfileAdmin.raw_passkey || 'admin123'}</code></div>
               <div><strong>Mobile:</strong> {selectedProfileAdmin.mobile ? `+91 ${selectedProfileAdmin.mobile}` : 'N/A'}</div>
               <div><strong>Team Farmers:</strong> {selectedProfileAdmin.registrations_count || 0} Farmers</div>
             </div>
@@ -697,6 +781,25 @@ const CompanyAdminManagement = () => {
             <button onClick={() => setSelectedProfileAdmin(null)} className="btn btn-primary btn-inline" style={{ width: '100%', borderRadius: '30px', padding: '10px' }}>
               Close Profile
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* TEMP PASSWORD MODAL */}
+      {tempPasswordModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '16px' }} onClick={() => setTempPasswordModal(null)}>
+          <div style={{ background: '#fff', borderRadius: '24px', padding: '28px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <CheckCircle size={48} color="#15803d" style={{ marginBottom: '10px' }} />
+            <h3 style={{ fontWeight: 900, color: '#0d3c26', margin: '0 0 6px 0' }}>Password Reset!</h3>
+            <p style={{ color: '#475569', fontSize: '0.88rem', margin: '0 0 12px 0' }}>Temporary password for Admin <strong>"{tempPasswordModal.name}"</strong>:</p>
+            <div style={{ background: '#f0fdf4', border: '2px dashed #15803d', borderRadius: '12px', padding: '16px', margin: '14px 0', fontFamily: 'monospace', fontSize: '1.25rem', fontWeight: 900, color: '#0d3c26', letterSpacing: '2px' }}>
+              {tempPasswordModal.password}
+            </div>
+            <p style={{ color: '#dc2626', fontSize: '0.78rem', fontWeight: 700, marginBottom: '16px' }}>⚠️ Share securely. Admin must change password on next login.</p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button onClick={() => navigator.clipboard?.writeText(tempPasswordModal.password)} style={{ background: '#0d3c26', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 18px', fontWeight: 800, cursor: 'pointer', fontSize: '0.84rem' }}>📋 Copy</button>
+              <button onClick={() => setTempPasswordModal(null)} style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '20px', padding: '10px 18px', fontWeight: 800, cursor: 'pointer', fontSize: '0.84rem' }}>Close</button>
+            </div>
           </div>
         </div>
       )}

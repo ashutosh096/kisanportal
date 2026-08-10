@@ -8,6 +8,7 @@ import {
   LogOut,
   UserCheck,
   Building2,
+  UserCog,
 } from 'lucide-react';
 
 const AdminLayout = ({ children }) => {
@@ -31,6 +32,7 @@ const AdminLayout = ({ children }) => {
           { label: 'Field Surveyors', path: '/admin/surveyors', icon: Users },
         ]
       : [{ label: 'Field Surveyors', path: '/admin/surveyors', icon: Users }]),
+    { label: 'Team Members', path: '/admin/users', icon: UserCog },
     { label: 'Export Data', path: '/admin/export', icon: Database },
   ];
 

@@ -53,7 +53,8 @@ const FarmersList = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setFarmers(data);
+      const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+      setFarmers(list);
 
       const adminsRes = await fetch('/api/auth/admins-list', {
         headers: { Authorization: `Bearer ${token}` },
@@ -496,23 +497,88 @@ const FarmersList = () => {
 
                 {/* EXPANDED DETAILS SECTION */}
                 {isExpanded && (
-                  <div style={{ padding: '24px', background: '#ffffff' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                      <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Soil Testing / मृदा परीक्षण</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>{f.soil_testing === 'yes' ? '✅ Yes (हाँ)' : '❌ No (नहीं)'}</div>
+                  <div style={{ padding: '24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                    {/* FORM 1: BASELINE FARMER REGISTRATION DETAILS */}
+                    <div style={{ background: '#ffffff', borderRadius: '16px', padding: '20px', border: '1.5px solid #bbf7d0', boxShadow: '0 4px 12px rgba(21,128,61,0.06)', marginBottom: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px', borderBottom: '1px dashed #e2e8f0', pb: '10px' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: 800, color: '#0d3c26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          📋 Form 1: Farmer Baseline Registration Details (फॉर्म 1 का पूरा विवरण)
+                        </h4>
+                        <span style={{ background: '#dcfce7', color: '#15803d', padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800 }}>
+                          Form 1 Baseline Verified
+                        </span>
                       </div>
-                      <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Water Testing / जल परीक्षण</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>{f.water_testing === 'yes' ? '✅ Yes (हाँ)' : '❌ No (नहीं)'}</div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px' }}>
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Farmer Full Name / किसान का नाम</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{f.name || 'N/A'}</div>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Farmer System ID / किसान आईडी</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#15803d', marginTop: '2px' }}>{f.farmer_id || 'N/A'}</div>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Contact Number / संपर्क नंबर</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>📞 {f.contact || 'N/A'}</div>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Village & Address / गांव का नाम</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>📍 {f.location || 'N/A'}</div>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Total Land Holding / कुल भूमि</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>🌾 {f.total_land || 'N/A'}</div>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Land Ownership / स्वामित्व स्थिति</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>🏷️ {f.ownership || 'N/A'}</div>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Verified GPS Location / जीपीएस</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#15803d', marginTop: '2px' }}>🌐 {f.gps_location || (f.gps_latitude ? `${f.gps_latitude}, ${f.gps_longitude}` : 'Not Recorded')}</div>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Onboarded By Surveyor / सर्वेयर</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>👤 {f.surveyor_display_name || f.surveyor_name || 'System Admin'}</div>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Registration Date / पंजीकरण तिथि</div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>📅 {f.date ? formatDateDDMMYYYY(f.date) : formatDateDDMMYYYY(f.created_at)}</div>
+                        </div>
                       </div>
-                      <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Cow Dung Used / गोबर खाद</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>{f.cow_dung_used === 'yes' ? `✅ Yes (${f.cow_dung_qty || 'Used'})` : '❌ No (नहीं)'}</div>
-                      </div>
-                      <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Farm Area / क्षेत्रफल</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>{f.area || 'N/A'}</div>
+                    </div>
+
+                    {/* FORM 2A: SEASONAL & CROP TESTING DETAILS */}
+                    <div style={{ background: '#ffffff', borderRadius: '16px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        🌱 Form 2A - Seasonal Crop & Soil/Water Testing Details (फॉर्म 2A विवरण)
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Soil Testing / मृदा परीक्षण</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{f.soil_testing === 'yes' ? '✅ Yes (हाँ)' : '❌ No (नहीं)'}</div>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Water Testing / जल परीक्षण</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{f.water_testing === 'yes' ? '✅ Yes (हाँ)' : '❌ No (नहीं)'}</div>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Cow Dung Used / गोबर खाद</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{f.cow_dung_used === 'yes' ? `✅ Yes (${f.cow_dung_qty || 'Used'})` : '❌ No (नहीं)'}</div>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Crop & Farm Area / फसल व क्षेत्रफल</div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{f.crop ? `${f.crop} (${f.area || 'N/A'})` : 'N/A'}</div>
+                        </div>
                       </div>
                     </div>
 
