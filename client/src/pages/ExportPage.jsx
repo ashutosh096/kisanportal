@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Download, Calendar, MapPin, FileText, Layers } from 'lucide-react';
+import React, { useState, useContext } from 'react';
+import { Download, Calendar, MapPin, FileText, Layers, Loader2 } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 import DatePickerDDMMYYYY from '../components/DatePickerDDMMYYYY';
 
 const ExportPage = () => {
+  const { token } = useContext(AuthContext);
   const [farmerStartDate, setFarmerStartDate] = useState('');
   const [farmerEndDate, setFarmerEndDate] = useState('');
   const [farmerLocation, setFarmerLocation] = useState('');
@@ -11,18 +13,76 @@ const ExportPage = () => {
   const [surveyEndDate, setSurveyEndDate] = useState('');
   const [surveyLocation, setSurveyLocation] = useState('');
 
-  const triggerPdfExport = (type, startDate, endDate, location) => {
+  const [downloading, setDownloading] = useState(false);
+
+  const triggerPdfExport = async (type, startDate, endDate, location) => {
     const params = new URLSearchParams();
     if (type) params.append('type', type);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     if (location) params.append('location', location);
+    if (token) params.append('token', token);
 
-    window.location.href = `/api/export/pdf?${params.toString()}`;
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/export/pdf?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || 'Failed to generate PDF report');
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Farmer_Survey_${type || 'Report'}_${startDate || 'All'}_to_${endDate || 'All'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Failed to download PDF');
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  const triggerPdfMatrixExport = () => {
-    window.location.href = `/api/export/pdf-matrix`;
+  const triggerPdfMatrixExport = async () => {
+    const params = new URLSearchParams();
+    if (token) params.append('token', token);
+
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/export/pdf-matrix?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || 'Failed to generate PDF matrix');
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Farmer_Matrix_Logbook_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Failed to download PDF Matrix');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (

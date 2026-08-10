@@ -59,12 +59,12 @@ router.get('/pdf', authenticateToken, requireRole('admin', 'coadmin', 'manager',
       farmerParams.push(`%${surveyor}%`, `%${surveyor}%`);
     }
     if (startDate) {
-      farmerSql += ' AND f.date >= ?';
-      farmerParams.push(startDate);
+      farmerSql += ' AND (f.date >= ? OR f.created_at::text >= ?)';
+      farmerParams.push(startDate, startDate);
     }
     if (endDate) {
-      farmerSql += ' AND f.date <= ?';
-      farmerParams.push(endDate);
+      farmerSql += ' AND (f.date <= ? OR f.created_at::text <= ?)';
+      farmerParams.push(endDate, `${endDate} 23:59:59`);
     }
     farmerSql += ' ORDER BY f.id DESC';
     const farmers = await query(farmerSql, farmerParams);
@@ -93,12 +93,12 @@ router.get('/pdf', authenticateToken, requireRole('admin', 'coadmin', 'manager',
       visitParams.push(`%${surveyor}%`, `%${surveyor}%`);
     }
     if (startDate) {
-      visitSql += ' AND v.visit_date >= ?';
-      visitParams.push(startDate);
+      visitSql += ' AND (v.visit_date >= ? OR v.created_at::text >= ?)';
+      visitParams.push(startDate, startDate);
     }
     if (endDate) {
-      visitSql += ' AND v.visit_date <= ?';
-      visitParams.push(endDate);
+      visitSql += ' AND (v.visit_date <= ? OR v.created_at::text <= ?)';
+      visitParams.push(endDate, `${endDate} 23:59:59`);
     }
     visitSql += ' ORDER BY v.id DESC';
     const visits = await query(visitSql, visitParams);
