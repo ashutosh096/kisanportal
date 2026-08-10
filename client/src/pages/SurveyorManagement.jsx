@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ArrowLeft,
 } from 'lucide-react';
+import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const CircleDonutChart = ({ percentage, value, label, color, bgCircle }) => {
   const radius = 34;
@@ -1331,7 +1332,7 @@ const SurveyorManagement = () => {
                           <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem' }}>📍 {v.farmer_name || v.farmer_id}</span>
                         </div>
                         <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
-                          📅 {v.visit_date ? new Date(v.visit_date).toLocaleDateString('en-IN') : '—'}
+                          📅 {formatDateDDMMYYYY(v.visit_date)}
                         </div>
                       </div>
                     ))}
