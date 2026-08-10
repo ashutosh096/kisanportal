@@ -2,6 +2,7 @@ import React, { useState, useContext, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ArrowLeft, Save, CheckCircle, AlertCircle, MapPin } from 'lucide-react';
+import DatePickerDDMMYYYY from '../components/DatePickerDDMMYYYY';
 import { addOfflineFarmer } from '../offline/db';
 
 const INDIAN_STATES = [
@@ -765,7 +766,7 @@ const RegistrationForm = () => {
           {/* REGISTRATION DATE */}
           <div className="form-group" style={{ marginBottom: '24px' }}>
             <label className="form-label">Registration Date (दिनांक)</label>
-            <input type="date" className="input-field" name="date" value={formData.date} onChange={handleChange} style={{ borderRadius: '12px' }} />
+            <DatePickerDDMMYYYY name="date" value={formData.date} onChange={handleChange} style={{ borderRadius: '12px' }} />
           </div>
 
           {/* SUBMIT BUTTON */}

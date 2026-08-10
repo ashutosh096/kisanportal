@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ArrowLeft, Save, CheckCircle, AlertCircle, Sprout, Lock } from 'lucide-react';
 import ConflictDiffModal from '../components/ConflictDiffModal';
+import DatePickerDDMMYYYY from '../components/DatePickerDDMMYYYY';
 import { addOfflineForm2a } from '../offline/db';
 
 const STANDARD_EXTRA_CROPS = [
@@ -625,7 +626,7 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
             <label className="form-label" style={{ fontWeight: 700 }}>
               5. Sowing Date (बुवाई की तारीख)
             </label>
-            <input type="date" className="input-field" name="sowing_date" value={formData.sowing_date} onChange={handleChange} style={{ borderRadius: '12px' }} />
+            <DatePickerDDMMYYYY name="sowing_date" value={formData.sowing_date} onChange={handleChange} style={{ borderRadius: '12px' }} />
           </div>
 
           {/* 6TH QUESTION: SEED QUANTITY */}
@@ -719,7 +720,7 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
             <label className="form-label" style={{ fontWeight: 700 }}>
               11. Expected Harvest Date (अनुमानित कटाई की तारीख)
             </label>
-            <input type="date" className="input-field" name="harvest_date" value={formData.harvest_date} onChange={handleChange} style={{ borderRadius: '12px' }} />
+            <DatePickerDDMMYYYY name="harvest_date" value={formData.harvest_date} onChange={handleChange} style={{ borderRadius: '12px' }} />
           </div>
 
           {/* 12TH QUESTION: EXPECTED YIELD */}

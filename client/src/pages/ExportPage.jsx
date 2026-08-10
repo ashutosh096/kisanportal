@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Calendar, MapPin, FileText, Layers } from 'lucide-react';
+import DatePickerDDMMYYYY from '../components/DatePickerDDMMYYYY';
 
 const ExportPage = () => {
   const [farmerStartDate, setFarmerStartDate] = useState('');
@@ -118,9 +119,7 @@ const ExportPage = () => {
 
           <div className="form-group">
             <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>Start Date</label>
-            <input
-              type="date"
-              className="input-field"
+            <DatePickerDDMMYYYY
               value={farmerStartDate}
               onChange={(e) => setFarmerStartDate(e.target.value)}
               style={{ borderRadius: '12px', padding: '12px 14px' }}
@@ -129,9 +128,7 @@ const ExportPage = () => {
 
           <div className="form-group">
             <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>End Date</label>
-            <input
-              type="date"
-              className="input-field"
+            <DatePickerDDMMYYYY
               value={farmerEndDate}
               onChange={(e) => setFarmerEndDate(e.target.value)}
               style={{ borderRadius: '12px', padding: '12px 14px' }}
@@ -178,9 +175,7 @@ const ExportPage = () => {
 
           <div className="form-group">
             <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>Start Date</label>
-            <input
-              type="date"
-              className="input-field"
+            <DatePickerDDMMYYYY
               value={surveyStartDate}
               onChange={(e) => setSurveyStartDate(e.target.value)}
               style={{ borderRadius: '12px', padding: '12px 14px' }}
@@ -189,9 +184,7 @@ const ExportPage = () => {
 
           <div className="form-group">
             <label className="form-label" style={{ fontWeight: 700, color: '#0f172a' }}>End Date</label>
-            <input
-              type="date"
-              className="input-field"
+            <DatePickerDDMMYYYY
               value={surveyEndDate}
               onChange={(e) => setSurveyEndDate(e.target.value)}
               style={{ borderRadius: '12px', padding: '12px 14px' }}

@@ -6,6 +6,7 @@ import { ArrowLeft, Save, CheckCircle, AlertCircle, Navigation, MapPin, FileSpre
 import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 import Form2A from './Form2A';
+import DatePickerDDMMYYYY from '../components/DatePickerDDMMYYYY';
 import { addOfflineForm2b } from '../offline/db';
 
 const SurveyForm = () => {
@@ -1043,9 +1044,7 @@ const SurveyForm = () => {
                   {/* Visit Date */}
                   <div className="form-group">
                     <label className="form-label">Date (तारीख) *</label>
-                    <input
-                      type="date"
-                      className="input-field"
+                    <DatePickerDDMMYYYY
                       name="visit_date"
                       value={formData.visit_date}
                       onChange={handleChange}
