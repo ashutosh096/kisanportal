@@ -110,6 +110,7 @@ const SurveyorManagement = () => {
   const [deletingSurveyor, setDeletingSurveyor] = useState(null);
   const [confirmActionModal, setConfirmActionModal] = useState(null);
   const [expandedSurveyorId, setExpandedSurveyorId] = useState(null);
+  const [selectedCompanyAdminFilter, setSelectedCompanyAdminFilter] = useState('ALL');
 
   // Form State for Add
   const [surveyorUsername, setSurveyorUsername] = useState('');
@@ -1093,6 +1094,9 @@ const SurveyorManagement = () => {
                     <span style={{ background: '#e2e8f0', color: '#334155', padding: '3px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 800 }}>
                       @{selectedProfileSurveyor.username}
                     </span>
+                    <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: '20px', padding: '3px 12px', fontSize: '0.78rem', fontWeight: 800, border: '1px solid #bbf7d0' }}>
+                      🏢 Admin: {selectedProfileSurveyor.admin_name || 'System Admin'}
+                    </span>
                     {selectedProfileSurveyor.status === 'inactive' ? (
                       <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: '20px', padding: '3px 12px', fontSize: '0.78rem', fontWeight: 800, border: '1px solid #fecaca' }}>
                         🔒 Account Locked
@@ -1225,6 +1229,11 @@ const SurveyorManagement = () => {
               </div>
 
               <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Assigned Company Admin</span>
+                <strong style={{ color: '#0d3c26', fontSize: '0.95rem' }}>🏢 {selectedProfileSurveyor.admin_name || 'System Admin'}</strong>
+              </div>
+
+              <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Mobile Contact</span>
                 <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📞 {selectedProfileSurveyor.mobile || 'Not provided'}</strong>
               </div>
@@ -1344,6 +1353,66 @@ const SurveyorManagement = () => {
             </div>
           </div>
 
+          {/* SuperAdmin Company Admin Category Filter Bar */}
+          {user?.username === 'superadmin' && safeAdmins.length > 0 && (
+            <div
+              style={{
+                background: '#ffffff',
+                borderRadius: '30px',
+                padding: '10px 20px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '18px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🏢 Company Admin Filter:
+              </span>
+              <button
+                onClick={() => setSelectedCompanyAdminFilter('ALL')}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  border: selectedCompanyAdminFilter === 'ALL' ? '1.5px solid #0d3c26' : '1px solid #cbd5e1',
+                  background: selectedCompanyAdminFilter === 'ALL' ? '#0d3c26' : '#f8fafc',
+                  color: selectedCompanyAdminFilter === 'ALL' ? '#ffffff' : '#334155',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                🌐 All Admins ({safeSurveyors.length})
+              </button>
+              {safeAdmins.map((adm) => {
+                const count = safeSurveyors.filter((s) => String(s.admin_id) === String(adm.id)).length;
+                return (
+                  <button
+                    key={adm.id}
+                    onClick={() => setSelectedCompanyAdminFilter(adm.id)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      border: String(selectedCompanyAdminFilter) === String(adm.id) ? '1.5px solid #0d3c26' : '1px solid #cbd5e1',
+                      background: String(selectedCompanyAdminFilter) === String(adm.id) ? '#0d3c26' : '#f8fafc',
+                      color: String(selectedCompanyAdminFilter) === String(adm.id) ? '#ffffff' : '#334155',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    🏢 {adm.name} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {loading ? (
             <p style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Loading field surveyors...</p>
           ) : safeSurveyors.length === 0 ? (
@@ -1352,7 +1421,12 @@ const SurveyorManagement = () => {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {safeSurveyors.map((s) => {
+              {safeSurveyors
+                .filter((s) => {
+                  if (selectedCompanyAdminFilter === 'ALL') return true;
+                  return String(s.admin_id) === String(selectedCompanyAdminFilter);
+                })
+                .map((s) => {
                 const isLocked = s.status === 'inactive';
                 const initialLetter = s.name ? s.name.charAt(0).toUpperCase() : 'S';
                 const isExpanded = expandedSurveyorId === s.id;
@@ -1402,6 +1476,9 @@ const SurveyorManagement = () => {
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{s.name}</h3>
                             <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 10px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700 }}>
                               @{s.username}
+                            </span>
+                            <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', padding: '2px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800 }}>
+                              🏢 {s.admin_name || 'System Admin'}
                             </span>
                             {isLocked && (
                               <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: '20px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 800, border: '1px solid #fecaca' }}>

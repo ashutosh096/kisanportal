@@ -19,28 +19,28 @@ const generateTempPassword = () => {
 
 
 
-// ─── GET /api/users ─── List users scoped by role
+// ─── GET /api/users ─── List team members (Co-Admins, Managers, Viewers) scoped by creator admin
 router.get('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'viewer', 'superadmin'), async (req, res) => {
   try {
     let users;
     if (req.user.role === 'superadmin') {
-      // SuperAdmin: ONLY show direct Company Admins & direct SuperAdmin staff
-      // Members created by Company Admins belong strictly in the Roles tab hierarchy
+      // SuperAdmin: ONLY show team members (Co-Admins, Managers, Viewers) created directly by SuperAdmin
+      // Company Admins belong in /admin/admins tab, and company team members belong in /admin/roles
       users = await query(
         `SELECT id, username, name, role, mobile, status, admin_id, must_change_password, locked_by_user_id, locked_at, created_at, updated_at
          FROM users 
-         WHERE role = 'admin' OR (admin_id = ? AND role != 'surveyor')
+         WHERE (admin_id = ? OR admin_id IS NULL) AND role IN ('coadmin', 'manager', 'viewer')
          ORDER BY created_at DESC LIMIT 200`,
         [req.user.id]
       );
     } else {
-      // Company Admin / Staff: show team members belonging to their organization
+      // Company Admin / Staff: show team members created under their organization
       const teamAdminId = getTeamAdminId(req.user);
       users = await query(
         `SELECT id, username, name, role, mobile, status, admin_id, must_change_password, locked_by_user_id, locked_at, created_at, updated_at
-         FROM users WHERE (admin_id = ? OR id = ?) AND role != 'surveyor'
+         FROM users WHERE admin_id = ? AND role IN ('coadmin', 'manager', 'viewer')
          ORDER BY created_at DESC`,
-        [teamAdminId, teamAdminId]
+        [teamAdminId]
       );
     }
 
