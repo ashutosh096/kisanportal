@@ -13,10 +13,15 @@
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+html {
+  zoom: 80%;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (max-width: 640px) {
+  html {
+    zoom: 100% !important;
+  }
 }
 
 body {
