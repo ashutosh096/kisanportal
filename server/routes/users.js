@@ -46,6 +46,64 @@ router.get('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'v
   }
 });
 
+// ─── GET /api/users/roles-hierarchy ─── Grouped hierarchy by Company Admin
+router.get('/roles-hierarchy', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'viewer', 'superadmin'), async (req, res) => {
+  try {
+    const isSuper = req.user.role === 'superadmin';
+    const teamAdminId = getTeamAdminId(req.user);
+
+    // 1. Fetch Company Admins
+    let adminsSql = `SELECT id, username, name, role, mobile, status, created_at FROM users WHERE role = 'admin' OR role = 'superadmin'`;
+    let adminsParams = [];
+
+    if (!isSuper && teamAdminId) {
+      adminsSql += ` AND id = ?`;
+      adminsParams.push(teamAdminId);
+    }
+    adminsSql += ` ORDER BY id ASC`;
+
+    const adminUsers = await query(adminsSql, adminsParams);
+
+    // 2. Fetch all team members & surveyors
+    let membersSql = `SELECT id, username, name, role, mobile, status, admin_id, created_at, must_change_password FROM users WHERE role != 'superadmin'`;
+    let membersParams = [];
+
+    if (!isSuper && teamAdminId) {
+      membersSql += ` AND (admin_id = ? OR id = ?)`;
+      membersParams.push(teamAdminId, teamAdminId);
+    }
+    membersSql += ` ORDER BY created_at DESC`;
+
+    const allMembers = await query(membersSql, membersParams);
+
+    // 3. Nest members under their respective admin_id
+    const hierarchy = adminUsers.map((adm) => {
+      const team = allMembers.filter((m) => m.admin_id === adm.id || (adm.role === 'admin' && m.id === adm.id));
+      const coadmins = team.filter((m) => m.role === 'coadmin');
+      const managers = team.filter((m) => m.role === 'manager');
+      const viewers = team.filter((m) => m.role === 'viewer');
+      const surveyors = team.filter((m) => m.role === 'surveyor');
+
+      return {
+        admin: adm,
+        stats: {
+          totalMembers: team.length,
+          coadminsCount: coadmins.length,
+          managersCount: managers.length,
+          viewersCount: viewers.length,
+          surveyorsCount: surveyors.length,
+        },
+        members: team,
+      };
+    });
+
+    return res.json({ success: true, data: hierarchy });
+  } catch (err) {
+    console.error('Fetch roles hierarchy error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch roles hierarchy' });
+  }
+});
+
 // ─── POST /api/users ─── Create new team member or surveyor (Admin, Co-Admin, Manager, SuperAdmin)
 router.post('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'superadmin'), async (req, res) => {
   const { username, name, password, mobile, role } = req.body;

@@ -17,6 +17,7 @@ import SurveyorManagement from './pages/SurveyorManagement';
 import CompanyAdminManagement from './pages/CompanyAdminManagement';
 import ExportPage from './pages/ExportPage';
 import UsersManagement from './pages/UsersManagement';
+import RolesManagement from './pages/RolesManagement';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -99,6 +100,7 @@ function App() {
                       <Route path="admins" element={<CompanyAdminManagement />} />
                       <Route path="surveyors" element={<SurveyorManagement />} />
                       <Route path="users" element={<UsersManagement />} />
+                      <Route path="roles" element={<RolesManagement />} />
                       <Route path="export" element={<ExportPage />} />
                     </Routes>
                   </AdminLayout>
