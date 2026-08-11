@@ -50,7 +50,7 @@ export const runSync = async (getAccessToken) => {
   if (isSyncing) return;
   if (!navigator.onLine) return;
 
-  const accessToken = getAccessToken ? getAccessToken() : localStorage.getItem('accessToken');
+  const accessToken = getAccessToken ? getAccessToken() : (sessionStorage.getItem('farmer_token') || sessionStorage.getItem('accessToken'));
   if (!accessToken) return; // Not logged in — don't sync
 
   isSyncing = true;

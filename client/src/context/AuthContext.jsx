@@ -14,14 +14,14 @@ const getCsrfCookie = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
-      const savedUser = localStorage.getItem('farmer_user');
-      const lastActive = localStorage.getItem('farmer_last_active');
+      const savedUser = sessionStorage.getItem('farmer_user');
+      const lastActive = sessionStorage.getItem('farmer_last_active');
       if (savedUser && lastActive) {
         const timeDiff = Date.now() - parseInt(lastActive, 10);
         if (timeDiff > INACTIVITY_TIMEOUT_MS) {
-          localStorage.removeItem('farmer_token');
-          localStorage.removeItem('farmer_user');
-          localStorage.removeItem('farmer_last_active');
+          sessionStorage.removeItem('farmer_token');
+          sessionStorage.removeItem('farmer_user');
+          sessionStorage.removeItem('farmer_last_active');
           return null;
         }
       }
@@ -32,14 +32,14 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [token, setToken] = useState(() => {
-    const lastActive = localStorage.getItem('farmer_last_active');
+    const lastActive = sessionStorage.getItem('farmer_last_active');
     if (lastActive) {
       const timeDiff = Date.now() - parseInt(lastActive, 10);
       if (timeDiff > INACTIVITY_TIMEOUT_MS) {
         return '';
       }
     }
-    return localStorage.getItem('farmer_token') || '';
+    return sessionStorage.getItem('farmer_token') || '';
   });
 
   const tokenRef = useRef(token);
@@ -56,8 +56,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(() => {
-    const lastActive = localStorage.getItem('farmer_last_active');
-    const savedUser = localStorage.getItem('farmer_user');
+    const lastActive = sessionStorage.getItem('farmer_last_active');
+    const savedUser = sessionStorage.getItem('farmer_user');
     if (savedUser && lastActive && Date.now() - parseInt(lastActive, 10) > INACTIVITY_TIMEOUT_MS) {
       return 'Session locked due to 10 minutes of inactivity. Please log in again.';
     }
@@ -92,12 +92,12 @@ export const AuthProvider = ({ children }) => {
       // Throttle updating to once per 5 seconds
       if (now - lastActiveRef.current > 5000) {
         lastActiveRef.current = now;
-        localStorage.setItem('farmer_last_active', now.toString());
+        sessionStorage.setItem('farmer_last_active', now.toString());
       }
     };
 
     // Set initial timestamp
-    localStorage.setItem('farmer_last_active', Date.now().toString());
+    sessionStorage.setItem('farmer_last_active', Date.now().toString());
 
     // Listen for user activity
     window.addEventListener('mousemove', updateActivity);
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }) => {
 
     // Periodic check for inactivity every 15 seconds
     const interval = setInterval(() => {
-      const lastActive = localStorage.getItem('farmer_last_active');
+      const lastActive = sessionStorage.getItem('farmer_last_active');
       if (lastActive) {
         const inactiveMs = Date.now() - parseInt(lastActive, 10);
         if (inactiveMs >= INACTIVITY_TIMEOUT_MS) {
@@ -130,7 +130,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     prefetchGpsLocation();
 
-    const savedUser = localStorage.getItem('farmer_user');
+    const savedUser = sessionStorage.getItem('farmer_user');
     if (savedUser && token) {
       try {
         const parsed = JSON.parse(savedUser);
@@ -147,9 +147,9 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
     setToken(authToken);
     setSessionExpiredMsg('');
-    localStorage.setItem('farmer_token', authToken);
-    localStorage.setItem('farmer_user', JSON.stringify(userData));
-    localStorage.setItem('farmer_last_active', nowStr);
+    sessionStorage.setItem('farmer_token', authToken);
+    sessionStorage.setItem('farmer_user', JSON.stringify(userData));
+    sessionStorage.setItem('farmer_last_active', nowStr);
     lastActiveRef.current = parseInt(nowStr, 10);
     prefetchGpsLocation();
   };
@@ -168,9 +168,9 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken('');
     if (msg) setSessionExpiredMsg(msg);
-    localStorage.removeItem('farmer_token');
-    localStorage.removeItem('farmer_user');
-    localStorage.removeItem('farmer_last_active');
+    sessionStorage.removeItem('farmer_token');
+    sessionStorage.removeItem('farmer_user');
+    sessionStorage.removeItem('farmer_last_active');
     sessionStorage.removeItem('farmer_cached_loc');
   };
 
