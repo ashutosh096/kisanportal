@@ -230,7 +230,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 });
 
 // ─── GET /api/auth/admins-list ─── List admins for superadmin panel
-router.get('/admins-list', authenticateToken, requireRole('admin', 'superadmin'), async (req, res) => {
+router.get('/admins-list', authenticateToken, requireRole('superadmin'), async (req, res) => {
   try {
     const admins = await query(
       `SELECT u.id, u.username, u.name, u.role, u.mobile, u.status, u.created_at,
