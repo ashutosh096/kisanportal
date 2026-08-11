@@ -50,9 +50,11 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const farmers = await query(
       `SELECT f.*, u.name as surveyor_display_name,
+              adm.name as admin_name, adm.username as admin_username,
               s2a.crop, s2a.area, s2a.season_name, s2a.is_active as has_active_season
        FROM farmers f
        LEFT JOIN users u ON u.id = f.surveyor_id
+       LEFT JOIN users adm ON adm.id = COALESCE(f.admin_id, u.admin_id)
        LEFT JOIN form2a_seasonal s2a ON s2a.farmer_id = f.farmer_id AND s2a.is_active = true
        ${baseWhere}
        ORDER BY f.id DESC

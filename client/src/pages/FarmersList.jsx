@@ -113,10 +113,10 @@ const FarmersList = () => {
 
       const matchesCompany =
         selectedCompanyFilter === 'ALL' ||
-        f.admin_username?.toLowerCase() === selectedCompanyFilter.toLowerCase() ||
-        f.admin_name?.toLowerCase().includes(selectedCompanyFilter.toLowerCase()) ||
-        f.admin_user_id?.toString() === selectedCompanyFilter ||
-        f.surveyor_name?.toLowerCase().includes(selectedCompanyFilter.toLowerCase());
+        String(f.admin_id) === String(selectedCompanyFilter) ||
+        f.admin_username?.toLowerCase() === String(selectedCompanyFilter).toLowerCase() ||
+        f.admin_name?.toLowerCase().includes(String(selectedCompanyFilter).toLowerCase()) ||
+        f.surveyor_name?.toLowerCase().includes(String(selectedCompanyFilter).toLowerCase());
 
       return matchesSearch && matchesLocation && matchesCompany;
     })
@@ -134,7 +134,7 @@ const FarmersList = () => {
   const filterOptions = [
     { value: 'ALL', label: 'All Companies (सभी कंपनियां)', icon: '🌐' },
     ...companyList.map((c) => ({
-      value: c.username,
+      value: String(c.id || c.username),
       label: `${c.name} (${c.username})`,
       icon: '🏢',
     })),
