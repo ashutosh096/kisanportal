@@ -8,14 +8,19 @@ const router = express.Router();
 const generateFarmerId = async () => {
   const year = new Date().getFullYear();
   const rows = await query(
-    "SELECT farmer_id FROM farmers WHERE farmer_id LIKE ? ORDER BY id DESC LIMIT 1",
+    "SELECT farmer_id FROM farmers WHERE farmer_id LIKE ?",
     [`F-${year}-%`]
   );
 
   let maxNum = 0;
   if (rows && rows.length > 0) {
-    const match = (rows[0].farmer_id || '').match(/F-\d+-(\d+)/);
-    if (match) maxNum = parseInt(match[1], 10);
+    for (const r of rows) {
+      const match = (r.farmer_id || '').match(/(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
   }
   return `F-${year}-${String(maxNum + 1).padStart(3, '0')}`;
 };

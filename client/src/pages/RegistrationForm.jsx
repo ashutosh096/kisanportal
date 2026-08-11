@@ -272,7 +272,7 @@ const RegistrationForm = () => {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to register farmer');
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to register farmer');
 
       const createdFarmerId = data.data?.farmer_id || data.farmer_id || clientGenId;
       setRegisteredId(createdFarmerId);
