@@ -8,6 +8,7 @@ import {
   AlertCircle,
   X,
   Eye,
+  EyeOff,
   Edit2,
   Trash2,
   Building2,
@@ -120,6 +121,7 @@ const SurveyorManagement = () => {
   const [surveyorPassword, setSurveyorPassword] = useState('');
   const [surveyorMobile, setSurveyorMobile] = useState('');
   const [selectedAdminId, setSelectedAdminId] = useState('');
+  const [showAddPassword, setShowAddPassword] = useState(true);
 
   // Form State for Edit
   const [editName, setEditName] = useState('');
@@ -158,7 +160,6 @@ const SurveyorManagement = () => {
       if (Array.isArray(data)) {
         const sorted = [...data].sort((a, b) => a.id - b.id);
         setSurveyors(sorted);
-        setSurveyorUsername(getNextSurveyorUsername(sorted));
         setSelectedProfileSurveyor((prev) => {
           if (!prev) return null;
           const fresh = sorted.find((item) => item.id === prev.id);
@@ -492,10 +493,11 @@ const SurveyorManagement = () => {
           ) : (
             <button
               onClick={() => {
-                setSurveyorUsername(getNextSurveyorUsername());
+                setSurveyorUsername('');
                 setSurveyorName('');
-                setSurveyorPassword('field123');
+                setSurveyorPassword('');
                 setSurveyorMobile('');
+                setShowAddPassword(true);
                 if (safeAdmins.length > 0) setSelectedAdminId(safeAdmins[0].id);
                 setMsg('');
                 setError('');
@@ -596,6 +598,7 @@ const SurveyorManagement = () => {
                     type="text"
                     required
                     className="input-field"
+                    placeholder="e.g. surveyor01"
                     value={surveyorUsername}
                     onChange={(e) => setSurveyorUsername(e.target.value)}
                     style={{ borderRadius: '12px' }}
@@ -604,15 +607,38 @@ const SurveyorManagement = () => {
 
                 <div>
                   <label className="form-label">Initial Password (पासवर्ड) *</label>
-                  <input
-                    type="password"
-                    required
-                    className="input-field"
-                    placeholder="Min 6 characters"
-                    value={surveyorPassword}
-                    onChange={(e) => setSurveyorPassword(e.target.value)}
-                    style={{ borderRadius: '12px' }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showAddPassword ? 'text' : 'password'}
+                      required
+                      className="input-field"
+                      placeholder="Min 6 characters"
+                      value={surveyorPassword}
+                      onChange={(e) => setSurveyorPassword(e.target.value)}
+                      style={{ borderRadius: '12px', paddingRight: '42px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPassword(!showAddPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#64748b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '4px',
+                      }}
+                      title={showAddPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showAddPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
