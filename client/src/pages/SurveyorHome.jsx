@@ -68,9 +68,9 @@ const SurveyorHome = () => {
           </p>
         </div>
 
-        {/* 2 SIDE-BY-SIDE QUICK STATS PILL BADGES (TODAY LOGS & TOTAL LOGS) */}
+        {/* STATS PILL BADGES (FARMERS, REVISITS, TOTAL LOGS) */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-          {/* BADGE 1: TODAY LOGS */}
+          {/* BADGE 1: FARMERS REGISTERED */}
           <span
             style={{
               background: '#f0fdf4',
@@ -85,10 +85,28 @@ const SurveyorHome = () => {
               gap: '4px',
             }}
           >
-            📋 Today Logs: {todayCount} <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>(आज: {todayCount})</span>
+            👨‍🌾 Farmers: {stats.totalReg} <span style={{ fontSize: '0.75rem', opacity: 0.85 }}>(Today: {stats.todaysReg})</span>
           </span>
 
-          {/* BADGE 2: TOTAL LOGS */}
+          {/* BADGE 2: REVISITS / FARM VISITS */}
+          <span
+            style={{
+              background: '#fff7ed',
+              color: '#c2410c',
+              border: '1.5px solid #ffedd5',
+              padding: '8px 14px',
+              borderRadius: '30px',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            🔄 Revisits: {stats.totalSurveys} <span style={{ fontSize: '0.75rem', opacity: 0.85 }}>(Today: {stats.todaysSurveys})</span>
+          </span>
+
+          {/* BADGE 3: TOTAL COMBINED LOGS */}
           <span
             style={{
               background: '#eff6ff',
@@ -103,7 +121,7 @@ const SurveyorHome = () => {
               gap: '4px',
             }}
           >
-            📊 Total Logs: {totalCount} <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>(कुल: {totalCount})</span>
+            📊 Total Logs: {totalCount} <span style={{ fontSize: '0.75rem', opacity: 0.85 }}>(कुल: {totalCount})</span>
           </span>
         </div>
       </div>
