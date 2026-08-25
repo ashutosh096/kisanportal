@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { io } from 'socket.io-client';
 import {
   Users,
   FileText,
@@ -72,23 +71,6 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-
-    let socket;
-    try {
-      socket = io('/', { transports: ['polling', 'websocket'], timeout: 5000 });
-      socket.on('new_entry', (newEntry) => {
-        if (newEntry) {
-          setEntries((prev) => (Array.isArray(prev) ? [newEntry, ...prev] : [newEntry]));
-          fetchDashboardData();
-        }
-      });
-    } catch (sErr) {
-      console.warn('Socket connection warning:', sErr);
-    }
-
-    return () => {
-      if (socket) socket.disconnect();
-    };
   }, [token]);
 
   const safeEntries = Array.isArray(entries) ? entries : [];
