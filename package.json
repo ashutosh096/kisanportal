@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -14,11 +15,11 @@
     "pdfkit": "^0.19.1",
     "pdfmake": "^0.3.11",
     "pg": "^8.22.0",
-    "socket.io": "^4.7.5",
-    "uuid": "^14.0.1"
+    "uuid": "^14.0.1",
+    "vite": "^5.2.11"
   },
   "scripts": {
-    "build": "cd client && npm install --include=dev && npm run build",
+    "build": "cd client && npm install && npx vite build",
     "start": "node server/index.js"
   }
 }
