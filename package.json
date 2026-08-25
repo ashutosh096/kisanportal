@@ -19,7 +19,7 @@
     "vite": "^5.2.11"
   },
   "scripts": {
-    "build": "cd client && npm install && npx vite build",
+    "build": "cd client && npm install && npm run build",
     "start": "node server/index.js"
   }
 }
