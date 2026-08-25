@@ -21,7 +21,7 @@ try {
   pgPool = new pg.Pool({
     connectionString,
     ssl: { rejectUnauthorized: false },
-    max: 20,                       // Max concurrent DB connections
+    max: 3,                       // Max concurrent DB connections for serverless
     idleTimeoutMillis: 30000,      // Close idle connections after 30s
     connectionTimeoutMillis: 5000, // Fail fast if DB is busy
   });
@@ -98,7 +98,7 @@ export const initDb = async () => {
       `ALTER TABLE users DROP COLUMN IF EXISTS raw_passkey`,
     ];
     for (const sql of colMigrations) {
-      try { await pgPool.query(sql); } catch(e) { /* column migration execution */ }
+      try { await pgPool.query(sql); } catch (e) { /* column migration execution */ }
     }
 
     // ─── Ensure existing users have active status ───
@@ -118,7 +118,7 @@ export const initDb = async () => {
             CHECK (role IN ('superadmin','admin','coadmin','manager','viewer','surveyor'));
         END $$;
       `);
-    } catch(e) { console.warn('Role constraint skip:', e.message); }
+    } catch (e) { console.warn('Role constraint skip:', e.message); }
 
     try {
       await pgPool.query(`
@@ -128,7 +128,7 @@ export const initDb = async () => {
             CHECK (status IN ('active','inactive','banned'));
         END $$;
       `);
-    } catch(e) { console.warn('Status constraint skip:', e.message); }
+    } catch (e) { console.warn('Status constraint skip:', e.message); }
 
     // ─── PHASE 3: Farmer column migrations handled in PHASE 5 ───
 
@@ -188,14 +188,14 @@ export const initDb = async () => {
       `ALTER TABLE farmers ADD COLUMN IF NOT EXISTS ownership VARCHAR(100) DEFAULT 'Owned (निजी / अपनी)'`,
     ];
     for (const sql of farmerMigrations) {
-      try { await pgPool.query(sql); } catch(e) { /* column exists */ }
+      try { await pgPool.query(sql); } catch (e) { /* column exists */ }
     }
     try {
       await pgPool.query(`
         CREATE INDEX IF NOT EXISTS idx_farmers_admin_id ON farmers(admin_id);
         CREATE INDEX IF NOT EXISTS idx_farmers_farmer_id ON farmers(farmer_id);
       `);
-    } catch(e) { /* indexes exist */ }
+    } catch (e) { /* indexes exist */ }
 
     // ─── PHASE 6: Form2a Seasonal Table ───
     await pgPool.query(`
@@ -340,13 +340,13 @@ export const initDb = async () => {
       `UPDATE visit_assignments SET admin_id = NULL WHERE admin_id = 0`,
     ];
     for (const sql of adminMigrations) {
-      try { await pgPool.query(sql); } catch(e) { /* table may not exist yet */ }
+      try { await pgPool.query(sql); } catch (e) { /* table may not exist yet */ }
     }
 
     // Also allow admin_id to be NULL in users table (NULL = top-level account, no parent)
     try {
       await pgPool.query(`ALTER TABLE users ALTER COLUMN admin_id DROP NOT NULL`);
-    } catch(e) { /* already nullable */ }
+    } catch (e) { /* already nullable */ }
 
     // Add FK REFERENCES users(id) ON DELETE RESTRICT on admin_id for all tables
     const fkConstraints = [
@@ -380,7 +380,7 @@ export const initDb = async () => {
         // Drop first in case it exists in broken state, then re-add
         await pgPool.query(`ALTER TABLE ${sql.match(/ALTER TABLE (\w+)/)[1]} DROP CONSTRAINT IF EXISTS ${constraint}`);
         await pgPool.query(sql);
-      } catch(e) {
+      } catch (e) {
         console.warn(`⚠️ FK constraint ${constraint} skipped:`, e.message);
       }
     }
@@ -391,7 +391,7 @@ export const initDb = async () => {
       `ALTER TABLE form2b_visits   ADD CONSTRAINT uq_form2b_client_id UNIQUE (client_generated_id)`,
     ];
     for (const sql of uniqueConstraints) {
-      try { await pgPool.query(sql); } catch(e) { /* already unique */ }
+      try { await pgPool.query(sql); } catch (e) { /* already unique */ }
     }
 
     // ─── PHASE 11: Seed Initial Users ───
@@ -455,7 +455,7 @@ export const initDb = async () => {
         `);
         console.log('✅ Existing farmers migrated to form2a_seasonal');
       }
-    } catch(e) {
+    } catch (e) {
       console.warn('⚠️ form2a migration skipped (will retry next start):', e.message);
     }
 

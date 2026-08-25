@@ -321,7 +321,7 @@ const AdminDashboard = () => {
 
       {/* Split Analytics Grid (50% Left | 50% Right) */}
       <div className="option3-split-grid">
-        
+
         {/* LEFT PANEL: ONBOARDED FARMERS */}
         <div className="option3-panel-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
