@@ -10,6 +10,7 @@ import {
   Building2,
   UserCog,
   Shield,
+  TrendingUp,
 } from 'lucide-react';
 
 const AdminLayout = ({ children }) => {
@@ -30,9 +31,11 @@ const AdminLayout = ({ children }) => {
     ...(isSuper
       ? [
           { label: 'Company Admins', path: '/admin/admins', icon: Building2 },
+          { label: 'Company Performance', path: '/admin/company-performance', icon: TrendingUp },
           { label: 'Field Surveyors', path: '/admin/surveyors', icon: Users },
         ]
       : [{ label: 'Field Surveyors', path: '/admin/surveyors', icon: Users }]),
+    { label: 'Surveyor Performance', path: '/admin/performance', icon: TrendingUp },
     { label: 'Team Members', path: '/admin/users', icon: UserCog },
     ...(isSuper ? [{ label: 'Roles', path: '/admin/roles', icon: Shield }] : []),
     { label: 'Export Data', path: '/admin/export', icon: Database },

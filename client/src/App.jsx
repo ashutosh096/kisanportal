@@ -18,6 +18,8 @@ import CompanyAdminManagement from './pages/CompanyAdminManagement';
 import ExportPage from './pages/ExportPage';
 import UsersManagement from './pages/UsersManagement';
 import RolesManagement from './pages/RolesManagement';
+import SurveyorPerformanceAnalytics from './pages/SurveyorPerformanceAnalytics';
+import CompanyAdminPerformanceAnalytics from './pages/CompanyAdminPerformanceAnalytics';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -98,7 +100,9 @@ function App() {
                       <Route path="farmers" element={<FarmersList />} />
                       <Route path="farmer/:farmer_id" element={<FarmerProfile />} />
                       <Route path="admins" element={<CompanyAdminManagement />} />
+                      <Route path="company-performance" element={<CompanyAdminPerformanceAnalytics />} />
                       <Route path="surveyors" element={<SurveyorManagement />} />
+                      <Route path="performance" element={<SurveyorPerformanceAnalytics />} />
                       <Route path="users" element={<UsersManagement />} />
                       <Route path="roles" element={<RolesManagement />} />
                       <Route path="export" element={<ExportPage />} />

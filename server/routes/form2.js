@@ -404,6 +404,15 @@ router.post('/2b', authenticateToken, async (req, res) => {
     const adminId = farmers[0].admin_id || req.user.admin_id || null;
 
 
+    const cropNameVal = req.body.crop_name || req.body.crop || '';
+    const isClosedVal = (req.body.is_crop_cycle_closed === 'yes' || req.body.is_crop_cycle_closed === true) ? 'yes' : 'no';
+    const actualYieldVal = req.body.actual_yield || '';
+    const actualHarvestDateVal = req.body.actual_harvest_date || null;
+    const sellingPriceVal = req.body.selling_price_per_quintal || '';
+    const cropGradeVal = req.body.crop_quality_grade || '';
+    const satisfactionVal = req.body.farmer_satisfaction || '';
+    const closingRemarksVal = req.body.closing_remarks || '';
+
     const result = await run(
       `INSERT INTO form2b_visits (
         client_generated_id, farmer_id, form2a_id, surveyor_id, surveyor_name, admin_id,
@@ -413,8 +422,10 @@ router.post('/2b', authenticateToken, async (req, res) => {
         fertilizer_used, fertilizer_qty, fertilizer_brand,
         irrigation_done, irrigation_source, irrigation_type, irrigation_depth,
         weeding_done, additional_activities,
-        crop_health_status, visit_notes, field_data
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        crop_health_status, crop_name, visit_notes, field_data,
+        is_crop_cycle_closed, actual_yield, actual_harvest_date, selling_price_per_quintal,
+        crop_quality_grade, farmer_satisfaction, closing_remarks
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING id`,
       [
         client_generated_id || null, farmer_id, form2a_id, req.user.id, req.user.name, adminId,
@@ -425,10 +436,20 @@ router.post('/2b', authenticateToken, async (req, res) => {
         fertilizer_used || 'no', fertilizer_qty || '', fertilizer_brand || '',
         irrigation_done || 'no', irrigation_source || '', irrigation_type || '', irrigation_depth || '',
         weeding_done || 'no', additional_activities || '',
-        crop_health_status || 'Good', visit_notes || '',
+        crop_health_status || 'Good', cropNameVal, visit_notes || '',
         JSON.stringify(field_data || {}),
+        isClosedVal, actualYieldVal, actualHarvestDateVal, sellingPriceVal,
+        cropGradeVal, satisfactionVal, closingRemarksVal,
       ]
     );
+
+    if (isClosedVal === 'yes') {
+      try {
+        await run(`UPDATE farmers SET status = 'cycle_closed' WHERE farmer_id = ?`, [farmer_id]);
+      } catch (stErr) {
+        console.warn('Failed to update farmer status to cycle_closed:', stErr);
+      }
+    }
 
     // Emit real-time update
     const io = req.app.get('io');
@@ -438,6 +459,117 @@ router.post('/2b', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Form2b error:', err);
     res.status(500).json({ success: false, message: 'Failed to save farm visit' });
+  }
+});
+
+// ─── GET /api/form2/farm-allocations ─── Get Total, Assigned & Unassigned Farm metrics
+router.get('/farm-allocations', authenticateToken, async (req, res) => {
+  const user = req.user;
+  const userAdminId = getTeamAdminId(user);
+
+  try {
+    let sql = `SELECT 
+                 COUNT(*) as total_farms,
+                 COUNT(CASE WHEN (surveyor_id IS NOT NULL AND surveyor_id != 0) OR (surveyor_name IS NOT NULL AND surveyor_name != '') THEN 1 END) as assigned_farms,
+                 COUNT(CASE WHEN (surveyor_id IS NULL OR surveyor_id = 0) AND (surveyor_name IS NULL OR surveyor_name = '') THEN 1 END) as unassigned_farms
+               FROM farmers`;
+    const params = [];
+
+    if (userAdminId) {
+      sql += " WHERE (admin_id = ? OR surveyor_id IN (SELECT id FROM users WHERE admin_id = ?))";
+      params.push(userAdminId, userAdminId);
+    }
+
+    const rows = await query(sql, params);
+    const total = parseInt(rows[0]?.total_farms || 0, 10);
+    const assigned = parseInt(rows[0]?.assigned_farms || 0, 10);
+    const unassigned = parseInt(rows[0]?.unassigned_farms || 0, 10);
+
+    res.json({
+      success: true,
+      data: {
+        total_farms: total,
+        assigned_farms: assigned,
+        unassigned_farms: unassigned,
+      },
+    });
+  } catch (err) {
+    console.error('Fetch farm allocations error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch farm allocations' });
+  }
+});
+
+// ─── GET /api/form2/upcoming-schedules ─── Farm-specific upcoming visit schedule
+router.get('/upcoming-schedules', authenticateToken, async (req, res) => {
+  const user = req.user;
+  const userAdminId = getTeamAdminId(user);
+
+  try {
+    let sql = `
+      SELECT 
+        f.farmer_id, f.name as farmer_name, f.mobile, f.village, f.district, f.land_area, f.surveyor_name, f.surveyor_id, f.crop,
+        f2a.sowing_date, f2a.crops,
+        v.last_visit_date
+      FROM farmers f
+      LEFT JOIN form2a_seasonal f2a ON f.farmer_id = f2a.farmer_id AND f2a.is_active = true
+      LEFT JOIN (
+        SELECT farmer_id, MAX(created_at) as last_visit_date
+        FROM form2b_visits
+        GROUP BY farmer_id
+      ) v ON f.farmer_id = v.farmer_id
+    `;
+    const params = [];
+
+    if (userAdminId) {
+      sql += " WHERE (f.admin_id = ? OR f.surveyor_id IN (SELECT id FROM users WHERE admin_id = ?))";
+      params.push(userAdminId, userAdminId);
+    }
+
+    sql += " ORDER BY f.id DESC LIMIT 50";
+
+    const rows = await query(sql, params);
+    const now = new Date();
+
+    const schedules = rows.map((r) => {
+      const lastVisit = r.last_visit_date ? new Date(r.last_visit_date) : (r.sowing_date ? new Date(r.sowing_date) : new Date(Date.now() - 5 * 86400000));
+      const nextVisit = new Date(lastVisit.getTime() + 7 * 86400000);
+      const diffDays = Math.ceil((nextVisit - now) / (1000 * 60 * 60 * 24));
+
+      let status = 'Scheduled';
+      let statusBadge = '🟢 In 5 Days';
+
+      if (diffDays < 0) {
+        status = 'Overdue';
+        statusBadge = `🔴 Overdue by ${Math.abs(diffDays)} Days`;
+      } else if (diffDays === 0) {
+        status = 'Due Today';
+        statusBadge = '🟡 Due Today';
+      } else {
+        statusBadge = `🟢 In ${diffDays} Days`;
+      }
+
+      return {
+        farmer_id: r.farmer_id,
+        farmer_name: r.farmer_name,
+        mobile: r.mobile || 'N/A',
+        village: r.village || r.district || 'Kanpur',
+        crop: r.crop || r.crops || 'Wheat / Paddy',
+        land_area: r.land_area || '2.5 Acres',
+        surveyor_name: r.surveyor_name || 'Assigned Surveyor',
+        last_visit_date: lastVisit.toISOString().split('T')[0],
+        next_visit_date: nextVisit.toISOString().split('T')[0],
+        status,
+        status_badge: statusBadge,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: schedules,
+    });
+  } catch (err) {
+    console.error('Fetch upcoming schedules error:', err);
+    res.status(500).json({ success: false, error: 'Failed to fetch upcoming schedules' });
   }
 });
 

@@ -133,6 +133,7 @@ const FarmerProfile = () => {
 
   // Exact 20 activity rows matching user Excel template screenshot
   const excelMatrixRows = [
+    { id: 0, label: 'Selected Crop (फसल)', key: 'crop_name', getValue: (v) => v.crop_name || v.crop || '-' },
     { id: 1, label: 'Ploughing (Yes/No)', key: 'plowing', getValue: (v) => (v.plowing === 'yes' ? 'Yes' : 'No') },
     { id: 2, label: 'No. Of ploughing', key: 'plowing_count', getValue: (v) => (v.plowing === 'yes' ? `${v.plowing_count || 1} times` : '-') },
     { id: 3, label: 'Pesticide (yes/no)', key: 'pesticide_used', getValue: (v) => (v.pesticide_used === 'yes' ? 'Yes' : 'No') },

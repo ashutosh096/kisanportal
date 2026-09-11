@@ -18,6 +18,23 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Custom User-Friendly Smooth Scrollbar for Dashboard Sections */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #15803d;
+}
+
 @media (max-width: 640px) {
   html {
     zoom: 100% !important;

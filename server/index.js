@@ -41,6 +41,8 @@ const allowedOrigins = process.env.FRONTEND_URL
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5050',
     'http://localhost:5173',
+    'http://localhost:5175',
+    'http://127.0.0.1:5175',
     'http://192.168.0.159:3000',
   ];
 

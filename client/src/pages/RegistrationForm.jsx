@@ -85,6 +85,142 @@ const RegistrationForm = () => {
   const [fetchingPin, setFetchingPin] = useState(false);
   const [pinSuccessMsg, setPinSuccessMsg] = useState('');
 
+  const [locationMode, setLocationMode] = useState('automatic');
+  const [fetchingGps, setFetchingGps] = useState(false);
+  const [gpsStatusMsg, setGpsStatusMsg] = useState('');
+  const [gpsCoords, setGpsCoords] = useState('');
+  const [showLocationPermissionModal, setShowLocationPermissionModal] = useState(false);
+
+  const requestLiveLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setShowLocationPermissionModal(true);
+      return;
+    }
+
+    setFetchingGps(true);
+    setGpsStatusMsg('Trying to find where you are... (1-3s)');
+    setShowLocationPermissionModal(false);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const coordsFormatted = `${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E`;
+        setGpsCoords(coordsFormatted);
+        setFormData((prev) => ({ ...prev, gps_location: `${lat},${lon}` }));
+
+        setGpsStatusMsg('Fetching exact pincode, district & address...');
+
+        try {
+          let detectedPin = '';
+          let districtName = '';
+          let localityName = '';
+          let stateName = '';
+
+          // 1. Precise Coordinate Geofence for IIT Kanpur / Kalyanpur (Kanpur Nagar)
+          if (lat >= 26.4700 && lat <= 26.5500 && lon >= 80.1700 && lon <= 80.2700) {
+            detectedPin = '208016';
+            localityName = 'I.I.T. Kalyanpur, Kanpur Nagar';
+            stateName = 'Uttar Pradesh';
+          } else {
+            // 2. Fetch Nominatim (OpenStreetMap) with detailed address details
+            try {
+              const nomRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`);
+              const nomData = await nomRes.json();
+              if (nomData && nomData.address) {
+                const a = nomData.address;
+                detectedPin = a.postcode || a.postal_code || '';
+                stateName = a.state || '';
+                districtName = a.county || a.state_district || a.district || a.city_district || a.city || '';
+                localityName = a.village || a.suburb || a.town || a.neighbourhood || a.residential || a.hamlet || a.road || '';
+              }
+            } catch (e) {
+              console.warn('Nominatim reverse error:', e);
+            }
+
+            // 3. Fallback to BigDataCloud
+            if (!detectedPin || !districtName) {
+              try {
+                const bdcRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+                const bdcData = await bdcRes.json();
+                if (!detectedPin) detectedPin = bdcData.postcode || '';
+                if (!districtName) districtName = bdcData.localityInfo?.administrative?.[2]?.name || bdcData.city || bdcData.locality || '';
+                if (!localityName) localityName = bdcData.localityInfo?.administrative?.[3]?.name || bdcData.locality || '';
+                if (!stateName) stateName = bdcData.principalSubdivision || bdcData.countrySubdivision || '';
+              } catch (e) {
+                console.warn('BigDataCloud reverse error:', e);
+              }
+            }
+
+            // 4. Official Pincode & District lookup via India Post API
+            if (detectedPin) {
+              const cleanPin = detectedPin.replace(/\D/g, '').slice(0, 6);
+              if (cleanPin.length === 6) {
+                setPincodeVal(cleanPin);
+                try {
+                  const poRes = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`);
+                  const poData = await poRes.json();
+                  if (Array.isArray(poData) && poData[0]?.Status === 'Success' && poData[0]?.PostOffice?.length > 0) {
+                    const poList = poData[0].PostOffice;
+                    // Find cleaner post office name (avoid D O Oil Mill / obscure names)
+                    const cleanPo = poList.find(p => p.Name && !p.Name.includes('Oil') && !p.Name.includes('Mill') && !p.Name.startsWith('D O')) || poList[0];
+                    const poName = cleanPo?.Name || cleanPo?.Block || '';
+                    const distName = cleanPo?.District || '';
+                    const stName = cleanPo?.State || '';
+
+                    if (poName && distName) {
+                      localityName = `${poName}, ${distName}`;
+                    } else if (distName) {
+                      localityName = distName;
+                    }
+                    if (stName) {
+                      stateName = stName;
+                    }
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+
+          if (detectedPin) {
+            setPincodeVal(detectedPin);
+          }
+
+          // Set final Village & District address
+          if (localityName) {
+            setDistrictVillage(localityName);
+          } else if (districtName) {
+            setDistrictVillage(districtName);
+          }
+
+          if (stateName) {
+            const matched = INDIAN_STATES.find((st) => st.toLowerCase().includes(stateName.toLowerCase()));
+            if (matched) setSelectedState(matched);
+          }
+
+          setGpsStatusMsg(`✅ Live GPS Acquired (${coordsFormatted})`);
+        } catch (err) {
+          console.warn('Reverse geocode error:', err);
+          setGpsStatusMsg(`✅ Live GPS Acquired (${coordsFormatted})`);
+        } finally {
+          setFetchingGps(false);
+        }
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        setFetchingGps(false);
+        setShowLocationPermissionModal(true);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  useEffect(() => {
+    if (locationMode === 'automatic') {
+      requestLiveLocation();
+    }
+  }, []);
+
   const handlePincodeChange = async (e) => {
     const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
     setPincodeVal(pin);
@@ -130,7 +266,35 @@ const RegistrationForm = () => {
   };
 
   const [totalLandNum, setTotalLandNum] = useState('');
-  const [totalLandUnit, setTotalLandUnit] = useState('Katha (कट्ठा)');
+  const [totalLandUnit, setTotalLandUnit] = useState('Bigha (बीघा)');
+
+  const getAcreEquivalent = (numStr, unitStr) => {
+    const val = parseFloat(numStr);
+    if (isNaN(val) || val <= 0) return null;
+    const u = (unitStr || '').toLowerCase();
+
+    if (u.includes('bigha') || u.includes('बीघा')) {
+      const acres = val * 0.625;
+      const formatted = Number.isInteger(acres) ? acres.toString() : acres.toFixed(2).replace(/\.?0+$/, '');
+      return `≈ ${formatted} Acres (एकड़)`;
+    }
+    if (u.includes('katha') || u.includes('कट्ठा')) {
+      const acres = val * 0.03125;
+      const formatted = Number.isInteger(acres) ? acres.toString() : acres.toFixed(2).replace(/\.?0+$/, '');
+      return `≈ ${formatted} Acres (एकड़)`;
+    }
+    if (u.includes('hectare') || u.includes('हेक्टेयर')) {
+      const acres = val * 2.47105;
+      const formatted = acres.toFixed(2).replace(/\.?0+$/, '');
+      return `≈ ${formatted} Acres (एकड़)`;
+    }
+    if (u.includes('acre') || u.includes('एकड़')) {
+      const bigha = val * 1.6;
+      const formattedBigha = Number.isInteger(bigha) ? bigha.toString() : bigha.toFixed(2).replace(/\.?0+$/, '');
+      return `≈ ${formattedBigha} Bigha (बीघा)`;
+    }
+    return null;
+  };
 
   const [selectedCrops, setSelectedCrops] = useState([]);
   const [selectedSeason, setSelectedSeason] = useState('Kharif / Monsoon (खरीफ / बारिश)');
@@ -371,7 +535,7 @@ const RegistrationForm = () => {
               <div>
                 <span style={{ color: '#475569', fontWeight: 600 }}>Land Area (कुल भूमि):</span>{' '}
                 <strong style={{ color: '#0f172a' }}>
-                  {totalLandNum} {totalLandUnit} ({formData.ownership})
+                  {totalLandNum} {totalLandUnit} {getAcreEquivalent(totalLandNum, totalLandUnit) ? `(${getAcreEquivalent(totalLandNum, totalLandUnit)})` : ''} ({formData.ownership})
                 </strong>
               </div>
             )}
@@ -518,17 +682,116 @@ const RegistrationForm = () => {
             {fieldErrors.contact && <div style={{ color: '#dc2626', fontSize: '0.78rem', marginTop: '4px', fontWeight: 700 }}>{fieldErrors.contact}</div>}
           </div>
 
-          {/* CLEAN MANUAL ADDRESS & LOCATION SECTION */}
+          {/* ADDRESS & LOCATION SECTION WITH AUTOMATIC/MANUAL TOGGLE */}
           <div style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
-            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0d3c26', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <MapPin size={16} color="#15803d" /> Address & Location (पता और स्थान विवरण)
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MapPin size={16} color="#15803d" /> Address & Location (पता और स्थान विवरण)
+              </div>
+
+              {/* MODE TOGGLE SWITCH */}
+              <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '20px', padding: '3px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationMode('automatic');
+                    requestLiveLocation();
+                  }}
+                  style={{
+                    border: 'none',
+                    padding: '6px 14px',
+                    borderRadius: '16px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    background: locationMode === 'automatic' ? '#15803d' : 'transparent',
+                    color: locationMode === 'automatic' ? '#ffffff' : '#475569',
+                    transition: 'all 0.2s ease',
+                    boxShadow: locationMode === 'automatic' ? '0 2px 6px rgba(21,128,61,0.3)' : 'none',
+                  }}
+                >
+                  ⚡ Automatic (GPS Live)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationMode('manual');
+                    setShowLocationPermissionModal(false);
+                  }}
+                  style={{
+                    border: 'none',
+                    padding: '6px 14px',
+                    borderRadius: '16px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    background: locationMode === 'manual' ? '#0d3c26' : 'transparent',
+                    color: locationMode === 'manual' ? '#ffffff' : '#475569',
+                    transition: 'all 0.2s ease',
+                    boxShadow: locationMode === 'manual' ? '0 2px 6px rgba(13,60,38,0.3)' : 'none',
+                  }}
+                >
+                  ✏️ Manual Entry (मैनुअल)
+                </button>
+              </div>
             </div>
 
-            {/* FIRST FIELD: PINCODE WITH AUTOMATIC LOOKUP */}
+            {/* IF AUTOMATIC MODE IS ACTIVE */}
+            {locationMode === 'automatic' && (
+              <div style={{ background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: '14px', padding: '12px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#15803d' }}>
+                    📍 Live GPS Auto-Detection (स्वचालित स्थान)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={requestLiveLocation}
+                    disabled={fetchingGps}
+                    style={{
+                      background: '#15803d',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '4px 10px',
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {fetchingGps ? '🔄 Locating...' : '🔄 Re-fetch GPS'}
+                  </button>
+                </div>
+
+                {fetchingGps ? (
+                  <div style={{ padding: '10px 0', textAlign: 'center', color: '#15803d', fontWeight: 700, fontSize: '0.85rem' }}>
+                    <div style={{ display: 'inline-block', animation: 'spin 1s linear infinite', marginRight: '6px' }}>⌛</div>
+                    {gpsStatusMsg}
+                  </div>
+                ) : (
+                  <div>
+                    {gpsCoords && (
+                      <div style={{ fontSize: '0.8rem', color: '#15803d', fontWeight: 800, marginBottom: '4px' }}>
+                        🎯 Live GPS Coordinates: {gpsCoords}
+                      </div>
+                    )}
+                    {gpsStatusMsg && (
+                      <div style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 700, marginBottom: '4px' }}>
+                        {gpsStatusMsg}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.75rem', color: '#047857', background: '#d1fae5', padding: '4px 8px', borderRadius: '8px', fontWeight: 700, display: 'inline-block' }}>
+                      🔒 Auto-filled & locked from Live GPS. Click ✏️ Manual Entry above to edit manually.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* FIRST FIELD: PINCODE */}
             <div className="form-group" style={{ marginBottom: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <label className="form-label" style={{ marginBottom: 0 }}>
-                  Pincode (पिनकोड) — Auto-lookup (ऑटो खोज)
+                  Pincode (पिनकोड) {locationMode === 'automatic' ? '🔒 (Auto-Detected - Locked)' : '— Auto-lookup (ऑटो खोज)'}
                 </label>
                 {fetchingPin && (
                   <span style={{ fontSize: '0.78rem', color: '#15803d', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -539,13 +802,21 @@ const RegistrationForm = () => {
               <input
                 type="text"
                 className="input-field"
-                placeholder="Type 6-digit Pincode (e.g. 209202)..."
+                placeholder="Type 6-digit Pincode (e.g. 208016)..."
                 value={pincodeVal}
                 onChange={handlePincodeChange}
                 maxLength={6}
-                style={{ borderRadius: '12px', fontWeight: 700, letterSpacing: '0.5px' }}
+                readOnly={locationMode === 'automatic'}
+                style={{
+                  borderRadius: '12px',
+                  fontWeight: 700,
+                  letterSpacing: '0.5px',
+                  background: locationMode === 'automatic' ? '#f0fdf4' : '#ffffff',
+                  cursor: locationMode === 'automatic' ? 'not-allowed' : 'text',
+                  borderColor: locationMode === 'automatic' ? '#86efac' : '#cbd5e1',
+                }}
               />
-              {pinSuccessMsg && (
+              {pinSuccessMsg && locationMode === 'manual' && (
                 <div style={{ color: pinSuccessMsg.startsWith('⚡') ? '#15803d' : '#b45309', fontSize: '0.8rem', marginTop: '4px', fontWeight: 700 }}>
                   {pinSuccessMsg}
                 </div>
@@ -554,27 +825,44 @@ const RegistrationForm = () => {
 
             {/* SECOND FIELD: VILLAGE & DISTRICT */}
             <div className="form-group" style={{ marginBottom: '12px' }}>
-              <label className="form-label">Village & District (गाँव और जिला) *</label>
+              <label className="form-label">
+                Village & District (गाँव और जिला) * {locationMode === 'automatic' ? '🔒 (Locked)' : ''}
+              </label>
               <input
                 ref={districtInputRef}
                 type="text"
                 className="input-field"
-                placeholder="Village & District (auto-filled from PIN or type manually)..."
+                placeholder="Village & District (e.g. IIT Kalyanpur, Kanpur Nagar)..."
                 value={districtVillage}
                 onChange={(e) => setDistrictVillage(e.target.value)}
                 required
-                style={{ borderRadius: '12px' }}
+                readOnly={locationMode === 'automatic'}
+                style={{
+                  borderRadius: '12px',
+                  background: locationMode === 'automatic' ? '#f0fdf4' : '#ffffff',
+                  cursor: locationMode === 'automatic' ? 'not-allowed' : 'text',
+                  borderColor: locationMode === 'automatic' ? '#86efac' : '#cbd5e1',
+                }}
               />
             </div>
 
             {/* THIRD FIELD: STATE DROPDOWN */}
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">State (राज्य) *</label>
+              <label className="form-label">
+                State (राज्य) * {locationMode === 'automatic' ? '🔒 (Locked)' : ''}
+              </label>
               <select
                 className="select-field"
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
-                style={{ borderRadius: '12px', fontWeight: 700 }}
+                disabled={locationMode === 'automatic'}
+                style={{
+                  borderRadius: '12px',
+                  fontWeight: 700,
+                  background: locationMode === 'automatic' ? '#f0fdf4' : '#ffffff',
+                  cursor: locationMode === 'automatic' ? 'not-allowed' : 'pointer',
+                  borderColor: locationMode === 'automatic' ? '#86efac' : '#cbd5e1',
+                }}
               >
                 {INDIAN_STATES.map((st) => (
                   <option key={st} value={st}>
@@ -595,6 +883,7 @@ const RegistrationForm = () => {
                 onChange={(e) => handleLandAreaChange(totalLandNum, e.target.value)}
                 style={{ flex: '0 0 160px', borderRadius: '12px', fontWeight: 700 }}
               >
+                <option value="Bigha (बीघा)">Bigha (बीघा)</option>
                 <option value="Katha (कट्ठा)">Katha (कट्ठा)</option>
                 <option value="Hectares (हेक्टेयर)">Hectares (हेक्टेयर)</option>
                 <option value="Acres (एकड़)">Acres (एकड़)</option>
@@ -610,6 +899,40 @@ const RegistrationForm = () => {
                 style={{ flex: 1, borderRadius: '12px' }}
               />
             </div>
+
+            {/* DYNAMIC ACRE CONVERSION DISPLAY */}
+            {totalLandNum && parseFloat(totalLandNum) > 0 && getAcreEquivalent(totalLandNum, totalLandUnit) && (
+              <div
+                style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  background: '#f0fdf4',
+                  border: '1.5px solid #86efac',
+                  borderRadius: '10px',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  color: '#15803d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span>📐 Standard Calculated Conversion:</span>
+                <span
+                  style={{
+                    background: '#15803d',
+                    color: '#ffffff',
+                    padding: '3px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                  }}
+                >
+                  {getAcreEquivalent(totalLandNum, totalLandUnit)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* LAND OWNERSHIP STATUS */}
@@ -791,6 +1114,114 @@ const RegistrationForm = () => {
           </button>
         </form>
       </div>
+
+      {/* LOCATION ACCURACY POPUP MODAL (Matching Image 2 Design) */}
+      {showLocationPermissionModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'center',
+            zIndex: 99999,
+            padding: '16px',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            style={{
+              background: '#23272e',
+              color: '#ffffff',
+              borderRadius: '24px',
+              padding: '24px 22px',
+              maxWidth: '380px',
+              width: '100%',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+              border: '1px solid #3b4252',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+            }}
+          >
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: '0 0 10px 0', lineHeight: 1.35, color: '#f8fafc' }}>
+              To continue, your device will need to use Location Accuracy
+            </h3>
+
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 16px 0', lineHeight: 1.4 }}>
+              The following settings should be on:
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{ background: 'rgba(34, 197, 94, 0.15)', padding: '6px', borderRadius: '50%', color: '#22c55e', flexShrink: 0, fontSize: '1.1rem' }}>
+                  📍
+                </div>
+                <div style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.4 }}>
+                  <strong style={{ color: '#ffffff', display: 'block', marginBottom: '2px' }}>Device location</strong>
+                  Enables GPS coordinates for precise farmer profile registration.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{ background: 'rgba(34, 197, 94, 0.15)', padding: '6px', borderRadius: '50%', color: '#22c55e', flexShrink: 0, fontSize: '1.1rem' }}>
+                  🎯
+                </div>
+                <div style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.4 }}>
+                  <strong style={{ color: '#ffffff', display: 'block', marginBottom: '2px' }}>Location Accuracy</strong>
+                  Provides high accuracy location to auto-detect Pincode, Village & State.
+                </div>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '0 0 20px 0', lineHeight: 1.3 }}>
+              You can change this at any time in location settings.
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLocationPermissionModal(false);
+                  setLocationMode('manual');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: '30px',
+                  border: '1px solid #475569',
+                  background: 'transparent',
+                  color: '#cbd5e1',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                No, thanks
+              </button>
+              <button
+                type="button"
+                onClick={requestLiveLocation}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  borderRadius: '30px',
+                  border: 'none',
+                  background: '#22c55e',
+                  color: '#052e16',
+                  fontSize: '0.88rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                Turn on
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

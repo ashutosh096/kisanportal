@@ -482,6 +482,11 @@ const AdminDashboard = () => {
                                 {item.name}
                               </Link>
                               <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{item.farmer_id}</div>
+                              {(item.crop_name || item.crop) && (
+                                <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', display: 'inline-block', marginTop: '2px' }}>
+                                  🌾 {item.crop_name || item.crop}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>

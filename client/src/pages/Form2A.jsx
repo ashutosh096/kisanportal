@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ArrowLeft, Save, CheckCircle, AlertCircle, Sprout, Lock } from 'lucide-react';
@@ -17,6 +17,16 @@ const STANDARD_EXTRA_CROPS = [
   'Cotton (कपास)',
 ];
 
+const PRE_SOWING_FERTILIZERS = [
+  'Urea (यूरिया - बेसल डोज)',
+  'DAP / Di-Ammonium Phosphate (डीएपी / DAP)',
+  'NPK / Complex Fertilizer (एनपीके / NPK)',
+  'Organic Manure / Cow Dung (जैविक खाद / गोबर खाद)',
+  'SSP / Single Super Phosphate (एसएसपी / SSP)',
+  'Zinc / Bio-Fertilizer (जिंक / जैव उर्वरक)',
+  'No Fertilizer Applied Before Sowing (बुवाई पूर्व कोई उर्वरक नहीं)',
+];
+
 const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
   const { user, token } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -26,7 +36,10 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
   const [farmer, setFarmer] = useState(null);
   const [loadingFarmer, setLoadingFarmer] = useState(true);
 
-  const [selectedCropOption, setSelectedCropOption] = useState('');
+  const [selectedCrops, setSelectedCrops] = useState([]);
+  const [showCropDropdown, setShowCropDropdown] = useState(false);
+  const cropDropdownRef = useRef(null);
+
   const [customCropName, setCustomCropName] = useState('');
 
   const [formData, setFormData] = useState({
@@ -38,6 +51,8 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
     crop: '',
     crop_reason: '',
     area: '',
+    farm_condition_before_sowing: 'Irrigated Land - Deep Tillage / Rotavator (सिंचित खेत - रोटावेटर/गहरी जुताई)',
+    fertilizers_applied_till_sowing: '',
     sowing_date: '',
     variety: '',
     seed_qty_per_acre: '',
@@ -51,14 +66,47 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
     flowering_status: 'Early Flowering (शुरुआती फूल)',
   });
 
+  const [selectedFertilizers, setSelectedFertilizers] = useState([]);
+  const [showFertilizerDropdown, setShowFertilizerDropdown] = useState(false);
+  const fertilizerDropdownRef = useRef(null);
+
   const [cowDungNum, setCowDungNum] = useState('');
   const [cowDungUnit, setCowDungUnit] = useState('Trolleys (ट्रॉली)');
   const [areaNum, setAreaNum] = useState('');
-  const [areaUnit, setAreaUnit] = useState('Acres (एकड़)');
+  const [areaUnit, setAreaUnit] = useState('Bigha (बीघा)');
+
+  const getAcreEquivalent = (numStr, unitStr) => {
+    const val = parseFloat(numStr);
+    if (isNaN(val) || val <= 0) return null;
+    const u = (unitStr || '').toLowerCase();
+
+    if (u.includes('bigha') || u.includes('बीघा')) {
+      const acres = val * 0.625;
+      const formatted = Number.isInteger(acres) ? acres.toString() : acres.toFixed(2).replace(/\.?0+$/, '');
+      return `≈ ${formatted} Acres (एकड़)`;
+    }
+    if (u.includes('katha') || u.includes('कट्ठा')) {
+      const acres = val * 0.03125;
+      const formatted = Number.isInteger(acres) ? acres.toString() : acres.toFixed(2).replace(/\.?0+$/, '');
+      return `≈ ${formatted} Acres (एकड़)`;
+    }
+    if (u.includes('hectare') || u.includes('हेक्टेयर')) {
+      const acres = val * 2.47105;
+      const formatted = acres.toFixed(2).replace(/\.?0+$/, '');
+      return `≈ ${formatted} Acres (एकड़)`;
+    }
+    if (u.includes('acre') || u.includes('एकड़')) {
+      const bigha = val * 1.6;
+      const formattedBigha = Number.isInteger(bigha) ? bigha.toString() : bigha.toFixed(2).replace(/\.?0+$/, '');
+      return `≈ ${formattedBigha} Bigha (बीघा)`;
+    }
+    return null;
+  };
+
   const [seedNum, setSeedNum] = useState('');
-  const [seedUnit, setSeedUnit] = useState('Kg / Acre (किग्रा / एकड़)');
+  const [seedUnit, setSeedUnit] = useState('Kg (किग्रा)');
   const [yieldNum, setYieldNum] = useState('');
-  const [yieldUnit, setYieldUnit] = useState('Quintals / Acre (क्विंटल / एकड़)');
+  const [yieldUnit, setYieldUnit] = useState('Quintals (क्विंटल)');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -204,7 +252,7 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
               const m = val.match(/([\d.]+)\s*(.*)/);
               if (m) {
                 setYieldNum(m[1]);
-                setYieldUnit(m[2] || 'Quintals / Acre (क्विंटल / एकड़)');
+                setYieldUnit(m[2] || 'Quintals (क्विंटल)');
               }
             }
 
@@ -221,6 +269,23 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
     }
   }, [farmer_id, token]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (cropDropdownRef.current && !cropDropdownRef.current.contains(event.target)) {
+        setShowCropDropdown(false);
+      }
+      if (fertilizerDropdownRef.current && !fertilizerDropdownRef.current.contains(event.target)) {
+        setShowFertilizerDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
+
   const getRegisteredCrops = () => {
     let baseCrops = STANDARD_EXTRA_CROPS;
     if (farmer && farmer.crop) {
@@ -228,20 +293,59 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
       const splitCrops = cleanCropStr.split(',').map((c) => c.trim()).filter(Boolean);
       baseCrops = Array.from(new Set([...splitCrops, ...STANDARD_EXTRA_CROPS]));
     }
-    if (formData.crop && formData.crop !== 'Other (अन्य)') {
-      baseCrops = Array.from(new Set([formData.crop, ...baseCrops]));
-    }
     return baseCrops;
   };
 
-  const handleCropDropdownChange = (e) => {
-    const val = e.target.value;
-    setSelectedCropOption(val);
-    if (val !== 'Other (अन्य)') {
-      setFormData((prev) => ({ ...prev, crop: val }));
+  const toggleCrop = (cropLabel) => {
+    let updated;
+    if (cropLabel === 'Other (अन्य)') {
+      if (selectedCrops.includes('Other (अन्य)')) {
+        updated = selectedCrops.filter((c) => c !== 'Other (अन्य)');
+      } else {
+        updated = [...selectedCrops, 'Other (अन्य)'];
+      }
     } else {
-      setFormData((prev) => ({ ...prev, crop: customCropName }));
+      if (selectedCrops.includes(cropLabel)) {
+        updated = selectedCrops.filter((c) => c !== cropLabel);
+      } else {
+        updated = [...selectedCrops, cropLabel];
+      }
     }
+
+    setSelectedCrops(updated);
+    const resolvedCropString = updated.map(c => c === 'Other (अन्य)' ? (customCropName || 'Other') : c).join(', ');
+    setFormData((prev) => ({ ...prev, crop: resolvedCropString }));
+  };
+
+  const removeCropBadge = (e, cropLabel) => {
+    e.stopPropagation();
+    const updated = selectedCrops.filter((c) => c !== cropLabel);
+    setSelectedCrops(updated);
+    const resolvedCropString = updated.map(c => c === 'Other (अन्य)' ? (customCropName || 'Other') : c).join(', ');
+    setFormData((prev) => ({ ...prev, crop: resolvedCropString }));
+  };
+
+  const toggleFertilizer = (fertLabel) => {
+    let updated;
+    if (fertLabel.includes('No Fertilizer')) {
+      updated = [fertLabel];
+    } else {
+      const filtered = selectedFertilizers.filter((f) => !f.includes('No Fertilizer'));
+      if (filtered.includes(fertLabel)) {
+        updated = filtered.filter((f) => f !== fertLabel);
+      } else {
+        updated = [...filtered, fertLabel];
+      }
+    }
+    setSelectedFertilizers(updated);
+    setFormData((prev) => ({ ...prev, fertilizers_applied_till_sowing: updated.join(', ') }));
+  };
+
+  const removeFertilizerBadge = (e, fertLabel) => {
+    e.stopPropagation();
+    const updated = selectedFertilizers.filter((f) => f !== fertLabel);
+    setSelectedFertilizers(updated);
+    setFormData((prev) => ({ ...prev, fertilizers_applied_till_sowing: updated.join(', ') }));
   };
 
   const handleToggle = (name, value) => {
@@ -289,9 +393,12 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
       return;
     }
 
-    const finalCrop = selectedCropOption === 'Other (अन्य)' ? customCropName.trim() : (formData.crop || selectedCropOption).trim();
-    if (!finalCrop) {
-      setError('Please select or type Crop Name (कृपया फसल का नाम चुनें या दर्ज करें)');
+    const finalCrop = selectedCrops.length > 0 
+      ? selectedCrops.map(c => c === 'Other (अन्य)' ? customCropName.trim() : c).join(', ')
+      : (formData.crop || 'Wheat (गेहूँ)');
+
+    if (!finalCrop || finalCrop.trim() === '') {
+      setError('Please select at least one Crop (कृपया कम से कम एक फसल चुनें)');
       return;
     }
 
@@ -314,7 +421,7 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
       seed_qty_per_acre: finalSeed,
       expected_yield: finalYield,
       yield: finalYield,
-      cow_dung_qty: finalCowDungQty,
+      fertilizers_applied_till_sowing: selectedFertilizers.join(', '),
       force: forceSave,
     };
 
@@ -531,41 +638,154 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
             </select>
           </div>
 
-          {/* 1ST QUESTION: CROP SELECTION DROPDOWN */}
-          <div className="form-group" style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', padding: '14px', borderRadius: '16px', marginBottom: '16px' }}>
+          {/* 1ST QUESTION: CROP SELECTION MULTI-SELECT CHECKBOX DROPDOWN */}
+          <div className="form-group" style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', padding: '14px', borderRadius: '16px', marginBottom: '16px', position: 'relative' }} ref={cropDropdownRef}>
             <label className="form-label" style={{ fontWeight: 800, color: '#15803d' }}>
-              1. Crop Selection (फसल का चयन) *
+              1. Crop Selection (फसल का चयन - Multi-Select Checkbox) *
             </label>
-            <select
-              className="select-field"
-              value={selectedCropOption}
-              onChange={handleCropDropdownChange}
-              required
-              style={{ borderRadius: '12px', fontWeight: 700 }}
+
+            {/* TRIGGER BUTTON */}
+            <div
+              onClick={() => setShowCropDropdown(!showCropDropdown)}
+              className="input-field"
+              style={{
+                minHeight: '46px',
+                height: 'auto',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                background: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justify: 'space-between',
+                padding: '8px 12px',
+                border: '1.5px solid #0d3c26',
+              }}
             >
-              <option value="">-- Select Crop (फसल का चयन करें) --</option>
-              {cropList.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-              <option value="Other (अन्य)">Other (अन्य - टाइप करें)</option>
-            </select>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
+                {selectedCrops.length === 0 ? (
+                  <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Select 1, 2, or 3 Crops (फसलें चुनें)...</span>
+                ) : (
+                  selectedCrops.map((crop) => (
+                    <span
+                      key={crop}
+                      style={{
+                        background: '#0d3c26',
+                        color: '#ffffff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        padding: '3px 8px',
+                        borderRadius: '20px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      {crop}
+                      <span
+                        onClick={(e) => removeCropBadge(e, crop)}
+                        style={{ cursor: 'pointer', opacity: 0.85, fontWeight: 900, marginLeft: '2px' }}
+                      >
+                        ✕
+                      </span>
+                    </span>
+                  ))
+                )}
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#0d3c26', marginLeft: '6px' }}>▼</span>
+            </div>
+
+            {/* CHECKBOX POPUP MENU */}
+            {showCropDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: '4px',
+                  background: '#ffffff',
+                  border: '2px solid #0d3c26',
+                  borderRadius: '16px',
+                  padding: '8px',
+                  zIndex: 99,
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                }}
+              >
+                <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', padding: '4px 8px', marginBottom: '4px' }}>
+                  Select all crops that apply (☑ Select 2, 3, or more crops):
+                </div>
+
+                {cropList.map((item) => {
+                  const isChecked = selectedCrops.includes(item);
+                  return (
+                    <label
+                      key={item}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        background: isChecked ? '#f0fdf4' : 'transparent',
+                        fontSize: '0.82rem',
+                        fontWeight: isChecked ? 700 : 500,
+                        color: isChecked ? '#15803d' : '#1e293b',
+                        marginBottom: '2px',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleCrop(item)}
+                        style={{ width: '16px', height: '16px', accentColor: '#15803d', cursor: 'pointer' }}
+                      />
+                      <span>{item}</span>
+                    </label>
+                  );
+                })}
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    background: selectedCrops.includes('Other (अन्य)') ? '#f0fdf4' : 'transparent',
+                    fontSize: '0.82rem',
+                    fontWeight: selectedCrops.includes('Other (अन्य)') ? 700 : 500,
+                    color: selectedCrops.includes('Other (अन्य)') ? '#15803d' : '#1e293b',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCrops.includes('Other (अन्य)')}
+                    onChange={() => toggleCrop('Other (अन्य)')}
+                    style={{ width: '16px', height: '16px', accentColor: '#15803d', cursor: 'pointer' }}
+                  />
+                  <span>Other (अन्य - टाइप करें)</span>
+                </label>
+              </div>
+            )}
 
             {/* IF OTHER SELECTED: TEXT INPUT FOR CUSTOM CROP NAME */}
-            {selectedCropOption === 'Other (अन्य)' && (
+            {selectedCrops.includes('Other (अन्य)') && (
               <div style={{ marginTop: '10px' }}>
                 <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                  Type Crop Name (फसल का नाम लिखें) *
+                  Type Custom Crop Name (फसल का नाम लिखें) *
                 </label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Enter crop name..."
+                  placeholder="Enter custom crop name..."
                   value={customCropName}
                   onChange={(e) => {
                     setCustomCropName(e.target.value);
-                    setFormData((prev) => ({ ...prev, crop: e.target.value }));
+                    const resolved = selectedCrops.map(c => c === 'Other (अन्य)' ? e.target.value : c).join(', ');
+                    setFormData((prev) => ({ ...prev, crop: resolved }));
                   }}
                   required
                   style={{ borderRadius: '12px' }}
@@ -613,12 +833,188 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
             </label>
             <div style={{ display: 'flex', gap: '8px' }}>
               <select className="select-field" value={areaUnit} onChange={(e) => handleLandAreaChange(areaNum, e.target.value)} style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}>
-                <option value="Acres (एकड़)">Acres (एकड़)</option>
+                <option value="Bigha (बीघा)">Bigha (बीघा)</option>
                 <option value="Katha (कट्ठा)">Katha (कट्ठा)</option>
                 <option value="Hectares (हेक्टेयर)">Hectares (हेक्टेयर)</option>
+                <option value="Acres (एकड़)">Acres (एकड़)</option>
               </select>
               <input type="number" step="any" min="0" className="input-field" placeholder="Number" value={areaNum} onChange={(e) => handleLandAreaChange(e.target.value, areaUnit)} style={{ flex: '1 1 120px', borderRadius: '12px' }} />
             </div>
+
+            {/* DYNAMIC ACRE CONVERSION DISPLAY */}
+            {areaNum && parseFloat(areaNum) > 0 && getAcreEquivalent(areaNum, areaUnit) && (
+              <div
+                style={{
+                  marginTop: '8px',
+                  padding: '8px 12px',
+                  background: '#f0fdf4',
+                  border: '1.5px solid #86efac',
+                  borderRadius: '10px',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  color: '#15803d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span>📐 Standard Calculated Conversion:</span>
+                <span
+                  style={{
+                    background: '#15803d',
+                    color: '#ffffff',
+                    padding: '3px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.88rem',
+                    fontWeight: 800,
+                  }}
+                >
+                  {getAcreEquivalent(areaNum, areaUnit)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* 4a QUESTION: FARM LAND CONDITION BEFORE SOWING */}
+          <div className="form-group" style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', padding: '14px', borderRadius: '16px', marginBottom: '16px' }}>
+            <label className="form-label" style={{ fontWeight: 800, color: '#0d3c26' }}>
+              4a. Farm Land Condition Before Sowing (बुवाई से पूर्व खेत की स्थिति एवं जुताई)
+            </label>
+            <select
+              className="select-field"
+              name="farm_condition_before_sowing"
+              value={formData.farm_condition_before_sowing}
+              onChange={handleChange}
+              style={{ borderRadius: '12px', fontWeight: 700 }}
+            >
+              <option value="Irrigated Land - Deep Tillage / Rotavator (सिंचित खेत - रोटावेटर/गहरी जुताई)">
+                💧 सिंचित खेत - रोटावेटर / गहरी जुताई (Irrigated - Deep Tillage / Rotavator)
+              </option>
+              <option value="Irrigated Land - Normal Ploughing (सिंचित खेत - सामान्य जुताई)">
+                🚜 सिंचित खेत - सामान्य हल जुताई (Irrigated - Normal Ploughing)
+              </option>
+              <option value="Rainfed / Unirrigated Land (असिंचित / बारिश पर निर्भर खेत)">
+                🌧️ असिंचित / बारिश आधारित खेत (Rainfed / Unirrigated Land)
+              </option>
+              <option value="Zero Tillage / Direct Sowing (जीरो टिलेज / सीधी बुवाई)">
+                🌱 जीरो टिलेज / बिना जुताई सीधी बुवाई (Zero Tillage / Direct Sowing)
+              </option>
+              <option value="Lowland / Waterlogged Area (तराई / जलभराव वाला खेत)">
+                🌊 तराई / जलभराव वाला क्षेत्र (Lowland / Waterlogged Area)
+              </option>
+            </select>
+          </div>
+
+          {/* 4b QUESTION: FERTILIZER / MANURE APPLIED TILL SOWING */}
+          <div className="form-group" style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', padding: '14px', borderRadius: '16px', marginBottom: '16px', position: 'relative' }} ref={fertilizerDropdownRef}>
+            <label className="form-label" style={{ fontWeight: 800, color: '#0d3c26' }}>
+              4b. Fertilizer / Manure Applied Till Sowing (बुवाई तक/पूर्व प्रयुक्त खाद व उर्वरक e.g. Urea, NPK)
+            </label>
+
+            <div
+              onClick={() => setShowFertilizerDropdown(!showFertilizerDropdown)}
+              className="input-field"
+              style={{
+                minHeight: '46px',
+                height: 'auto',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                background: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justify: 'space-between',
+                padding: '8px 12px',
+                border: '1.5px solid #cbd5e1',
+              }}
+            >
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
+                {selectedFertilizers.length === 0 ? (
+                  <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Select Pre-sowing Inputs (यूरिया, डीएपी, गोबर खाद आदि चुनें)...</span>
+                ) : (
+                  selectedFertilizers.map((fert) => (
+                    <span
+                      key={fert}
+                      style={{
+                        background: '#15803d',
+                        color: '#ffffff',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        padding: '3px 8px',
+                        borderRadius: '20px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      {fert}
+                      <span
+                        onClick={(e) => removeFertilizerBadge(e, fert)}
+                        style={{ cursor: 'pointer', opacity: 0.85, fontWeight: 900, marginLeft: '2px' }}
+                      >
+                        ✕
+                      </span>
+                    </span>
+                  ))
+                )}
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#475569', marginLeft: '6px' }}>▼</span>
+            </div>
+
+            {/* FERTILIZER CHECKBOX POPUP MENU */}
+            {showFertilizerDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: '4px',
+                  background: '#ffffff',
+                  border: '2px solid #15803d',
+                  borderRadius: '16px',
+                  padding: '8px',
+                  zIndex: 99,
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                }}
+              >
+                <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', padding: '4px 8px', marginBottom: '4px' }}>
+                  Select all fertilizers / manures used before/at sowing:
+                </div>
+
+                {PRE_SOWING_FERTILIZERS.map((item) => {
+                  const isChecked = selectedFertilizers.includes(item);
+                  return (
+                    <label
+                      key={item}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        background: isChecked ? '#f0fdf4' : 'transparent',
+                        fontSize: '0.82rem',
+                        fontWeight: isChecked ? 700 : 500,
+                        color: isChecked ? '#15803d' : '#1e293b',
+                        marginBottom: '2px',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleFertilizer(item)}
+                        style={{ width: '16px', height: '16px', accentColor: '#15803d', cursor: 'pointer' }}
+                      />
+                      <span>{item}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* 5TH QUESTION: SOWING DATE */}
@@ -636,9 +1032,11 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
             </label>
             <div style={{ display: 'flex', gap: '8px' }}>
               <select className="select-field" value={seedUnit} onChange={(e) => handleSeedQtyChange(seedNum, e.target.value)} style={{ flex: '1 1 150px', borderRadius: '12px', fontWeight: 700 }}>
-                <option value="Kg / Acre (किग्रा / एकड़)">Kg / Acre (किग्रा / एकड़)</option>
-                <option value="Grams / Acre (ग्राम / एकड़)">Grams / Acre (ग्राम / एकड़)</option>
-                <option value="Packets / Acre (पैकेट / एकड़)">Packets / Acre (पैकेट / एकड़)</option>
+                <option value="Kg (किग्रा)">Kg (किग्रा)</option>
+                <option value="Grams (ग्राम)">Grams (ग्राम)</option>
+                <option value="Packets (पैकेट)">Packets (पैकेट)</option>
+                <option value="Quintals (क्विंटल)">Quintals (क्विंटल)</option>
+                <option value="Bags (बोरी / बैग)">Bags (बोरी / बैग)</option>
               </select>
               <input type="number" step="any" min="0" className="input-field" placeholder="Number" value={seedNum} onChange={(e) => handleSeedQtyChange(e.target.value, seedUnit)} style={{ flex: '1 1 120px', borderRadius: '12px' }} />
             </div>
@@ -730,8 +1128,9 @@ const Form2A = ({ farmerIdProp, onCompleted, embedded = false }) => {
             </label>
             <div style={{ display: 'flex', gap: '8px' }}>
               <select className="select-field" value={yieldUnit} onChange={(e) => handleYieldChange(yieldNum, e.target.value)} style={{ flex: '1 1 150px', borderRadius: '12px', fontWeight: 700 }}>
-                <option value="Quintals / Acre (क्विंटल / एकड़)">Quintals / Acre</option>
-                <option value="Kg / Acre (किग्रा / एकड़)">Kg / Acre</option>
+                <option value="Quintals (क्विंटल)">Quintals (क्विंटल)</option>
+                <option value="Kg (किग्रा)">Kg (किग्रा)</option>
+                <option value="Tons (टन)">Tons (टन)</option>
               </select>
               <input type="number" step="any" min="0" className="input-field" placeholder="Number" value={yieldNum} onChange={(e) => handleYieldChange(e.target.value, yieldUnit)} style={{ flex: '1 1 120px', borderRadius: '12px' }} />
             </div>

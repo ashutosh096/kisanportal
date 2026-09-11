@@ -2,11 +2,14 @@ import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config(); 
+if (!process.env.DATABASE_URL) {
+  dotenv.config({ path: '../.env' });
+}
 
 // ─── Fail fast if DATABASE_URL is missing ───
 const rawUrl = process.env.DATABASE_URL;
-if (!rawUrl) {
+if (!rawUrl) { 
   throw new Error('DATABASE_URL environment variable is required. Set it in your .env file.');
 }
 // Strip channel_binding param (not supported by all Neon pool modes)
@@ -270,11 +273,21 @@ export const initDb = async () => {
         weeding_done VARCHAR(20) DEFAULT 'no',
         additional_activities TEXT DEFAULT '',
         crop_health_status VARCHAR(50) DEFAULT 'Good',
+        crop_name VARCHAR(150) DEFAULT '',
         visit_notes TEXT DEFAULT '',
         field_data JSONB DEFAULT '{}',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS crop_name VARCHAR(150) DEFAULT '';
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS crop VARCHAR(150) DEFAULT '';
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS is_crop_cycle_closed VARCHAR(20) DEFAULT 'no';
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS actual_yield TEXT DEFAULT '';
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS actual_harvest_date TIMESTAMP;
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS selling_price_per_quintal VARCHAR(50) DEFAULT '';
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS crop_quality_grade VARCHAR(50) DEFAULT '';
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS farmer_satisfaction VARCHAR(50) DEFAULT '';
+      ALTER TABLE form2b_visits ADD COLUMN IF NOT EXISTS closing_remarks TEXT DEFAULT '';
       CREATE INDEX IF NOT EXISTS idx_form2b_farmer_visit ON form2b_visits(farmer_id, visit_date DESC);
       CREATE INDEX IF NOT EXISTS idx_form2b_admin ON form2b_visits(admin_id);
       CREATE INDEX IF NOT EXISTS idx_form2b_surveyor ON form2b_visits(surveyor_id);

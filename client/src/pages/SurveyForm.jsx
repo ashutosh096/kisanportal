@@ -35,6 +35,15 @@ const SurveyForm = () => {
   const [offlineMsg, setOfflineMsg] = useState('');
   const [clientGenId] = useState(() => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'f2b-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9));
 
+  const [isClosingCycle, setIsClosingCycle] = useState(false);
+  const [actualYieldNum, setActualYieldNum] = useState('');
+  const [actualYieldUnit, setActualYieldUnit] = useState('Quintals (क्विंटल)');
+  const [actualHarvestDate, setActualHarvestDate] = useState(new Date().toISOString().split('T')[0]);
+  const [sellingPricePerQuintal, setSellingPricePerQuintal] = useState('');
+  const [cropQualityGrade, setCropQualityGrade] = useState('Grade A - Premium Quality (उत्कृष्ट गुणवत्ता)');
+  const [farmerSatisfaction, setFarmerSatisfaction] = useState('High Profit & Fully Satisfied (उच्च लाभ व अत्यधिक संतुष्ट)');
+  const [closingRemarks, setClosingRemarks] = useState('');
+
   const [formData, setFormData] = useState({
     visit_date: new Date().toISOString().split('T')[0],
     gps_location: '',
@@ -66,6 +75,22 @@ const SurveyForm = () => {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isSurveyor = !isAdmin;
+
+  // Derived: list of crops configured for this farmer in Form 2A or Farmer Profile
+  const farmerCropList = useMemo(() => {
+    const rawCropStr = seasonalInfo?.crop || selectedFarmer?.crop || '';
+    if (!rawCropStr) return [];
+    const cleanStr = rawCropStr.replace(/\([^)]*Kharif[^)]*\)|\([^)]*Rabi[^)]*\)|\([^)]*Zaid[^)]*\)|\([^)]*Annual[^)]*\)/gi, '').trim();
+    return Array.from(new Set(cleanStr.split(',').map((c) => c.trim()).filter(Boolean)));
+  }, [seasonalInfo, selectedFarmer]);
+
+  const [selectedVisitCrop, setSelectedVisitCrop] = useState('');
+
+  useEffect(() => {
+    if (farmerCropList.length > 0 && (!selectedVisitCrop || !farmerCropList.includes(selectedVisitCrop))) {
+      setSelectedVisitCrop(farmerCropList[0]);
+    }
+  }, [farmerCropList]);
 
   // Derived: surveyors only see last 3 days of visits; admins see all
   const displayedPastVisits = useMemo(() => {
@@ -233,6 +258,7 @@ const SurveyForm = () => {
   };
 
   const excelMatrixRows = [
+    { id: 0, label: 'Selected Crop (फसल)', key: 'crop_name', getValue: (v) => v.crop_name || v.crop || '-' },
     { id: 1, label: 'Ploughing (Yes/No)', key: 'plowing', getValue: (v) => (v.plowing === 'yes' ? 'Yes' : 'No') },
     { id: 2, label: 'No. Of ploughing', key: 'plowing_count', getValue: (v) => (v.plowing === 'yes' ? `${v.plowing_count || 1} times` : '-') },
     { id: 3, label: 'Pesticide (yes/no)', key: 'pesticide_used', getValue: (v) => (v.pesticide_used === 'yes' ? 'Yes' : 'No') },
@@ -386,11 +412,23 @@ const SurveyForm = () => {
     setOfflineMsg('');
     setLoading(true);
 
+    const activeCrop = selectedVisitCrop || (farmerCropList.length > 0 ? farmerCropList[0] : '');
+    const finalActualYield = actualYieldNum ? `${actualYieldNum} ${actualYieldUnit}` : '';
+
     const payload = {
       ...formData,
+      crop_name: activeCrop,
+      crop: activeCrop,
       farmer_id: selectedFarmer.farmer_id,
       form2a_id: form2aId,
       client_generated_id: clientGenId,
+      is_crop_cycle_closed: isClosingCycle ? 'yes' : 'no',
+      actual_yield: isClosingCycle ? finalActualYield : '',
+      actual_harvest_date: isClosingCycle ? actualHarvestDate : null,
+      selling_price_per_quintal: isClosingCycle ? sellingPricePerQuintal : '',
+      crop_quality_grade: isClosingCycle ? cropQualityGrade : '',
+      farmer_satisfaction: isClosingCycle ? farmerSatisfaction : '',
+      closing_remarks: isClosingCycle ? closingRemarks : formData.additional_activities,
     };
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -1041,6 +1079,62 @@ const SurveyForm = () => {
                 )}
 
                 <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
+                  {/* CROP SELECTION TOGGLE SWITCH / TAB BAR (FOR MULTI-CROP FARMERS) */}
+                  {farmerCropList.length > 0 && (
+                    <div
+                      style={{
+                        background: '#f0fdf4',
+                        border: '2px solid #15803d',
+                        borderRadius: '16px',
+                        padding: '14px 16px',
+                        marginBottom: '20px',
+                        boxShadow: '0 4px 14px rgba(21, 128, 61, 0.08)',
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, color: '#0d3c26', fontSize: '0.92rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        🌾 Select Crop for Today's Visit Log (किस फसल की विज़िट प्रविष्टि दर्ज कर रहे हैं?):
+                      </div>
+
+                      {farmerCropList.length > 1 ? (
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                          {farmerCropList.map((cropItem) => {
+                            const isActive = selectedVisitCrop === cropItem;
+                            return (
+                              <button
+                                key={cropItem}
+                                type="button"
+                                onClick={() => setSelectedVisitCrop(cropItem)}
+                                style={{
+                                  flex: '1 1 140px',
+                                  padding: '10px 16px',
+                                  borderRadius: '30px',
+                                  border: isActive ? '2px solid #0d3c26' : '1.5px solid #cbd5e1',
+                                  background: isActive ? '#0d3c26' : '#ffffff',
+                                  color: isActive ? '#ffffff' : '#334155',
+                                  fontWeight: 800,
+                                  fontSize: '0.88rem',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justify: 'center',
+                                  gap: '6px',
+                                  boxShadow: isActive ? '0 4px 12px rgba(13, 60, 38, 0.25)' : 'none',
+                                }}
+                              >
+                                {isActive ? '🟢' : '⚪'} {cropItem}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ background: '#15803d', color: '#ffffff', padding: '8px 16px', borderRadius: '30px', fontWeight: 800, fontSize: '0.88rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          🟢 Active Crop: {farmerCropList[0]}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Visit Date */}
                   <div className="form-group">
                     <label className="form-label">Date (तारीख) *</label>
@@ -1053,6 +1147,7 @@ const SurveyForm = () => {
                     />
                   </div>
 
+                  {/* STANDARD DAILY VISIT LOG QUESTIONS (ALWAYS VISIBLE) */}
                   {/* Plowing */}
                   <div className="form-group" style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
                     <label className="form-label">Plowing (जुताई)</label>
@@ -1388,7 +1483,7 @@ const SurveyForm = () => {
                   </div>
 
                   {/* Additional Activities */}
-                  <div className="form-group">
+                  <div className="form-group" style={{ marginBottom: '20px' }}>
                     <label className="form-label">Additional Activities (अतिरिक्त गतिविधियां)</label>
                     <textarea
                       className="textarea-field"
@@ -1401,15 +1496,176 @@ const SurveyForm = () => {
                     ></textarea>
                   </div>
 
+                  {/* CLOSE CROP CYCLE CHECKBOX CARD */}
+                  <div
+                    style={{
+                      background: isClosingCycle ? '#fff1f2' : '#f8fafc',
+                      border: isClosingCycle ? '2px solid #e11d48' : '1.5px solid #cbd5e1',
+                      borderRadius: '16px',
+                      padding: '16px',
+                      marginBottom: '20px',
+                      boxShadow: isClosingCycle ? '0 4px 16px rgba(225, 29, 72, 0.15)' : 'none',
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={isClosingCycle}
+                        onChange={(e) => setIsClosingCycle(e.target.checked)}
+                        style={{ width: '22px', height: '22px', marginTop: '2px', accentColor: '#e11d48', cursor: 'pointer' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 800, color: isClosingCycle ? '#be123c' : '#0d3c26', fontSize: '1rem' }}>
+                          🏁 Mark Farmer Crop Cycle as Closed / Final Harvest Complete?
+                        </div>
+                        <div style={{ fontSize: '0.84rem', color: isClosingCycle ? '#9f1239' : '#475569', marginTop: '3px', fontWeight: 600 }}>
+                          (इस किसान का यह फसल चक्र समाप्त / पूर्ण करें — टिक करने पर नीचे अंतिम कटाई व पैदावार प्रविष्टि खुल जाएगी)
+                        </div>
+                      </div>
+                    </label>
+
+                    {/* EXPANDS DIRECTLY BELOW THE CHECKBOX WHEN CHECKED */}
+                    {isClosingCycle && (
+                      <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1.5px dashed #fecdd3' }}>
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#be123c', marginTop: 0, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          📋 Final Crop Cycle Closing Questions (अंतिम कटाई व पैदावार विवरण)
+                        </h3>
+
+                        {/* 1. ACTUAL YIELD */}
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                          <label className="form-label" style={{ fontWeight: 800, color: '#9f1239' }}>
+                            1. Actual Harvested Yield (वास्तविक पैदावार / कुल उपज) *
+                          </label>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <select
+                              className="select-field"
+                              value={actualYieldUnit}
+                              onChange={(e) => setActualYieldUnit(e.target.value)}
+                              style={{ flex: '1 1 140px', borderRadius: '12px', fontWeight: 700 }}
+                            >
+                              <option value="Quintals (क्विंटल)">Quintals (क्विंटल)</option>
+                              <option value="Kg (किग्रा)">Kg (किग्रा)</option>
+                              <option value="Tons (टन)">Tons (टन)</option>
+                            </select>
+                            <input
+                              type="number"
+                              step="any"
+                              min="0"
+                              className="input-field"
+                              placeholder="Enter actual yield number..."
+                              value={actualYieldNum}
+                              onChange={(e) => setActualYieldNum(e.target.value)}
+                              required={isClosingCycle}
+                              style={{ flex: '1 1 120px', borderRadius: '12px', fontWeight: 700 }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 2. ACTUAL HARVEST DATE */}
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                          <label className="form-label" style={{ fontWeight: 800, color: '#9f1239' }}>
+                            2. Actual Harvest Date (वास्तविक कटाई की तारीख) *
+                          </label>
+                          <DatePickerDDMMYYYY
+                            name="actual_harvest_date"
+                            value={actualHarvestDate}
+                            onChange={(e) => setActualHarvestDate(e.target.value)}
+                            style={{ borderRadius: '12px' }}
+                            required={isClosingCycle}
+                          />
+                        </div>
+
+                        {/* 3. SELLING PRICE */}
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                          <label className="form-label" style={{ fontWeight: 800, color: '#9f1239' }}>
+                            3. Market Selling Price Received (मंडी बिक्री दर ₹ / Quintal)
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            className="input-field"
+                            placeholder="e.g. 2250 (रुपये प्रति क्विंटल)"
+                            value={sellingPricePerQuintal}
+                            onChange={(e) => setSellingPricePerQuintal(e.target.value)}
+                            style={{ borderRadius: '12px' }}
+                          />
+                        </div>
+
+                        {/* 4. CROP QUALITY GRADE */}
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                          <label className="form-label" style={{ fontWeight: 800, color: '#9f1239' }}>
+                            4. Overall Crop Quality & Grade (फसल की गुणवत्ता व ग्रेड)
+                          </label>
+                          <select
+                            className="select-field"
+                            value={cropQualityGrade}
+                            onChange={(e) => setCropQualityGrade(e.target.value)}
+                            style={{ borderRadius: '12px', fontWeight: 700 }}
+                          >
+                            <option value="Grade A - Premium Quality (उत्कृष्ट गुणवत्ता)">🌟 Grade A - Premium Quality (उत्कृष्ट गुणवत्ता)</option>
+                            <option value="Grade B - Good / Average (सामान्य गुणवत्ता)">👍 Grade B - Good / Average (सामान्य गुणवत्ता)</option>
+                            <option value="Grade C - Below Average / Damaged (निम्न / प्रभावित फसल)">⚠️ Grade C - Below Average / Damaged (निम्न / प्रभावित)</option>
+                          </select>
+                        </div>
+
+                        {/* 5. FARMER SATISFACTION */}
+                        <div className="form-group" style={{ marginBottom: '16px' }}>
+                          <label className="form-label" style={{ fontWeight: 800, color: '#9f1239' }}>
+                            5. Farmer Income & Satisfaction Level (किसान की संतुष्टि का स्तर)
+                          </label>
+                          <select
+                            className="select-field"
+                            value={farmerSatisfaction}
+                            onChange={(e) => setFarmerSatisfaction(e.target.value)}
+                            style={{ borderRadius: '12px', fontWeight: 700 }}
+                          >
+                            <option value="High Profit & Fully Satisfied (उच्च लाभ व अत्यधिक संतुष्ट)">😊 High Profit & Fully Satisfied (उच्च लाभ व संतुष्ट)</option>
+                            <option value="Moderate Profit & Satisfied (मध्यम लाभ व संतुष्ट)">🙂 Moderate Profit & Satisfied (मध्यम लाभ)</option>
+                            <option value="Break-Even / Low Profit (लागत के बराबर / सामान्य)">😐 Break-Even / Low Profit (लागत के बराबर)</option>
+                            <option value="Loss / Unsatisfied (नुकसान / असंतुष्ट)">🙁 Loss / Unsatisfied (नुकसान / असंतुष्ट)</option>
+                          </select>
+                        </div>
+
+                        {/* 6. CLOSING REMARKS */}
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontWeight: 800, color: '#9f1239' }}>
+                            6. Final Closing Remarks & Surveyor Notes (अंतिम टिप्पणी व सुझाव)
+                          </label>
+                          <textarea
+                            className="textarea-field"
+                            rows="3"
+                            value={closingRemarks}
+                            onChange={(e) => setClosingRemarks(e.target.value)}
+                            placeholder="Write final harvest notes, farmer feedback, or crop closure observations..."
+                            style={{ borderRadius: '12px' }}
+                          ></textarea>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Metadata */}
                   <div className="form-group">
                     <label className="form-label">Surveyor Name (सर्वेक्षक)</label>
                     <input type="text" className="input-field input-readonly" value={user.name} readOnly style={{ borderRadius: '12px' }} />
                   </div>
 
-                  <button type="submit" className="btn btn-primary" disabled={loading} style={{ borderRadius: '30px', padding: '14px', marginTop: '20px' }}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                    style={{
+                      borderRadius: '30px',
+                      padding: '14px',
+                      marginTop: '20px',
+                      background: isClosingCycle ? '#e11d48' : '#0d3c26',
+                      borderColor: isClosingCycle ? '#be123c' : '#0d3c26',
+                    }}
+                  >
                     <Save size={20} />
-                    {loading ? 'Submitting...' : '✔ Submit Visit Log (सर्वे जमा करें)'}
+                    {loading ? (isClosingCycle ? 'Closing Crop Cycle...' : 'Submitting...') : (isClosingCycle ? '🏁 Save & Close Crop Cycle (फसल चक्र पूर्ण करें)' : '✔ Submit Visit Log (सर्वे जमा करें)')}
                   </button>
                 </form>
               </div>
