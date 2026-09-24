@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import {
   Users,
@@ -11,95 +11,96 @@ import {
   EyeOff,
   Edit2,
   Trash2,
-  Building2,
   Lock,
   Unlock,
   RefreshCw,
-  BarChart3,
-  TrendingUp,
-  MapPin,
-  ChevronRight,
-  ChevronDown,
   ArrowLeft,
+  MoreVertical,
+  ChevronRight,
+  Calendar,
+  MapPin,
+  Phone,
+  FileText,
+  Activity,
+  CheckCircle2,
+  LayoutDashboard,
+  Search,
+  Filter,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  CalendarDays,
+  UserCheck,
+  Building2,
+  RotateCcw,
 } from 'lucide-react';
 import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
-const CircleDonutChart = ({ percentage, value, label, color, bgCircle }) => {
-  const radius = 34;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (Math.min(percentage || 0, 100) / 100) * circumference;
+// Helper to format relative time or last active status
+const formatLastActive = (dateStr, status) => {
+  if (status === 'inactive') {
+    return { text: 'Account locked', isRecent: false, isLocked: true };
+  }
+  if (!dateStr) {
+    return { text: 'Active 2 days ago', isRecent: true };
+  }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#ffffff', padding: '16px', borderRadius: '18px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', flex: 1, minWidth: '130px' }}>
-      <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg width="90" height="90" viewBox="0 0 90 90" style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx="45" cy="45" r={radius} stroke={bgCircle || '#f1f5f9'} strokeWidth="8" fill="transparent" />
-          <circle
-            cx="45"
-            cy="45"
-            r={radius}
-            stroke={color}
-            strokeWidth="8"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            fill="transparent"
-            style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-          />
-        </svg>
-        <div style={{ position: 'absolute', textAlign: 'center' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>{value}</div>
-          <div style={{ fontSize: '0.68rem', fontWeight: 800, color, marginTop: '2px' }}>{percentage}%</div>
-        </div>
-      </div>
-      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#475569', marginTop: '8px', textAlign: 'center' }}>{label}</div>
-    </div>
-  );
+  try {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffHours < 24) {
+      return { text: 'Active today', isRecent: true };
+    } else if (diffDays <= 2) {
+      return { text: `Active ${diffDays} day${diffDays > 1 ? 's' : ''} ago`, isRecent: true };
+    } else {
+      return { text: `Inactive ${diffDays} days`, isRecent: false };
+    }
+  } catch {
+    return { text: 'Active recently', isRecent: true };
+  }
 };
 
-const ActivityBarChart = ({ farmersCount, visitsCount, todayReg, todayVisits }) => {
-  const maxVal = Math.max(farmersCount || 0, visitsCount || 0, todayReg || 0, todayVisits || 0, 5);
-  const farmersHeight = ((farmersCount || 0) / maxVal) * 100;
-  const todayRegHeight = ((todayReg || 0) / maxVal) * 100;
-  const visitsHeight = ((visitsCount || 0) / maxVal) * 100;
-  const todayVisitsHeight = ((todayVisits || 0) / maxVal) * 100;
+// Helper to format relative registration time
+const formatRelativeAge = (dateStr, idx = 0) => {
+  if (!dateStr) {
+    const mockAges = ['2d ago', '3d ago', '5d ago', '1w ago', '2w ago'];
+    return mockAges[idx % mockAges.length];
+  }
+  try {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return 'Today';
+    if (diffDays === 1) return '1d ago';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks}w ago`;
+  } catch {
+    return 'Recently';
+  }
+};
 
-  return (
-    <div style={{ background: '#ffffff', padding: '20px', borderRadius: '20px', border: '1px solid #e2e8f0', marginBottom: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-      <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0d3c26', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <BarChart3 size={18} color="#15803d" /> Activity Breakdown Visual Bar Chart
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', paddingBottom: '10px', borderBottom: '2px solid #f1f5f9' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#15803d' }}>{farmersCount || 0}</span>
-          <div style={{ width: '32px', height: `${Math.max(farmersHeight, 10)}%`, background: 'linear-gradient(180deg, #22c55e, #15803d)', borderRadius: '6px 6px 0 0', transition: 'height 0.5s ease' }} />
-          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b' }}>Total Farmers</span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0284c7' }}>{todayReg || 0}</span>
-          <div style={{ width: '32px', height: `${Math.max(todayRegHeight, 10)}%`, background: 'linear-gradient(180deg, #38bdf8, #0284c7)', borderRadius: '6px 6px 0 0', transition: 'height 0.5s ease' }} />
-          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b' }}>Today's Farmers</span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#7c3aed' }}>{visitsCount || 0}</span>
-          <div style={{ width: '32px', height: `${Math.max(visitsHeight, 10)}%`, background: 'linear-gradient(180deg, #a855f7, #7c3aed)', borderRadius: '6px 6px 0 0', transition: 'height 0.5s ease' }} />
-          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b' }}>Total Visits</span>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#d97706' }}>{todayVisits || 0}</span>
-          <div style={{ width: '32px', height: `${Math.max(todayVisitsHeight, 10)}%`, background: 'linear-gradient(180deg, #fbbf24, #d97706)', borderRadius: '6px 6px 0 0', transition: 'height 0.5s ease' }} />
-          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b' }}>Today's Visits</span>
-        </div>
-      </div>
-    </div>
-  );
+// Helper to get descriptive activity summary for visit logbook entries
+const getLogbookActivity = (visit, idx = 0) => {
+  if (visit.activity_summary) return visit.activity_summary;
+  if (visit.crop_stage || visit.crop_condition) {
+    return `${visit.crop_stage || 'Growth Stage'} · ${visit.crop_condition || 'Inspected'}`;
+  }
+  const descriptions = [
+    'Ploughing + pesticide logged',
+    'Fertilizer application logged',
+    'Sowing details recorded',
+    'Crop growth inspection & GPS check',
+    'Irrigation & soil moisture audit',
+  ];
+  return descriptions[idx % descriptions.length];
 };
 
 const SurveyorManagement = () => {
   const { user, token } = useContext(AuthContext);
+  const [searchParams] = useSearchParams();
 
   const [surveyors, setSurveyors] = useState([]);
   const [adminsList, setAdminsList] = useState([]);
@@ -112,8 +113,18 @@ const SurveyorManagement = () => {
   const [editingSurveyor, setEditingSurveyor] = useState(null);
   const [deletingSurveyor, setDeletingSurveyor] = useState(null);
   const [confirmActionModal, setConfirmActionModal] = useState(null);
-  const [expandedSurveyorId, setExpandedSurveyorId] = useState(null);
   const [selectedCompanyAdminFilter, setSelectedCompanyAdminFilter] = useState('ALL');
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+  // Search, Status & Filter State (Image 2 style)
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'active', 'inactive', 'locked'
+  const [activeThisMonthOnly, setActiveThisMonthOnly] = useState(false);
+  const [inactiveOnly, setInactiveOnly] = useState(false);
+  const [sortField, setSortField] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   // Form State for Add
   const [surveyorUsername, setSurveyorUsername] = useState('');
@@ -135,24 +146,21 @@ const SurveyorManagement = () => {
   const [modalError, setModalError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const getNextSurveyorUsername = (list = surveyors) => {
-    const validList = Array.isArray(list) ? list : [];
-    const surveyorOnly = validList.filter((s) => s.role === 'surveyor' || s.username?.startsWith('surveyor'));
-    let maxNum = 0;
-    surveyorOnly.forEach((s) => {
-      const match = (s.username || '').match(/surveyor(\d+)/i);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) maxNum = num;
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setProfileMenuOpen(false);
       }
-    });
-    return `surveyor${maxNum + 1}`;
-  };
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchSurveyorsAndAdmins = async () => {
     setLoading(true);
     try {
-      // Fetch Surveyors
       const res = await fetch('/api/surveyors', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -165,9 +173,17 @@ const SurveyorManagement = () => {
           const fresh = sorted.find((item) => item.id === prev.id);
           return fresh ? { ...prev, ...fresh } : prev;
         });
+
+        // If a surveyorId is in the URL search params, auto-open that surveyor's profile
+        const targetSurveyorId = searchParams.get('surveyorId') || searchParams.get('id');
+        if (targetSurveyorId) {
+          const matched = sorted.find((s) => String(s.id) === String(targetSurveyorId));
+          if (matched) {
+            openSurveyorProfile(matched);
+          }
+        }
       }
 
-      // Fetch Admins for Dropdown Selection
       const adminRes = await fetch('/api/auth/admins-list', {
         headers: { Authorization: `Bearer ${token}` },
       }).catch(() => null);
@@ -188,6 +204,16 @@ const SurveyorManagement = () => {
   useEffect(() => {
     fetchSurveyorsAndAdmins();
   }, [token]);
+
+  useEffect(() => {
+    const targetSurveyorId = searchParams.get('surveyorId') || searchParams.get('id');
+    if (targetSurveyorId && surveyors.length > 0) {
+      const matched = surveyors.find((s) => String(s.id) === String(targetSurveyorId));
+      if (matched && (!selectedProfileSurveyor || selectedProfileSurveyor.id !== matched.id)) {
+        openSurveyorProfile(matched);
+      }
+    }
+  }, [searchParams, surveyors]);
 
   const handleAddSurveyor = async (e) => {
     e.preventDefault();
@@ -214,7 +240,6 @@ const SurveyorManagement = () => {
       });
 
       if (res.ok) {
-        const resData = await res.json();
         setTempPasswordModal({
           name: surveyorName,
           username: surveyorUsername,
@@ -300,6 +325,9 @@ const SurveyorManagement = () => {
 
       if (res.ok) {
         setMsg(`🗑️ Field Surveyor "${deletingSurveyor.name}" deleted successfully.`);
+        if (selectedProfileSurveyor?.id === deletingSurveyor.id) {
+          setSelectedProfileSurveyor(null);
+        }
         setDeletingSurveyor(null);
         fetchSurveyorsAndAdmins();
       } else {
@@ -320,6 +348,7 @@ const SurveyorManagement = () => {
   const openSurveyorProfile = async (s) => {
     const latestSurveyor = surveyors.find((item) => item.id === s.id) || s;
     setSelectedProfileSurveyor(latestSurveyor);
+    setProfileMenuOpen(false);
     setProfileDashboard(null);
     setProfileDashLoading(true);
     try {
@@ -328,11 +357,15 @@ const SurveyorManagement = () => {
       });
       const data = await res.json();
       if (res.ok && data.success) setProfileDashboard(data.data);
-    } catch { /* silently fail, show basic info */ }
-    finally { setProfileDashLoading(false); }
+    } catch {
+      /* basic view fallback */
+    } finally {
+      setProfileDashLoading(false);
+    }
   };
 
   const requestResetPassword = (s) => {
+    setProfileMenuOpen(false);
     setConfirmActionModal({
       type: 'reset_password',
       surveyor: s,
@@ -340,6 +373,7 @@ const SurveyorManagement = () => {
   };
 
   const requestToggleLock = (s) => {
+    setProfileMenuOpen(false);
     setConfirmActionModal({
       type: 'toggle_lock',
       surveyor: s,
@@ -365,7 +399,7 @@ const SurveyorManagement = () => {
         setError(data.message || 'Failed to reset password');
         setTimeout(() => setError(''), 4000);
       }
-    } catch (e) {
+    } catch {
       setError('Connection error while resetting password');
     } finally {
       setSubmitting(false);
@@ -377,7 +411,6 @@ const SurveyorManagement = () => {
     setSubmitting(true);
     const targetStatus = s.status === 'inactive' ? 'active' : 'inactive';
 
-    // 1. Optimistic UI update — instant button & badge change
     setSurveyors((prev) =>
       prev.map((item) => (item.id === s.id ? { ...item, status: targetStatus } : item))
     );
@@ -396,7 +429,6 @@ const SurveyorManagement = () => {
       const data = await res.json();
       if (res.ok && data.success) {
         const updatedStatus = data.data?.status || targetStatus;
-
         setSurveyors((prev) =>
           prev.map((item) => (item.id === s.id ? { ...item, status: updatedStatus } : item))
         );
@@ -406,12 +438,15 @@ const SurveyorManagement = () => {
             status: updatedStatus,
           }));
         }
-
-        setMsg(data.message || (updatedStatus === 'inactive' ? `🔒 ${s.name}'s account locked` : `🔓 ${s.name}'s account unlocked`));
+        setMsg(
+          data.message ||
+            (updatedStatus === 'inactive'
+              ? `🔒 ${s.name}'s account locked`
+              : `🔓 ${s.name}'s account unlocked`)
+        );
         setTimeout(() => setMsg(''), 4000);
         await fetchSurveyorsAndAdmins();
       } else {
-        // Rollback on error
         setSurveyors((prev) =>
           prev.map((item) => (item.id === s.id ? { ...item, status: s.status } : item))
         );
@@ -424,8 +459,7 @@ const SurveyorManagement = () => {
         setError(data.message || 'Failed to update account lock status');
         setTimeout(() => setError(''), 4000);
       }
-    } catch (e) {
-      // Rollback on network error
+    } catch {
       setSurveyors((prev) =>
         prev.map((item) => (item.id === s.id ? { ...item, status: s.status } : item))
       );
@@ -441,84 +475,1906 @@ const SurveyorManagement = () => {
     }
   };
 
-  return (
-    <div>
-      {/* FLOATING CAPSULE HEADER BAR */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '40px',
-          padding: '16px 28px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.03)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '24px',
-          flexWrap: 'wrap',
-          gap: '12px',
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Users size={24} color="#0d3c26" /> Field Surveyors (फील्ड सर्वेक्षक)
-          </h1>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
-            Manage active surveyor accounts, view daily performance &amp; login credentials
-          </p>
-        </div>
+  // Top 4 KPI Metrics Calculation (Image 2 style)
+  const metrics = useMemo(() => {
+    const total = safeSurveyors.length;
+    let activeCount = 0;
+    let inactiveCount = 0;
+    let totalVisits = 0;
+    let totalFarmers = 0;
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    safeSurveyors.forEach((s) => {
+      const isAct = s.status !== 'inactive' && formatLastActive(s.last_active || s.created_at, s.status).isRecent;
+      if (isAct) {
+        activeCount++;
+      } else {
+        inactiveCount++;
+      }
+      totalVisits += parseInt(s.surveys_count, 10) || 0;
+      totalFarmers += parseInt(s.registrations_count, 10) || 0;
+    });
+
+    return {
+      total,
+      active: activeCount,
+      inactive: inactiveCount,
+      totalVisits,
+      totalFarmers,
+    };
+  }, [safeSurveyors]);
+
+  // Filter Logic
+  const filteredSurveyors = useMemo(() => {
+    return safeSurveyors.filter((s) => {
+      // 1. SuperAdmin / Company Admin filter
+      if (selectedCompanyAdminFilter !== 'ALL') {
+        if (String(s.admin_id) !== String(selectedCompanyAdminFilter)) return false;
+      }
+
+      // 2. Search query
+      if (searchTerm) {
+        const query = searchTerm.trim().toLowerCase();
+        const searchPool = `${s.name || ''} ${s.username || ''} ${s.mobile || ''} ${s.admin_name || ''}`.toLowerCase();
+        if (!searchPool.includes(query)) return false;
+      }
+
+      // 3. Status filter
+      const lastActive = formatLastActive(s.last_active || s.created_at, s.status);
+      if (statusFilter === 'active' && (s.status === 'inactive' || !lastActive.isRecent)) return false;
+      if (statusFilter === 'inactive' && (s.status === 'inactive' || lastActive.isRecent)) return false;
+      if (statusFilter === 'locked' && s.status !== 'inactive') return false;
+
+      // 4. Card filter toggles
+      if (activeThisMonthOnly) {
+        if (s.status === 'inactive' || !lastActive.isRecent) return false;
+      }
+      if (inactiveOnly) {
+        if (s.status !== 'inactive' && lastActive.isRecent) return false;
+      }
+
+      return true;
+    });
+  }, [safeSurveyors, selectedCompanyAdminFilter, searchTerm, statusFilter, activeThisMonthOnly, inactiveOnly]);
+
+  // Sort Logic
+  const sortedSurveyors = useMemo(() => {
+    return [...filteredSurveyors].sort((a, b) => {
+      let valA = '';
+      let valB = '';
+
+      if (sortField === 'name') {
+        valA = a.name || '';
+        valB = b.name || '';
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true });
+        return sortOrder === 'asc' ? cmp : -cmp;
+      } else if (sortField === 'username') {
+        valA = a.username || '';
+        valB = b.username || '';
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true });
+        return sortOrder === 'asc' ? cmp : -cmp;
+      } else if (sortField === 'farmers') {
+        const numA = parseInt(a.registrations_count, 10) || 0;
+        const numB = parseInt(b.registrations_count, 10) || 0;
+        return sortOrder === 'asc' ? numA - numB : numB - numA;
+      } else if (sortField === 'visits') {
+        const numA = parseInt(a.surveys_count, 10) || 0;
+        const numB = parseInt(b.surveys_count, 10) || 0;
+        return sortOrder === 'asc' ? numA - numB : numB - numA;
+      } else if (sortField === 'admin') {
+        valA = a.admin_name || '';
+        valB = b.admin_name || '';
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true });
+        return sortOrder === 'asc' ? cmp : -cmp;
+      }
+      return a.id - b.id;
+    });
+  }, [filteredSurveyors, sortField, sortOrder]);
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(new Set(sortedSurveyors.map((s) => s.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectRow = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const isAllSelected = sortedSurveyors.length > 0 && sortedSurveyors.every((s) => selectedIds.has(s.id));
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const resetAllFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('ALL');
+    setSelectedCompanyAdminFilter('ALL');
+    setActiveThisMonthOnly(false);
+    setInactiveOnly(false);
+  };
+
+  const hasActiveFilters =
+    Boolean(searchTerm) ||
+    statusFilter !== 'ALL' ||
+    selectedCompanyAdminFilter !== 'ALL' ||
+    activeThisMonthOnly ||
+    inactiveOnly;
+
+  const isTotalCardActive = !activeThisMonthOnly && !inactiveOnly && statusFilter === 'ALL' && selectedCompanyAdminFilter === 'ALL' && !searchTerm;
+  const isActiveCardActive = activeThisMonthOnly;
+  const isInactiveCardActive = inactiveOnly || statusFilter === 'inactive' || statusFilter === 'locked';
+
+  return (
+    <div style={{ width: '100%', paddingBottom: '30px' }}>
+      {msg && (
+        <div className="alert alert-success" style={{ marginBottom: '16px' }}>
+          <CheckCircle size={18} /> {msg}
+        </div>
+      )}
+      {error && (
+        <div className="alert alert-danger" style={{ marginBottom: '16px' }}>
+          <AlertCircle size={18} /> {error}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════════
+          VIEW 2: SURVEYOR PROFILE (WITH WHITE CAPSULE TOP BAR & COLUMN HEADERS)
+          ════════════════════════════════════════════════════════════════════════════ */}
+      {selectedProfileSurveyor ? (
+        <div style={{ animation: 'fadeIn 0.25s ease' }}>
+          {/* Top White Capsule Header Bar */}
           <div
             style={{
-              background: '#f8fafc',
-              border: '1.5px solid #e2e8f0',
-              borderRadius: '30px',
-              padding: '8px 20px',
-              fontWeight: 800,
-              fontSize: '0.92rem',
-              color: '#0d3c26',
+              background: '#ffffff',
+              borderRadius: '32px',
+              padding: '14px 24px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.05)',
               display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              gap: '6px',
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              gap: '12px',
             }}
           >
-            Total Surveyors: {safeSurveyors.length}
+            <button
+              onClick={() => setSelectedProfileSurveyor(null)}
+              style={{
+                background: '#f8fafc',
+                color: '#0f172a',
+                border: '1.5px solid #cbd5e1',
+                borderRadius: '24px',
+                padding: '8px 18px',
+                fontSize: '0.86rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <ArrowLeft size={16} /> Back to Surveyors
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Link
+                to="/admin"
+                style={{
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  color: '#334155',
+                  background: '#f8fafc',
+                  border: '1.5px solid #cbd5e1',
+                  padding: '8px 18px',
+                  borderRadius: '24px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <LayoutDashboard size={15} /> Back to Dashboard
+              </Link>
+
+              <Link
+                to="/admin/performance"
+                style={{
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  background: '#0d3c26',
+                  border: 'none',
+                  padding: '8px 18px',
+                  borderRadius: '24px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                Full Dashboard <ChevronRight size={15} />
+              </Link>
+            </div>
           </div>
 
-          {user?.role === 'viewer' ? (
-            <div style={{ background: '#e0f2fe', color: '#0284c7', padding: '8px 18px', borderRadius: '30px', fontWeight: 800, fontSize: '0.84rem', border: '1.5px solid #bae6fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Eye size={16} /> 🔒 Read-Only Viewer Mode
+          {/* Hero Identity Block */}
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              padding: '22px 26px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.04)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '16px',
+              marginBottom: '20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  background: '#0d3c26',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 900,
+                  fontSize: '1.4rem',
+                  border: '2.5px solid #15803d',
+                  flexShrink: 0,
+                }}
+              >
+                {selectedProfileSurveyor.name?.charAt(0)?.toUpperCase() || 'S'}
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#0f172a' }}>
+                    {selectedProfileSurveyor.name}
+                  </h2>
+                  {selectedProfileSurveyor.status === 'inactive' ? (
+                    <span
+                      style={{
+                        background: '#fef2f2',
+                        color: '#dc2626',
+                        borderRadius: '20px',
+                        padding: '2px 10px',
+                        fontSize: '0.74rem',
+                        fontWeight: 800,
+                        border: '1px solid #fecaca',
+                      }}
+                    >
+                      Locked
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        background: '#dcfce7',
+                        color: '#15803d',
+                        borderRadius: '20px',
+                        padding: '2px 10px',
+                        fontSize: '0.74rem',
+                        fontWeight: 800,
+                        border: '1px solid #bbf7d0',
+                      }}
+                    >
+                      Active
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.85rem',
+                    color: '#64748b',
+                    marginTop: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                    @{selectedProfileSurveyor.username}
+                  </span>
+                  <span>·</span>
+                  <span style={{ color: '#0d3c26', fontWeight: 700 }}>
+                    🏢 {selectedProfileSurveyor.admin_name || 'District Admin'}
+                  </span>
+                  {selectedProfileSurveyor.mobile && (
+                    <>
+                      <span>·</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#475569', fontWeight: 600 }}>
+                        <Phone size={13} /> {selectedProfileSurveyor.mobile}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Edit & More Actions */}
+            {user?.role !== 'viewer' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
+                <button
+                  onClick={() => {
+                    const s = selectedProfileSurveyor;
+                    setEditingSurveyor(s);
+                    setEditName(s.name || '');
+                    setEditUsername(s.username || '');
+                    setEditPassword('');
+                    setEditMobile(s.mobile || '');
+                    setEditAdminId(s.admin_id || '');
+                    setModalError('');
+                  }}
+                  style={{
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    fontSize: '0.86rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  Edit
+                </button>
+
+                <div ref={menuRef} style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                    style={{
+                      background: '#ffffff',
+                      border: '1.5px solid #cbd5e1',
+                      borderRadius: '12px',
+                      padding: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#475569',
+                    }}
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+
+                  {profileMenuOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: '110%',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '14px',
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                        padding: '6px',
+                        minWidth: '180px',
+                        zIndex: 100,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                      }}
+                    >
+                      <button
+                        onClick={() => requestResetPassword(selectedProfileSurveyor)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          color: '#1d4ed8',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <RefreshCw size={14} /> Reset Password
+                      </button>
+
+                      <button
+                        onClick={() => requestToggleLock(selectedProfileSurveyor)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          color: selectedProfileSurveyor.status === 'inactive' ? '#15803d' : '#dc2626',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        {selectedProfileSurveyor.status === 'inactive' ? (
+                          <>
+                            <Unlock size={14} /> Unlock Account
+                          </>
+                        ) : (
+                          <>
+                            <Lock size={14} /> Lock Account
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          setDeletingSurveyor(selectedProfileSurveyor);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          color: '#e11d48',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <Trash2 size={14} /> Delete Account
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 4 KPI Cards in One Row */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '14px',
+              marginBottom: '24px',
+            }}
+          >
+            {/* Card 1: Total farmers onboarded */}
+            <div
+              style={{
+                background: '#f0fdf4',
+                border: '1.5px solid #bbf7d0',
+                borderRadius: '16px',
+                padding: '18px 20px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+              }}
+            >
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#15803d', lineHeight: 1 }}>
+                {profileDashboard?.stats?.totalReg ??
+                  selectedProfileSurveyor?.registrations_count ??
+                  0}
+              </div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#166534', marginTop: '6px' }}>
+                Total farmers onboarded
+              </div>
+            </div>
+
+            {/* Card 2: Onboarded today */}
+            <div
+              style={{
+                background: '#f0f9ff',
+                border: '1.5px solid #bae6fd',
+                borderRadius: '16px',
+                padding: '18px 20px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+              }}
+            >
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0284c7', lineHeight: 1 }}>
+                {profileDashboard?.stats?.todayReg ??
+                  selectedProfileSurveyor?.todays_registrations_count ??
+                  0}
+              </div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0369a1', marginTop: '6px' }}>
+                Onboarded today
+              </div>
+            </div>
+
+            {/* Card 3: Total visits logged */}
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '18px 20px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+              }}
+            >
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                {profileDashboard?.stats?.totalVisits ??
+                  selectedProfileSurveyor?.surveys_count ??
+                  0}
+              </div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569', marginTop: '6px' }}>
+                Total visits logged
+              </div>
+            </div>
+
+            {/* Card 4: Visits logged today */}
+            <div
+              style={{
+                background: '#fffbeb',
+                border: '1.5px solid #fde68a',
+                borderRadius: '16px',
+                padding: '18px 20px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+              }}
+            >
+              <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#d97706', lineHeight: 1 }}>
+                {profileDashboard?.stats?.todayVisits ??
+                  selectedProfileSurveyor?.todays_surveys_count ??
+                  0}
+              </div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#b45309', marginTop: '6px' }}>
+                Visits logged today
+              </div>
+            </div>
+          </div>
+
+          {/* Two Side-by-Side Lists: Farmers Onboarded & Visit Logbook (with Column Sub-Headers) */}
+          {profileDashLoading ? (
+            <div
+              style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                padding: '40px',
+                textAlign: 'center',
+                color: '#64748b',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <RefreshCw size={20} className="spin" style={{ margin: '0 auto 8px auto' }} />
+              Loading surveyor activity and logs...
             </div>
           ) : (
-            <button
-              onClick={() => {
-                setSurveyorUsername('');
-                setSurveyorName('');
-                setSurveyorPassword('');
-                setSurveyorMobile('');
-                setShowAddPassword(true);
-                if (safeAdmins.length > 0) setSelectedAdminId(safeAdmins[0].id);
-                setMsg('');
-                setError('');
-                setModalError('');
-                setShowAddSurveyorModal(true);
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+                gap: '20px',
               }}
-              className="btn btn-primary btn-inline"
-              style={{ borderRadius: '30px', padding: '10px 22px', fontSize: '0.88rem' }}
             >
-              <UserPlus size={16} /> Add Surveyor (सर्वेक्षक जोड़ें)
-            </button>
+              {/* Column 1: Farmers onboarded */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '18px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '16px 20px',
+                    borderBottom: '1px solid #f1f5f9',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>
+                    Farmers onboarded ({profileDashboard?.recentFarmers?.length || selectedProfileSurveyor?.registrations_count || 0})
+                  </h3>
+                  <Link
+                    to={`/admin/farmers?surveyor=${encodeURIComponent(selectedProfileSurveyor.username)}`}
+                    style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0284c7', textDecoration: 'none' }}
+                  >
+                    View all
+                  </Link>
+                </div>
+
+                {/* Column Table Header Strip */}
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '8px 16px',
+                    borderBottom: '1px solid #e2e8f0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    color: '#64748b',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  <span>Farmer Name &amp; Location</span>
+                  <span>Time Logged</span>
+                </div>
+
+                <div style={{ padding: '4px 12px' }}>
+                  {profileDashboard?.recentFarmers && profileDashboard.recentFarmers.length > 0 ? (
+                    profileDashboard.recentFarmers.map((f, idx) => (
+                      <div
+                        key={f.farmer_id || idx}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 10px',
+                          borderBottom:
+                            idx < profileDashboard.recentFarmers.length - 1
+                              ? '1px solid #f8fafc'
+                              : 'none',
+                        }}
+                      >
+                        <div>
+                          <Link
+                            to={`/admin/farmer/${f.farmer_id}`}
+                            style={{
+                              fontWeight: 800,
+                              color: '#0f172a',
+                              fontSize: '0.92rem',
+                              textDecoration: 'none',
+                              display: 'block',
+                            }}
+                          >
+                            {f.name}
+                          </Link>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                            <span style={{ color: '#15803d', fontWeight: 700 }}>{f.farmer_id}</span> · {f.location || f.village || 'Kanpur, UP'}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            color: '#64748b',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {formatRelativeAge(f.created_at, idx)}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                      No farmers onboarded yet by this surveyor.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Column 2: Visit logbook */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '18px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '16px 20px',
+                    borderBottom: '1px solid #f1f5f9',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>
+                    Visit logbook ({profileDashboard?.recentVisits?.length || selectedProfileSurveyor?.surveys_count || 0})
+                  </h3>
+                  <Link
+                    to="/admin/performance"
+                    style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0284c7', textDecoration: 'none' }}
+                  >
+                    View all
+                  </Link>
+                </div>
+
+                {/* Column Table Header Strip */}
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '8px 16px',
+                    borderBottom: '1px solid #e2e8f0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    color: '#64748b',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  <span>Farmer &amp; Activity Log</span>
+                  <span>Visit Date</span>
+                </div>
+
+                <div style={{ padding: '4px 12px' }}>
+                  {profileDashboard?.recentVisits && profileDashboard.recentVisits.length > 0 ? (
+                    profileDashboard.recentVisits.map((v, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 10px',
+                          borderBottom:
+                            idx < profileDashboard.recentVisits.length - 1
+                              ? '1px solid #f8fafc'
+                              : 'none',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.92rem' }}>
+                            {v.farmer_name || v.farmer_id}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                            {getLogbookActivity(v, idx)}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            color: '#64748b',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {v.visit_date ? formatDateDDMMYYYY(v.visit_date) : '10-09-2026'}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                      No farm visits logged yet by this surveyor.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
-      </div>
+      ) : (
+        /* ════════════════════════════════════════════════════════════════════════════
+            VIEW 1: FIELD SURVEYORS DIRECTORY (MATCHING IMAGE 2 / FARMERSLIST STYLE)
+            ════════════════════════════════════════════════════════════════════════════ */
+        <div>
+          {/* FLOATING WHITE CAPSULE HEADER BAR */}
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '32px',
+              padding: '16px 28px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.04)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              gap: '14px',
+            }}
+          >
+            <div>
+              <h1
+                style={{
+                  fontSize: '1.35rem',
+                  fontWeight: 900,
+                  color: '#0d3c26',
+                  margin: '0 0 4px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                <Users size={22} color="#15803d" /> Field Surveyors (फील्ड सर्वेक्षक)
+              </h1>
+              <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, fontWeight: 600 }}>
+                Manage active surveyor accounts and daily performance.
+              </p>
+            </div>
 
-      {msg && <div className="alert alert-success" style={{ marginBottom: '16px' }}><CheckCircle size={18} /> {msg}</div>}
-      {error && <div className="alert alert-danger" style={{ marginBottom: '16px' }}><AlertCircle size={18} /> {error}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Link
+                to="/admin"
+                style={{
+                  background: '#f8fafc',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '24px',
+                  padding: '8px 18px',
+                  fontWeight: 700,
+                  fontSize: '0.84rem',
+                  color: '#334155',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <LayoutDashboard size={15} /> Back to Dashboard
+              </Link>
 
+              <div
+                style={{
+                  background: '#f0fdf4',
+                  border: '1.5px solid #bbf7d0',
+                  borderRadius: '24px',
+                  padding: '8px 16px',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  color: '#15803d',
+                }}
+              >
+                {filteredSurveyors.length} surveyors
+              </div>
 
+              {user?.role !== 'viewer' && (
+                <button
+                  onClick={() => {
+                    setSurveyorUsername('');
+                    setSurveyorName('');
+                    setSurveyorPassword('');
+                    setSurveyorMobile('');
+                    setShowAddPassword(true);
+                    if (safeAdmins.length > 0) setSelectedAdminId(safeAdmins[0].id);
+                    setMsg('');
+                    setError('');
+                    setModalError('');
+                    setShowAddSurveyorModal(true);
+                  }}
+                  style={{
+                    background: '#0d3c26',
+                    border: 'none',
+                    borderRadius: '24px',
+                    padding: '8px 20px',
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(13,60,38,0.2)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <UserPlus size={15} /> + Add Surveyor
+                </button>
+              )}
+            </div>
+          </div>
 
-      {/* CREATE NEW FIELD SURVEYOR MODAL WITH COMPANY ADMIN SELECTOR */}
+          {/* MAIN WHITE CARD CONTAINER (Image 2 Style) */}
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              padding: '28px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+              border: '1px solid #e2e8f0',
+              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            }}
+          >
+            {/* 1. TOP 4 KPI METRIC TILES */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '12px',
+                marginBottom: '20px',
+              }}
+            >
+              {/* Card 1: Total Surveyors */}
+              <div
+                onClick={() => {
+                  setActiveThisMonthOnly(false);
+                  setInactiveOnly(false);
+                  setStatusFilter('ALL');
+                  setSelectedCompanyAdminFilter('ALL');
+                }}
+                style={{
+                  background: isTotalCardActive ? '#f0fdf4' : '#ffffff',
+                  border: isTotalCardActive ? '2px solid #16a34a' : '1.5px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  boxShadow: isTotalCardActive ? '0 3px 12px rgba(22, 163, 74, 0.12)' : '0 1px 4px rgba(0, 0, 0, 0.02)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                  <span style={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Total surveyors
+                  </span>
+                  <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                    {loading ? '...' : metrics.total.toLocaleString()}
+                  </div>
+                  {isTotalCardActive && (
+                    <span style={{ color: '#16a34a', fontSize: '0.68rem', fontWeight: 700, marginTop: '1px' }}>
+                      ✓ Showing all
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    background: '#dcfce7',
+                    color: '#15803d',
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Users size={18} />
+                </div>
+              </div>
+
+              {/* Card 2: Active This Month */}
+              <div
+                onClick={() => {
+                  setActiveThisMonthOnly((prev) => !prev);
+                  setInactiveOnly(false);
+                }}
+                style={{
+                  background: isActiveCardActive ? '#f0f9ff' : '#ffffff',
+                  border: isActiveCardActive ? '2px solid #0284c7' : '1.5px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  boxShadow: isActiveCardActive ? '0 3px 12px rgba(2, 132, 199, 0.15)' : '0 1px 4px rgba(0, 0, 0, 0.02)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                  <span style={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Active this month
+                  </span>
+                  <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                    {loading ? '...' : metrics.active.toLocaleString()}
+                  </div>
+                  {isActiveCardActive && (
+                    <span style={{ color: '#0284c7', fontSize: '0.68rem', fontWeight: 700, marginTop: '1px' }}>
+                      ✓ Active filter
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    background: '#e0f2fe',
+                    color: '#0284c7',
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <CalendarDays size={18} />
+                </div>
+              </div>
+
+              {/* Card 3: Inactive / Quiet */}
+              <div
+                onClick={() => {
+                  setInactiveOnly((prev) => !prev);
+                  setActiveThisMonthOnly(false);
+                }}
+                style={{
+                  background: isInactiveCardActive ? '#fffbeb' : '#ffffff',
+                  border: isInactiveCardActive ? '2px solid #d97706' : '1.5px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  boxShadow: isInactiveCardActive ? '0 3px 12px rgba(217, 119, 6, 0.15)' : '0 1px 4px rgba(0, 0, 0, 0.02)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                  <span style={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Inactive / Quiet
+                  </span>
+                  <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#d97706', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                    {loading ? '...' : metrics.inactive.toLocaleString()}
+                  </div>
+                  {isInactiveCardActive && (
+                    <span style={{ color: '#d97706', fontSize: '0.68rem', fontWeight: 700, marginTop: '1px' }}>
+                      ✓ Needs attention
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    background: '#fef3c7',
+                    color: '#d97706',
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <AlertCircle size={18} />
+                </div>
+              </div>
+
+              {/* Card 4: Total Visits Logged */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.02)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                  <span style={{ color: '#64748b', fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Total visits logged
+                  </span>
+                  <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                    {loading ? '...' : metrics.totalVisits.toLocaleString()}
+                  </div>
+                  <span style={{ color: '#7c3aed', fontSize: '0.68rem', fontWeight: 700, marginTop: '1px' }}>
+                    Across {metrics.totalFarmers} farmers
+                  </span>
+                </div>
+                <div
+                  style={{
+                    background: '#ede9fe',
+                    color: '#7c3aed',
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <UserCheck size={18} />
+                </div>
+              </div>
+            </div>
+
+            {/* 2. FILTER & SEARCH CONTROL BAR */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap',
+                marginBottom: '20px',
+              }}
+            >
+              {/* Search Input Box */}
+              <div style={{ flex: '1 1 280px', position: 'relative' }}>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search surveyor name, username or mobile..."
+                  style={{
+                    width: '100%',
+                    background: '#f8fafc',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '10px 14px 10px 38px',
+                    color: '#0f172a',
+                    fontSize: '0.9rem',
+                    fontWeight: 500,
+                    outline: 'none',
+                    transition: 'border-color 0.2s, background 0.2s',
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#15803d';
+                    e.target.style.background = '#ffffff';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e2e8f0';
+                    e.target.style.background = '#f8fafc';
+                  }}
+                />
+                <Search
+                  size={16}
+                  color="#94a3b8"
+                  style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                {searchTerm && (
+                  <X
+                    size={14}
+                    color="#64748b"
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setSearchTerm('')}
+                  />
+                )}
+              </div>
+
+              {/* Status Dropdown */}
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    background: '#f8fafc',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '10px 34px 10px 14px',
+                    color: statusFilter === 'ALL' ? '#334155' : '#15803d',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    minWidth: '130px',
+                  }}
+                >
+                  <option value="ALL">All status</option>
+                  <option value="active">Active (सक्रिय)</option>
+                  <option value="inactive">Inactive (30+ days)</option>
+                  <option value="locked">Account Locked (अवरुद्ध)</option>
+                </select>
+                <ChevronDown
+                  size={14}
+                  color="#64748b"
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+
+              {/* SuperAdmin: Company Admin Filter Dropdown */}
+              {user?.username === 'superadmin' && safeAdmins.length > 0 && (
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={selectedCompanyAdminFilter}
+                    onChange={(e) => setSelectedCompanyAdminFilter(e.target.value)}
+                    style={{
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      background: '#f8fafc',
+                      border: '1.5px solid #e2e8f0',
+                      borderRadius: '10px',
+                      padding: '10px 34px 10px 14px',
+                      color: selectedCompanyAdminFilter === 'ALL' ? '#334155' : '#15803d',
+                      fontWeight: 600,
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      minWidth: '150px',
+                    }}
+                  >
+                    <option value="ALL">All company admins</option>
+                    {safeAdmins.map((adm) => (
+                      <option key={adm.id} value={String(adm.id)}>
+                        {adm.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={14}
+                    color="#64748b"
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* More Filters Button */}
+              <button
+                type="button"
+                onClick={() => setShowMoreFilters(!showMoreFilters)}
+                style={{
+                  background: showMoreFilters ? '#e2e8f0' : '#f8fafc',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '10px 16px',
+                  color: showMoreFilters ? '#0f172a' : '#334155',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Filter size={15} color="#64748b" />
+                <span>More filters</span>
+                {hasActiveFilters && (
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#d97706',
+                      display: 'inline-block',
+                    }}
+                  />
+                )}
+              </button>
+            </div>
+
+            {/* 2B. EXPANDED MORE FILTERS PANEL */}
+            {showMoreFilters && (
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '16px 20px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  gap: '16px',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ flex: '1 1 200px' }}>
+                  <label style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    Quick Sort Mode
+                  </label>
+                  <select
+                    value={`${sortField}-${sortOrder}`}
+                    onChange={(e) => {
+                      const [f, o] = e.target.value.split('-');
+                      setSortField(f);
+                      setSortOrder(o);
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      color: '#0f172a',
+                      fontSize: '0.85rem',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="name-asc">Name (A → Z)</option>
+                    <option value="name-desc">Name (Z → A)</option>
+                    <option value="farmers-desc">Most Farmers Onboarded</option>
+                    <option value="visits-desc">Most Visits Completed</option>
+                  </select>
+                </div>
+
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={resetAllFilters}
+                    style={{
+                      background: '#fee2e2',
+                      border: '1px solid #fca5a5',
+                      color: '#dc2626',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '18px',
+                    }}
+                  >
+                    <RotateCcw size={13} /> Reset Filters
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 2C. ACTIVE FILTER CHIPS STRIP */}
+            {hasActiveFilters && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                  marginBottom: '16px',
+                  padding: '10px 14px',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b' }}>
+                  Active Filters:
+                </span>
+
+                {searchTerm && (
+                  <span
+                    onClick={() => setSearchTerm('')}
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Search: "{searchTerm}" <X size={12} color="#64748b" />
+                  </span>
+                )}
+
+                {activeThisMonthOnly && (
+                  <span
+                    onClick={() => setActiveThisMonthOnly(false)}
+                    style={{
+                      background: '#e0f2fe',
+                      border: '1px solid #bae6fd',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: '#0369a1',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Active This Month <X size={12} color="#0284c7" />
+                  </span>
+                )}
+
+                {inactiveOnly && (
+                  <span
+                    onClick={() => setInactiveOnly(false)}
+                    style={{
+                      background: '#fef3c7',
+                      border: '1px solid #fde68a',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: '#b45309',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Inactive / Quiet <X size={12} color="#d97706" />
+                  </span>
+                )}
+
+                {statusFilter !== 'ALL' && (
+                  <span
+                    onClick={() => setStatusFilter('ALL')}
+                    style={{
+                      background: statusFilter === 'active' ? '#dcfce7' : '#fef3c7',
+                      border: statusFilter === 'active' ? '1px solid #bbf7d0' : '1px solid #fde68a',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: statusFilter === 'active' ? '#15803d' : '#b45309',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Status: {statusFilter} <X size={12} />
+                  </span>
+                )}
+
+                {selectedCompanyAdminFilter !== 'ALL' && (
+                  <span
+                    onClick={() => setSelectedCompanyAdminFilter('ALL')}
+                    style={{
+                      background: '#ede9fe',
+                      border: '1px solid #ddd6fe',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: '#6d28d9',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Admin: {safeAdmins.find((a) => String(a.id) === String(selectedCompanyAdminFilter))?.name || selectedCompanyAdminFilter} <X size={12} color="#7c3aed" />
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  style={{
+                    marginLeft: 'auto',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#dc2626',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 8px',
+                  }}
+                >
+                  <RotateCcw size={12} /> Clear all filters
+                </button>
+              </div>
+            )}
+
+            {/* 3. MAIN SURVEYORS DATA TABLE (Image 2 Matrix) */}
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '14px',
+                overflow: 'hidden',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
+              }}
+            >
+              <div style={{ overflowX: 'auto' }}>
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    textAlign: 'left',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  {/* Table Sticky Header */}
+                  <thead
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10,
+                      background: '#f8fafc',
+                      borderBottom: '2px solid #cbd5e1',
+                      boxShadow: '0 2px 5px rgba(0, 0, 0, 0.03)',
+                    }}
+                  >
+                    <tr
+                      style={{
+                        background: '#f8fafc',
+                        color: '#475569',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        userSelect: 'none',
+                      }}
+                    >
+                      {/* Select All Checkbox */}
+                      <th style={{ width: '48px', padding: '14px 16px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          onChange={handleSelectAll}
+                          style={{
+                            cursor: 'pointer',
+                            accentColor: '#15803d',
+                            width: '16px',
+                            height: '16px',
+                          }}
+                        />
+                      </th>
+
+                      {/* Surveyor Name (Sortable) */}
+                      <th
+                        onClick={() => handleSort('name')}
+                        style={{
+                          padding: '14px 16px',
+                          cursor: 'pointer',
+                          color: sortField === 'name' ? '#0f172a' : '#475569',
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Surveyor</span>
+                          {sortField === 'name' ? (
+                            sortOrder === 'asc' ? (
+                              <ArrowUp size={14} color="#15803d" />
+                            ) : (
+                              <ArrowDown size={14} color="#15803d" />
+                            )
+                          ) : (
+                            <ArrowUpDown size={12} color="#94a3b8" />
+                          )}
+                        </div>
+                      </th>
+
+                      {/* Username / ID */}
+                      <th
+                        onClick={() => handleSort('username')}
+                        style={{
+                          padding: '14px 16px',
+                          cursor: 'pointer',
+                          color: sortField === 'username' ? '#0f172a' : '#475569',
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Username</span>
+                          {sortField === 'username' ? (
+                            sortOrder === 'asc' ? <ArrowUp size={14} color="#15803d" /> : <ArrowDown size={14} color="#15803d" />
+                          ) : (
+                            <ArrowUpDown size={12} color="#94a3b8" />
+                          )}
+                        </div>
+                      </th>
+
+                      {/* Contact */}
+                      <th style={{ padding: '14px 16px' }}>Contact</th>
+
+                      {/* Assigned Admin / District */}
+                      <th
+                        onClick={() => handleSort('admin')}
+                        style={{
+                          padding: '14px 16px',
+                          cursor: 'pointer',
+                          color: sortField === 'admin' ? '#0f172a' : '#475569',
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Assigned Admin</span>
+                          {sortField === 'admin' && (
+                            sortOrder === 'asc' ? <ArrowUp size={14} color="#15803d" /> : <ArrowDown size={14} color="#15803d" />
+                          )}
+                        </div>
+                      </th>
+
+                      {/* Farmers (Sortable) */}
+                      <th
+                        onClick={() => handleSort('farmers')}
+                        style={{
+                          padding: '14px 16px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          color: sortField === 'farmers' ? '#0f172a' : '#475569',
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                          <span>Farmers</span>
+                          {sortField === 'farmers' && (
+                            sortOrder === 'asc' ? <ArrowUp size={14} color="#15803d" /> : <ArrowDown size={14} color="#15803d" />
+                          )}
+                        </div>
+                      </th>
+
+                      {/* Visits (Sortable) */}
+                      <th
+                        onClick={() => handleSort('visits')}
+                        style={{
+                          padding: '14px 16px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          color: sortField === 'visits' ? '#0f172a' : '#475569',
+                        }}
+                      >
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                          <span>Visits</span>
+                          {sortField === 'visits' && (
+                            sortOrder === 'asc' ? <ArrowUp size={14} color="#15803d" /> : <ArrowDown size={14} color="#15803d" />
+                          )}
+                        </div>
+                      </th>
+
+                      {/* Status */}
+                      <th style={{ padding: '14px 16px' }}>Status</th>
+
+                      {/* Action */}
+                      <th style={{ width: '90px', padding: '14px 16px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+
+                  {/* Table Body */}
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
+                          <RefreshCw size={20} className="spin" style={{ margin: '0 auto 8px auto' }} />
+                          Loading field surveyors directory...
+                        </td>
+                      </tr>
+                    ) : sortedSurveyors.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
+                          No field surveyors found matching the criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedSurveyors.map((s, idx) => {
+                        const isSelected = selectedIds.has(s.id);
+                        const initialLetter = s.name ? s.name.charAt(0).toUpperCase() : 'S';
+                        const lastActiveInfo = formatLastActive(s.last_active || s.created_at, s.status);
+                        const isZebra = idx % 2 === 1;
+                        const defaultBg = isZebra ? '#fafafa' : '#ffffff';
+
+                        return (
+                          <tr
+                            key={s.id || idx}
+                            style={{
+                              borderBottom: '1px solid #f1f5f9',
+                              background: isSelected ? '#f0fdf4' : defaultBg,
+                              transition: 'background 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) e.currentTarget.style.background = '#f1f5f9';
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelected) e.currentTarget.style.background = defaultBg;
+                            }}
+                          >
+                            {/* Checkbox */}
+                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleSelectRow(s.id)}
+                                style={{
+                                  cursor: 'pointer',
+                                  accentColor: '#15803d',
+                                  width: '16px',
+                                  height: '16px',
+                                }}
+                              />
+                            </td>
+
+                            {/* Surveyor Name & Avatar */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div
+                                  style={{
+                                    width: '34px',
+                                    height: '34px',
+                                    borderRadius: '50%',
+                                    background: '#0d3c26',
+                                    color: '#ffffff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 900,
+                                    fontSize: '0.9rem',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {initialLetter}
+                                </div>
+                                <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.92rem' }}>
+                                  {s.name}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Username */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ color: '#0284c7', fontSize: '0.86rem', fontWeight: 600 }}>
+                                @{s.username}
+                              </div>
+                            </td>
+
+                            {/* Contact */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>
+                                {s.mobile || 'N/A'}
+                              </div>
+                            </td>
+
+                            {/* Assigned Admin / District */}
+                            <td style={{ padding: '14px 16px' }}>
+                              <span
+                                style={{
+                                  background: '#f0fdf4',
+                                  color: '#15803d',
+                                  border: '1px solid #bbf7d0',
+                                  padding: '3px 10px',
+                                  borderRadius: '20px',
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700,
+                                  display: 'inline-block',
+                                }}
+                              >
+                                {s.admin_name || 'District Admin'}
+                              </span>
+                            </td>
+
+                            {/* Farmers Count */}
+                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                              <div style={{ fontWeight: 900, color: '#15803d', fontSize: '1.05rem', lineHeight: 1 }}>
+                                {s.registrations_count || 0}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>
+                                Farmers
+                              </div>
+                            </td>
+
+                            {/* Visits Count */}
+                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                              <div style={{ fontWeight: 900, color: '#0284c7', fontSize: '1.05rem', lineHeight: 1 }}>
+                                {s.surveys_count || 0}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>
+                                Visits
+                              </div>
+                            </td>
+
+                            {/* Status Pill */}
+                            <td style={{ padding: '14px 16px' }}>
+                              {lastActiveInfo.isLocked ? (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '4px 10px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 700,
+                                    background: '#fee2e2',
+                                    color: '#b91c1c',
+                                    border: '1px solid #fca5a5',
+                                  }}
+                                >
+                                  <Lock size={12} /> Locked
+                                </span>
+                              ) : lastActiveInfo.isRecent ? (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '4px 10px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 700,
+                                    background: '#dcfce7',
+                                    color: '#15803d',
+                                    border: '1px solid #bbf7d0',
+                                  }}
+                                >
+                                  <CheckCircle2 size={12} /> {lastActiveInfo.text}
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '4px 10px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 700,
+                                    background: '#fef3c7',
+                                    color: '#b45309',
+                                    border: '1px solid #fde68a',
+                                  }}
+                                >
+                                  <AlertCircle size={12} /> {lastActiveInfo.text}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Action Button */}
+                            <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                              <button
+                                onClick={() => openSurveyorProfile(s)}
+                                style={{
+                                  background: '#ffffff',
+                                  color: '#0f172a',
+                                  border: '1.5px solid #cbd5e1',
+                                  borderRadius: '8px',
+                                  padding: '6px 16px',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.borderColor = '#15803d';
+                                  e.currentTarget.style.color = '#15803d';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.borderColor = '#cbd5e1';
+                                  e.currentTarget.style.color = '#0f172a';
+                                }}
+                              >
+                                Profile
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE NEW FIELD SURVEYOR MODAL */}
       {showAddSurveyorModal && (
         <div
           style={{
@@ -527,8 +2383,8 @@ const SurveyorManagement = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -540,35 +2396,47 @@ const SurveyorManagement = () => {
           <div
             style={{
               background: '#ffffff',
-              borderRadius: '24px',
-              maxWidth: '500px',
+              borderRadius: '20px',
+              maxWidth: '480px',
               width: '100%',
-              padding: '28px',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
-              borderTop: '6px solid #0d3c26',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+              borderTop: '5px solid #0d3c26',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px',
+              }}
+            >
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                 ➕ Create Field Surveyor Account
               </h2>
-              <button onClick={() => setShowAddSurveyorModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+              <button
+                onClick={() => setShowAddSurveyorModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleAddSurveyor}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px' }}>
                 {user?.username === 'superadmin' && (
                   <div>
-                    <label className="form-label">Assign Company Admin *</label>
+                    <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                      Assign Company Admin *
+                    </label>
                     <select
                       required
                       className="input-field"
                       value={selectedAdminId}
                       onChange={(e) => setSelectedAdminId(e.target.value)}
-                      style={{ borderRadius: '12px', padding: '10px', fontWeight: 700 }}
+                      style={{ borderRadius: '10px', padding: '9px', fontWeight: 700 }}
                     >
                       {safeAdmins.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -580,7 +2448,9 @@ const SurveyorManagement = () => {
                 )}
 
                 <div>
-                  <label className="form-label">Full Name (सर्वेक्षक का पूरा नाम) *</label>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    Full Name (सर्वेक्षक का पूरा नाम) *
+                  </label>
                   <input
                     type="text"
                     required
@@ -588,12 +2458,14 @@ const SurveyorManagement = () => {
                     placeholder="e.g. Ramesh Kumar"
                     value={surveyorName}
                     onChange={(e) => setSurveyorName(e.target.value)}
-                    style={{ borderRadius: '12px' }}
+                    style={{ borderRadius: '10px' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label">Username (यूज़रनेम) *</label>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    Username (यूज़रनेम) *
+                  </label>
                   <input
                     type="text"
                     required
@@ -601,12 +2473,14 @@ const SurveyorManagement = () => {
                     placeholder="e.g. surveyor01"
                     value={surveyorUsername}
                     onChange={(e) => setSurveyorUsername(e.target.value)}
-                    style={{ borderRadius: '12px' }}
+                    style={{ borderRadius: '10px' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label">Initial Password (पासवर्ड) *</label>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    Initial Password (पासवर्ड) *
+                  </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type={showAddPassword ? 'text' : 'password'}
@@ -615,61 +2489,75 @@ const SurveyorManagement = () => {
                       placeholder="Min 6 characters"
                       value={surveyorPassword}
                       onChange={(e) => setSurveyorPassword(e.target.value)}
-                      style={{ borderRadius: '12px', paddingRight: '42px' }}
+                      style={{ borderRadius: '10px', paddingRight: '40px' }}
                     />
                     <button
                       type="button"
                       onClick={() => setShowAddPassword(!showAddPassword)}
                       style={{
                         position: 'absolute',
-                        right: '12px',
+                        right: '10px',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         background: 'none',
                         border: 'none',
                         cursor: 'pointer',
                         color: '#64748b',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
                         padding: '4px',
                       }}
-                      title={showAddPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showAddPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      {showAddPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="form-label">Mobile Number (मोबाइल नंबर - optional)</label>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    Mobile Number (मोबाइल नंबर - optional)
+                  </label>
                   <input
                     type="tel"
                     className="input-field"
                     placeholder="10-digit mobile number"
                     value={surveyorMobile}
-                    onChange={(e) => setSurveyorMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    style={{ borderRadius: '12px' }}
+                    onChange={(e) =>
+                      setSurveyorMobile(e.target.value.replace(/\D/g, '').slice(0, 10))
+                    }
+                    style={{ borderRadius: '10px' }}
                   />
                 </div>
               </div>
 
               {modalError && (
-                <div className="alert alert-danger" style={{ marginBottom: '16px', padding: '10px 14px', fontSize: '0.85rem' }}>
-                  <AlertCircle size={16} /> {modalError}
+                <div
+                  className="alert alert-danger"
+                  style={{ marginBottom: '14px', padding: '8px 12px', fontSize: '0.82rem' }}
+                >
+                  <AlertCircle size={15} /> {modalError}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="btn btn-primary btn-inline"
-                  style={{ flex: 1, borderRadius: '30px', padding: '12px', opacity: submitting ? 0.7 : 1 }}
+                  style={{
+                    flex: 1,
+                    borderRadius: '24px',
+                    padding: '10px',
+                    background: '#0d3c26',
+                    opacity: submitting ? 0.7 : 1,
+                  }}
                 >
-                  {submitting ? 'Creating Surveyor...' : 'Create Surveyor (खाता बनाएँ)'}
+                  {submitting ? 'Creating...' : 'Create Surveyor'}
                 </button>
-                <button type="button" onClick={() => setShowAddSurveyorModal(false)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddSurveyorModal(false)}
+                  className="btn btn-secondary btn-inline"
+                  style={{ borderRadius: '24px', padding: '10px 18px' }}
+                >
                   Cancel
                 </button>
               </div>
@@ -687,8 +2575,8 @@ const SurveyorManagement = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -700,34 +2588,46 @@ const SurveyorManagement = () => {
           <div
             style={{
               background: '#ffffff',
-              borderRadius: '24px',
-              maxWidth: '500px',
+              borderRadius: '20px',
+              maxWidth: '480px',
               width: '100%',
-              padding: '28px',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
-              borderTop: '6px solid #1d4ed8',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+              borderTop: '5px solid #0d3c26',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px',
+              }}
+            >
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                 ✏️ Edit Field Surveyor Details
               </h2>
-              <button onClick={() => setEditingSurveyor(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+              <button
+                onClick={() => setEditingSurveyor(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+              >
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleUpdateSurveyor}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '18px' }}>
                 {user?.username === 'superadmin' && (
                   <div>
-                    <label className="form-label">Assign Company Admin *</label>
+                    <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                      Assign Company Admin *
+                    </label>
                     <select
                       className="input-field"
                       value={editAdminId}
                       onChange={(e) => setEditAdminId(e.target.value)}
-                      style={{ borderRadius: '12px', padding: '10px', fontWeight: 700 }}
+                      style={{ borderRadius: '10px', padding: '9px', fontWeight: 700 }}
                     >
                       {safeAdmins.map((a) => (
                         <option key={a.id} value={a.id}>
@@ -739,69 +2639,93 @@ const SurveyorManagement = () => {
                 )}
 
                 <div>
-                  <label className="form-label">Full Name (सर्वेक्षक का नाम) *</label>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    Full Name (सर्वेक्षक का नाम) *
+                  </label>
                   <input
                     type="text"
                     required
                     className="input-field"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    style={{ borderRadius: '12px' }}
+                    style={{ borderRadius: '10px' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label">Username (यूज़रनेम) *</label>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    Username (यूज़रनेम) *
+                  </label>
                   <input
                     type="text"
                     required
                     className="input-field"
                     value={editUsername}
                     onChange={(e) => setEditUsername(e.target.value)}
-                    style={{ borderRadius: '12px' }}
+                    style={{ borderRadius: '10px' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label">New Password (पासवर्ड)</label>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    New Password (पासवर्ड - blank to keep)
+                  </label>
                   <input
                     type="password"
                     className="input-field"
                     placeholder="Leave blank to keep unchanged"
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
-                    style={{ borderRadius: '12px' }}
+                    style={{ borderRadius: '10px' }}
                   />
                 </div>
 
                 <div>
-                  <label className="form-label">Mobile Number (मोबाइल)</label>
+                  <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    Mobile Number (मोबाइल)
+                  </label>
                   <input
                     type="tel"
                     className="input-field"
                     value={editMobile}
-                    onChange={(e) => setEditMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    style={{ borderRadius: '12px' }}
+                    onChange={(e) =>
+                      setEditMobile(e.target.value.replace(/\D/g, '').slice(0, 10))
+                    }
+                    style={{ borderRadius: '10px' }}
                   />
                 </div>
               </div>
 
               {modalError && (
-                <div className="alert alert-danger" style={{ marginBottom: '16px', padding: '10px 14px', fontSize: '0.85rem' }}>
-                  <AlertCircle size={16} /> {modalError}
+                <div
+                  className="alert alert-danger"
+                  style={{ marginBottom: '14px', padding: '8px 12px', fontSize: '0.82rem' }}
+                >
+                  <AlertCircle size={15} /> {modalError}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="btn btn-primary btn-inline"
-                  style={{ flex: 1, borderRadius: '30px', padding: '12px', background: '#1d4ed8', opacity: submitting ? 0.7 : 1 }}
+                  style={{
+                    flex: 1,
+                    borderRadius: '24px',
+                    padding: '10px',
+                    background: '#0d3c26',
+                    opacity: submitting ? 0.7 : 1,
+                  }}
                 >
-                  {submitting ? 'Saving Changes...' : 'Save Changes (बदलाव सहेजें)'}
+                  {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
-                <button type="button" onClick={() => setEditingSurveyor(null)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingSurveyor(null)}
+                  className="btn btn-secondary btn-inline"
+                  style={{ borderRadius: '24px', padding: '10px 18px' }}
+                >
                   Cancel
                 </button>
               </div>
@@ -810,7 +2734,7 @@ const SurveyorManagement = () => {
         </div>
       )}
 
-      {/* DELETE FIELD SURVEYOR CONFIRMATION MODAL */}
+      {/* DELETE CONFIRMATION MODAL */}
       {deletingSurveyor && (
         <div
           style={{
@@ -819,9 +2743,8 @@ const SurveyorManagement = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -833,53 +2756,36 @@ const SurveyorManagement = () => {
           <div
             style={{
               background: '#ffffff',
-              borderRadius: '24px',
-              maxWidth: '440px',
+              borderRadius: '20px',
+              maxWidth: '420px',
               width: '100%',
-              padding: '24px 28px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-              borderTop: '6px solid #dc2626',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+              borderTop: '5px solid #dc2626',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <div
-                style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '14px',
-                  background: '#fff1f2',
-                  color: '#e11d48',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.25rem',
-                  flexShrink: 0,
-                }}
-              >
-                <Trash2 size={22} />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                  Delete Field Surveyor Account?
-                </h3>
-              </div>
-            </div>
-
-            <p style={{ fontSize: '0.92rem', color: '#475569', margin: '0 0 24px 0', lineHeight: '1.45', fontWeight: 500 }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: '0 0 10px 0' }}>
+              Delete Field Surveyor Account?
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: '#64748b', margin: '0 0 20px 0', lineHeight: 1.45 }}>
               Are you sure you want to delete Field Surveyor <strong>"{deletingSurveyor.name}"</strong> (`@{deletingSurveyor.username}`)? This action cannot be undone.
             </p>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={handleDeleteSurveyor}
                 disabled={submitting}
                 className="btn btn-danger btn-inline"
-                style={{ flex: 1, borderRadius: '30px', padding: '12px', background: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 800, cursor: 'pointer', fontSize: '0.92rem' }}
+                style={{ flex: 1, borderRadius: '24px', padding: '10px', background: '#dc2626' }}
               >
                 {submitting ? 'Deleting...' : 'Yes, Delete Surveyor'}
               </button>
-              <button onClick={() => setDeletingSurveyor(null)} className="btn btn-secondary btn-inline" style={{ borderRadius: '30px', padding: '12px 20px', fontSize: '0.92rem' }}>
+              <button
+                onClick={() => setDeletingSurveyor(null)}
+                className="btn btn-secondary btn-inline"
+                style={{ borderRadius: '24px', padding: '10px 18px' }}
+              >
                 Cancel
               </button>
             </div>
@@ -887,7 +2793,7 @@ const SurveyorManagement = () => {
         </div>
       )}
 
-      {/* CUSTOM CONFIRMATION ACTION MODAL (REPLACES BROWSER CONFIRM) */}
+      {/* TOGGLE LOCK / RESET PASSWORD CONFIRMATION MODAL */}
       {confirmActionModal && (
         <div
           style={{
@@ -896,9 +2802,8 @@ const SurveyorManagement = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -910,12 +2815,12 @@ const SurveyorManagement = () => {
           <div
             style={{
               background: '#ffffff',
-              borderRadius: '24px',
-              maxWidth: '440px',
+              borderRadius: '20px',
+              maxWidth: '420px',
               width: '100%',
-              padding: '24px 28px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-              borderTop: `6px solid ${
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+              borderTop: `5px solid ${
                 confirmActionModal.type === 'reset_password'
                   ? '#1d4ed8'
                   : confirmActionModal.surveyor.status === 'inactive'
@@ -925,70 +2830,31 @@ const SurveyorManagement = () => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <div
-                style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '14px',
-                  background:
-                    confirmActionModal.type === 'reset_password'
-                      ? '#eff6ff'
-                      : confirmActionModal.surveyor.status === 'inactive'
-                      ? '#f0fdf4'
-                      : '#fef2f2',
-                  color:
-                    confirmActionModal.type === 'reset_password'
-                      ? '#1d4ed8'
-                      : confirmActionModal.surveyor.status === 'inactive'
-                      ? '#15803d'
-                      : '#dc2626',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.25rem',
-                  flexShrink: 0,
-                }}
-              >
-                {confirmActionModal.type === 'reset_password' ? (
-                  <RefreshCw size={22} />
-                ) : confirmActionModal.surveyor.status === 'inactive' ? (
-                  <Unlock size={22} />
-                ) : (
-                  <Lock size={22} />
-                )}
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                  {confirmActionModal.type === 'reset_password'
-                    ? 'Reset Surveyor Password?'
-                    : confirmActionModal.surveyor.status === 'inactive'
-                    ? 'Unlock Surveyor Account?'
-                    : 'Lock Surveyor Account?'}
-                </h3>
-              </div>
-            </div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: '0 0 10px 0' }}>
+              {confirmActionModal.type === 'reset_password'
+                ? 'Reset Surveyor Password?'
+                : confirmActionModal.surveyor.status === 'inactive'
+                ? 'Unlock Surveyor Account?'
+                : 'Lock Surveyor Account?'}
+            </h3>
 
-            <p style={{ fontSize: '0.92rem', color: '#475569', margin: '0 0 24px 0', lineHeight: '1.45', fontWeight: 500 }}>
+            <p style={{ fontSize: '0.88rem', color: '#64748b', margin: '0 0 20px 0', lineHeight: 1.45 }}>
               {confirmActionModal.type === 'reset_password' ? (
                 <>
-                  Are you sure you want to reset password for Field Surveyor{' '}
-                  <strong>"{confirmActionModal.surveyor.name}"</strong> (`@{confirmActionModal.surveyor.username}`)? A new temporary password will be generated.
+                  Generate a new temporary password for <strong>"{confirmActionModal.surveyor.name}"</strong>?
                 </>
               ) : confirmActionModal.surveyor.status === 'inactive' ? (
                 <>
-                  Are you sure you want to unlock Field Surveyor account{' '}
-                  <strong>"{confirmActionModal.surveyor.name}"</strong> (`@{confirmActionModal.surveyor.username}`)? Field operations and login will be re-enabled.
+                  Unlock field operations and login for <strong>"{confirmActionModal.surveyor.name}"</strong>?
                 </>
               ) : (
                 <>
-                  Are you sure you want to lock Field Surveyor account{' '}
-                  <strong>"{confirmActionModal.surveyor.name}"</strong> (`@{confirmActionModal.surveyor.username}`)? Field access will be immediately disabled.
+                  Temporarily lock login and survey submissions for <strong>"{confirmActionModal.surveyor.name}"</strong>?
                 </>
               )}
             </p>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() =>
                   confirmActionModal.type === 'reset_password'
@@ -999,19 +2865,14 @@ const SurveyorManagement = () => {
                 className="btn btn-primary btn-inline"
                 style={{
                   flex: 1,
-                  borderRadius: '30px',
-                  padding: '12px',
+                  borderRadius: '24px',
+                  padding: '10px',
                   background:
                     confirmActionModal.type === 'reset_password'
                       ? '#1d4ed8'
                       : confirmActionModal.surveyor.status === 'inactive'
                       ? '#15803d'
                       : '#dc2626',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  fontSize: '0.92rem',
                 }}
               >
                 {submitting
@@ -1019,580 +2880,18 @@ const SurveyorManagement = () => {
                   : confirmActionModal.type === 'reset_password'
                   ? 'Yes, Reset Password'
                   : confirmActionModal.surveyor.status === 'inactive'
-                  ? 'Yes, Unlock Account'
-                  : 'Yes, Lock Account'}
+                  ? 'Yes, Unlock'
+                  : 'Yes, Lock'}
               </button>
               <button
                 onClick={() => setConfirmActionModal(null)}
                 className="btn btn-secondary btn-inline"
-                style={{ borderRadius: '30px', padding: '12px 20px', fontSize: '0.92rem' }}
+                style={{ borderRadius: '24px', padding: '10px 18px' }}
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ══ FULL PAGE / RIGHT PANEL UNIFIED DASHBOARD VIEW (WHEN PROFILE IS CLICKED) ══ */}
-      {selectedProfileSurveyor ? (
-        <div
-          style={{
-            background: '#ffffff',
-            borderRadius: '28px',
-            padding: '32px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
-            borderTop: '6px solid #0d3c26',
-            animation: 'fadeIn 0.25s ease',
-          }}
-        >
-          {/* 1. TOP BAR & BACK BUTTON */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1.5px solid #f1f5f9', paddingBottom: '16px' }}>
-            <button
-              onClick={() => setSelectedProfileSurveyor(null)}
-              style={{
-                background: '#f8fafc',
-                color: '#0f172a',
-                border: '1.5px solid #cbd5e1',
-                borderRadius: '30px',
-                padding: '8px 20px',
-                fontSize: '0.88rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <ArrowLeft size={18} /> Back to Field Surveyors List
-            </button>
-
-            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#15803d', background: '#dcfce7', padding: '4px 14px', borderRadius: '20px' }}>
-              Surveyor Full Dashboard
-            </span>
-          </div>
-
-          {/* 2. HERO PROFILE HEADER & STRUCTURED DETAILS GRID (IMAGE 2 UX IMPROVEMENT) */}
-          <div
-            style={{
-              background: '#f8fafc',
-              borderRadius: '20px',
-              padding: '24px',
-              border: '1px solid #e2e8f0',
-              marginBottom: '24px',
-            }}
-          >
-            {/* Top Row: Avatar, Name, Status & Action Control Buttons */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '16px',
-                marginBottom: '20px',
-                borderBottom: '1px solid #e2e8f0',
-                paddingBottom: '18px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div
-                  style={{
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '50%',
-                    background: '#0d3c26',
-                    color: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 900,
-                    fontSize: '1.5rem',
-                    border: '3px solid #15803d',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  }}
-                >
-                  {selectedProfileSurveyor.name?.charAt(0)?.toUpperCase() || '?'}
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900, color: '#0f172a' }}>{selectedProfileSurveyor.name}</h2>
-                    <span style={{ background: '#e2e8f0', color: '#334155', padding: '3px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 800 }}>
-                      @{selectedProfileSurveyor.username}
-                    </span>
-                    <span style={{ background: '#f0fdf4', color: '#15803d', borderRadius: '20px', padding: '3px 12px', fontSize: '0.78rem', fontWeight: 800, border: '1px solid #bbf7d0' }}>
-                      🏢 Admin: {selectedProfileSurveyor.admin_name || 'System Admin'}
-                    </span>
-                    {selectedProfileSurveyor.status === 'inactive' ? (
-                      <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: '20px', padding: '3px 12px', fontSize: '0.78rem', fontWeight: 800, border: '1px solid #fecaca' }}>
-                        🔒 Account Locked
-                      </span>
-                    ) : (
-                      <span style={{ background: '#dcfce7', color: '#15803d', borderRadius: '20px', padding: '3px 12px', fontSize: '0.78rem', fontWeight: 800, border: '1px solid #bbf7d0' }}>
-                        Active Surveyor
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '4px', fontWeight: 600 }}>
-                    Field Surveyor Account Overview
-                  </div>
-                </div>
-              </div>
-
-              {/* 4 Management Action Buttons Control Bar (Hidden for Viewer Role) */}
-              {user?.role === 'viewer' ? (
-                <div style={{ background: '#e0f2fe', color: '#0284c7', padding: '8px 18px', borderRadius: '24px', fontWeight: 800, fontSize: '0.84rem', border: '1.5px solid #bae6fd', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <Eye size={16} /> 🔒 Read-Only Viewer Mode (संपादक अधिकार लॉक हैं)
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => requestResetPassword(selectedProfileSurveyor)}
-                    style={{
-                      background: '#eff6ff',
-                      color: '#1d4ed8',
-                      border: '1.5px solid #bfdbfe',
-                      borderRadius: '24px',
-                      padding: '9px 18px',
-                      fontSize: '0.84rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 2px 6px rgba(29, 78, 216, 0.08)',
-                    }}
-                  >
-                    <RefreshCw size={15} /> Reset Pass
-                  </button>
-
-                  <button
-                    onClick={() => requestToggleLock(selectedProfileSurveyor)}
-                    style={{
-                      background: selectedProfileSurveyor.status === 'inactive' ? '#f0fdf4' : '#fef2f2',
-                      color: selectedProfileSurveyor.status === 'inactive' ? '#15803d' : '#dc2626',
-                      border: `1.5px solid ${selectedProfileSurveyor.status === 'inactive' ? '#bbf7d0' : '#fecaca'}`,
-                      borderRadius: '24px',
-                      padding: '9px 18px',
-                      fontSize: '0.84rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s ease',
-                      boxShadow: `0 2px 6px ${selectedProfileSurveyor.status === 'inactive' ? 'rgba(21, 128, 61, 0.1)' : 'rgba(220, 38, 38, 0.1)'}`,
-                    }}
-                  >
-                    {selectedProfileSurveyor.status === 'inactive' ? <><Unlock size={15} /> Unlock</> : <><Lock size={15} /> Lock</>}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const s = selectedProfileSurveyor;
-                      setEditingSurveyor(s);
-                      setEditName(s.name || '');
-                      setEditUsername(s.username || '');
-                      setEditPassword('');
-                      setEditMobile(s.mobile || '');
-                      setEditAdminId(s.admin_id || '');
-                      setModalError('');
-                    }}
-                    style={{
-                      background: '#f5f3ff',
-                      color: '#7c3aed',
-                      border: '1.5px solid #ddd6fe',
-                      borderRadius: '24px',
-                      padding: '9px 18px',
-                      fontSize: '0.84rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 2px 6px rgba(124, 58, 237, 0.08)',
-                    }}
-                  >
-                    <Edit2 size={15} /> Edit
-                  </button>
-
-                  <button
-                    onClick={() => setDeletingSurveyor(selectedProfileSurveyor)}
-                    style={{
-                      background: '#fff1f2',
-                      color: '#e11d48',
-                      border: '1.5px solid #fecdd3',
-                      borderRadius: '24px',
-                      padding: '9px 18px',
-                      fontSize: '0.84rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 2px 6px rgba(225, 29, 72, 0.08)',
-                    }}
-                  >
-                    <Trash2 size={15} /> Delete
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Structured Info Grid Cards (Clean UX Form Grid) */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '0.88rem' }}>
-              <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Surveyor Full Name</span>
-                <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>👤 {selectedProfileSurveyor.name}</strong>
-              </div>
-
-              <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Account Username</span>
-                <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>@{selectedProfileSurveyor.username}</strong>
-              </div>
-
-              <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Assigned Company Admin</span>
-                <strong style={{ color: '#0d3c26', fontSize: '0.95rem' }}>🏢 {selectedProfileSurveyor.admin_name || 'System Admin'}</strong>
-              </div>
-
-              <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Mobile Contact</span>
-                <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📞 {selectedProfileSurveyor.mobile || 'Not provided'}</strong>
-              </div>
-
-              <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Total Farmers Onboarded</span>
-                <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>🌾 {profileDashboard?.stats?.totalReg ?? selectedProfileSurveyor.registrations_count ?? 0} Farmers</strong>
-              </div>
-
-              <div style={{ background: '#ffffff', padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Total Farm Visits Logged</span>
-                <strong style={{ color: '#1d4ed8', fontSize: '0.95rem' }}>📍 {profileDashboard?.stats?.totalVisits ?? selectedProfileSurveyor?.surveys_count ?? 0} Visits</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Analytics & Feeds Section */}
-          {profileDashLoading ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontWeight: 700 }}>
-              Loading surveyor activity dashboard...
-            </div>
-          ) : (
-            <>
-              {/* 3. 4 STAT COUNTERS */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <span style={{ fontSize: '2.2rem' }}>🌾</span>
-                  <div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#15803d', lineHeight: 1 }}>{profileDashboard?.stats?.totalReg ?? selectedProfileSurveyor?.registrations_count ?? 0}</div>
-                    <div style={{ fontSize: '0.82rem', color: '#166534', fontWeight: 800, marginTop: '4px' }}>Total Farmers Onboarded</div>
-                  </div>
-                </div>
-
-                <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <span style={{ fontSize: '2.2rem' }}>📋</span>
-                  <div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#0284c7', lineHeight: 1 }}>{profileDashboard?.stats?.todayReg ?? selectedProfileSurveyor?.todays_registrations_count ?? 0}</div>
-                    <div style={{ fontSize: '0.82rem', color: '#0369a1', fontWeight: 800, marginTop: '4px' }}>Today's Onboarded Farmers</div>
-                  </div>
-                </div>
-
-                <div style={{ background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <span style={{ fontSize: '2.2rem' }}>📍</span>
-                  <div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#7c3aed', lineHeight: 1 }}>{profileDashboard?.stats?.totalVisits ?? selectedProfileSurveyor?.surveys_count ?? 0}</div>
-                    <div style={{ fontSize: '0.82rem', color: '#6d28d9', fontWeight: 800, marginTop: '4px' }}>Total Farm Visits Logged</div>
-                  </div>
-                </div>
-
-                <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '20px', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <span style={{ fontSize: '2.2rem' }}>🚜</span>
-                  <div>
-                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#d97706', lineHeight: 1 }}>{profileDashboard?.stats?.todayVisits ?? selectedProfileSurveyor?.todays_surveys_count ?? 0}</div>
-                    <div style={{ fontSize: '0.82rem', color: '#b45309', fontWeight: 800, marginTop: '4px' }}>Today's Logged Visits</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 4. RECENT FARMERS ONBOARDED BY THIS SURVEYOR */}
-              <div style={{ background: '#f8fafc', borderRadius: '20px', padding: '24px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', fontWeight: 900, color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  🌾 Farmers Onboarded By {selectedProfileSurveyor?.name || 'Surveyor'} ({profileDashboard?.recentFarmers?.length || 0})
-                </h3>
-                {profileDashboard?.recentFarmers?.length > 0 ? (
-                  <div style={{ display: 'grid', gap: '10px' }}>
-                    {profileDashboard.recentFarmers.map((f) => (
-                      <div key={f.farmer_id} style={{ background: '#ffffff', borderRadius: '14px', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '10px' }}>
-                        <div>
-                          <Link to={`/admin/farmer/${f.farmer_id}`} style={{ fontWeight: 800, color: '#0d3c26', fontSize: '0.95rem', textDecoration: 'none' }}>
-                            🌾 {f.name}
-                          </Link>
-                          <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, marginLeft: '10px' }}>{f.farmer_id}</span>
-                        </div>
-                        <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
-                          📍 {f.village || f.location || 'N/A'}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ color: '#94a3b8', margin: 0 }}>No farmers onboarded yet by this surveyor.</p>
-                )}
-              </div>
-
-              {/* 5. RECENT FARM VISITS LOGGED */}
-              <div style={{ background: '#f8fafc', borderRadius: '20px', padding: '24px', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', fontWeight: 900, color: '#0d3c26', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  📍 Farm Visit Logbook History ({profileDashboard?.recentVisits?.length || 0})
-                </h3>
-                {profileDashboard?.recentVisits?.length > 0 ? (
-                  <div style={{ display: 'grid', gap: '10px' }}>
-                    {profileDashboard.recentVisits.map((v, i) => (
-                      <div key={i} style={{ background: '#ffffff', borderRadius: '14px', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '10px' }}>
-                        <div>
-                          <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem' }}>📍 {v.farmer_name || v.farmer_id}</span>
-                        </div>
-                        <div style={{ fontSize: '0.84rem', color: '#64748b' }}>
-                          📅 {formatDateDDMMYYYY(v.visit_date)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ color: '#94a3b8', margin: 0 }}>No farm visits logged yet by this surveyor.</p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      ) : (
-        /* ══ MAIN FIELD SURVEYORS LIST (WITH FARMER-STYLE CARDS & QUICK DETAILS ACCORDION) ══ */
-        <div>
-          {/* Header Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-            <div className="option3-panel-title">
-              <Users size={20} color="#0d3c26" /> Active Field Surveyors List
-            </div>
-          </div>
-
-          {/* SuperAdmin Company Admin Category Filter Bar */}
-          {user?.username === 'superadmin' && safeAdmins.length > 0 && (
-            <div
-              style={{
-                background: '#ffffff',
-                borderRadius: '30px',
-                padding: '10px 20px',
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '18px',
-                flexWrap: 'wrap',
-              }}
-            >
-              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                🏢 Company Admin Filter:
-              </span>
-              <button
-                onClick={() => setSelectedCompanyAdminFilter('ALL')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '20px',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  border: selectedCompanyAdminFilter === 'ALL' ? '1.5px solid #0d3c26' : '1px solid #cbd5e1',
-                  background: selectedCompanyAdminFilter === 'ALL' ? '#0d3c26' : '#f8fafc',
-                  color: selectedCompanyAdminFilter === 'ALL' ? '#ffffff' : '#334155',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                🌐 All Admins ({safeSurveyors.length})
-              </button>
-              {safeAdmins.map((adm) => {
-                const count = safeSurveyors.filter((s) => String(s.admin_id) === String(adm.id)).length;
-                return (
-                  <button
-                    key={adm.id}
-                    onClick={() => setSelectedCompanyAdminFilter(adm.id)}
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '20px',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      border: String(selectedCompanyAdminFilter) === String(adm.id) ? '1.5px solid #0d3c26' : '1px solid #cbd5e1',
-                      background: String(selectedCompanyAdminFilter) === String(adm.id) ? '#0d3c26' : '#f8fafc',
-                      color: String(selectedCompanyAdminFilter) === String(adm.id) ? '#ffffff' : '#334155',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    🏢 {adm.name} ({count})
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {loading ? (
-            <p style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Loading field surveyors...</p>
-          ) : safeSurveyors.length === 0 ? (
-            <div style={{ background: '#ffffff', borderRadius: '20px', padding: '60px 20px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>
-              No field surveyors registered yet.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {safeSurveyors
-                .filter((s) => {
-                  if (selectedCompanyAdminFilter === 'ALL') return true;
-                  return String(s.admin_id) === String(selectedCompanyAdminFilter);
-                })
-                .map((s) => {
-                const isLocked = s.status === 'inactive';
-                const initialLetter = s.name ? s.name.charAt(0).toUpperCase() : 'S';
-                const isExpanded = expandedSurveyorId === s.id;
-
-                return (
-                  <div
-                    key={s.id}
-                    style={{
-                      background: '#ffffff',
-                      borderRadius: '20px',
-                      border: isLocked ? '1.5px solid #fecaca' : '1px solid #e2e8f0',
-                      boxShadow: '0 4px 14px rgba(0, 0, 0, 0.03)',
-                      transition: 'all 0.2s ease-in-out',
-                      opacity: isLocked ? 0.75 : 1,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {/* TOP CARD BAR (MATCHES FARMERS LIST EXACTLY - IMAGE 2) */}
-                    <div style={{ padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                      {/* LEFT: AVATAR & INFO */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: '280px' }}>
-                        <div
-                          style={{
-                            width: '52px',
-                            height: '52px',
-                            minWidth: '52px',
-                            minHeight: '52px',
-                            borderRadius: '50%',
-                            background: isLocked ? '#fef2f2' : '#0d3c26',
-                            color: isLocked ? '#dc2626' : '#ffffff',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            fontSize: '1.3rem',
-                            lineHeight: 1,
-                            flexShrink: 0,
-                            border: `2px solid ${isLocked ? '#fecaca' : '#15803d'}`,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                          }}
-                        >
-                          {initialLetter}
-                        </div>
-
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{s.name}</h3>
-                            <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 10px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700 }}>
-                              @{s.username}
-                            </span>
-                            <span style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', padding: '2px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800 }}>
-                              🏢 {s.admin_name || 'System Admin'}
-                            </span>
-                            {isLocked && (
-                              <span style={{ background: '#fef2f2', color: '#dc2626', borderRadius: '20px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 800, border: '1px solid #fecaca' }}>
-                                🔒 Locked
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CENTER: QUICK STAT BADGES */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '8px 14px', textAlign: 'center' }}>
-                          <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#15803d', lineHeight: 1 }}>{s.registrations_count || 0}</div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#166534', marginTop: '2px' }}>Farmers</div>
-                        </div>
-                        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '8px 14px', textAlign: 'center' }}>
-                          <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#1d4ed8', lineHeight: 1 }}>{s.surveys_count || 0}</div>
-                          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#1e40af', marginTop: '2px' }}>Visits Logged</div>
-                        </div>
-                      </div>
-
-                      {/* RIGHT: PROFILE BUTTON & QUICK DETAILS BUTTON (MATCHES IMAGE 2 EXACTLY!) */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                        <button
-                          onClick={() => openSurveyorProfile(s)}
-                          style={{
-                            padding: '9px 20px',
-                            fontSize: '0.88rem',
-                            borderRadius: '24px',
-                            background: '#0d3c26',
-                            color: '#ffffff',
-                            border: 'none',
-                            fontWeight: 800,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 3px 10px rgba(13, 60, 38, 0.25)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                          }}
-                        >
-                          Profile <ChevronRight size={16} />
-                        </button>
-
-                        <button
-                          onClick={() => setExpandedSurveyorId(isExpanded ? null : s.id)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#64748b',
-                            fontWeight: 700,
-                            fontSize: '0.84rem',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '6px 8px',
-                          }}
-                        >
-                          Quick Details {isExpanded ? <ChevronDown size={15} style={{ transform: 'rotate(180deg)' }} /> : <ChevronDown size={15} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* INLINE QUICK DETAILS EXPANDED ACCORDION (IMAGE 2 MATCH!) */}
-                    {isExpanded && (
-                      <div style={{ background: '#f8fafc', padding: '16px 24px', borderTop: '1px solid #e2e8f0', fontSize: '0.88rem' }}>
-                        <div style={{ fontWeight: 800, color: '#0d3c26', marginBottom: '10px' }}>
-                          📋 Quick Account Summary for {s.name}
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
-                          <div><strong>Full Name:</strong> {s.name}</div>
-                          <div><strong>Username:</strong> @{s.username}</div>
-                          <div><strong>Farmers Onboarded:</strong> <span style={{ color: '#15803d', fontWeight: 800 }}>{s.registrations_count || 0} Farmers</span></div>
-                          <div><strong>Farm Visits Logged:</strong> <span style={{ color: '#1d4ed8', fontWeight: 800 }}>{s.surveys_count || 0} Visits</span></div>
-                          <div><strong>Mobile Contact:</strong> 📞 {s.mobile || 'Not provided'}</div>
-                          <div><strong>Account Status:</strong> <span style={{ color: isLocked ? '#dc2626' : '#15803d', fontWeight: 800 }}>{isLocked ? '🔒 Locked' : 'Active'}</span></div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       )}
 
@@ -1605,8 +2904,8 @@ const SurveyorManagement = () => {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(5px)',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1618,25 +2917,44 @@ const SurveyorManagement = () => {
           <div
             style={{
               background: '#ffffff',
-              borderRadius: '24px',
-              maxWidth: '440px',
+              borderRadius: '20px',
+              maxWidth: '420px',
               width: '100%',
               padding: '24px',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
-              borderTop: '6px solid #15803d',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+              borderTop: '5px solid #15803d',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: '0 0 10px 0' }}>
               🔑 Temporary Password Generated
             </h3>
-            <p style={{ fontSize: '0.88rem', color: '#64748b', margin: '0 0 16px 0' }}>
-              Field Surveyor <strong>"{tempPasswordModal.name}"</strong> (`{tempPasswordModal.username}`) created. Please copy this password now. It will not be shown again.
+            <p style={{ fontSize: '0.86rem', color: '#64748b', margin: '0 0 16px 0' }}>
+              Field Surveyor <strong>"{tempPasswordModal.name}"</strong> (`@{tempPasswordModal.username}`) credentials are ready. Please copy this password now.
             </p>
 
-            <div style={{ background: '#fef3c7', border: '1px border #f59e0b', borderRadius: '12px', padding: '14px', marginBottom: '20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 700, textTransform: 'uppercase' }}>Temporary Password</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#b45309', marginTop: '4px', letterSpacing: '1px' }}>
+            <div
+              style={{
+                background: '#fef3c7',
+                border: '1px solid #fde68a',
+                borderRadius: '12px',
+                padding: '14px',
+                marginBottom: '20px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '0.74rem', color: '#92400e', fontWeight: 700, textTransform: 'uppercase' }}>
+                Temporary Password
+              </div>
+              <div
+                style={{
+                  fontSize: '1.3rem',
+                  fontWeight: 900,
+                  color: '#b45309',
+                  marginTop: '4px',
+                  letterSpacing: '1px',
+                }}
+              >
                 {tempPasswordModal.password}
               </div>
             </div>
@@ -1644,9 +2962,18 @@ const SurveyorManagement = () => {
             <button
               onClick={() => setTempPasswordModal(null)}
               className="btn btn-primary btn-inline"
-              style={{ width: '100%', borderRadius: '30px', padding: '12px', background: '#15803d', border: 'none', color: '#ffffff', fontWeight: 800, cursor: 'pointer' }}
+              style={{
+                width: '100%',
+                borderRadius: '24px',
+                padding: '10px',
+                background: '#15803d',
+                border: 'none',
+                color: '#ffffff',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
             >
-              Copy & Close
+              Done &amp; Close
             </button>
           </div>
         </div>

@@ -13,30 +13,97 @@ import {
   Star,
   Eye,
   Bell,
-  Filter,
-  ArrowUpRight,
   Calendar,
   MapPin,
+  Clock,
+  ArrowRight,
+  CheckCircle2,
+  LayoutDashboard,
+  ArrowLeft,
   PieChart,
 } from 'lucide-react';
 
 const sampleUpcomingSchedules = [
-  { farmer_id: 'FARM-101', farmer_name: 'Ramesh Kumar', mobile: '9898767645', village: 'Kalyanpur, Kanpur', crop: 'Wheat (गेहूं)', land_area: '2.5 Acres', surveyor_name: 'hello kumar', last_visit_date: '2026-08-25', next_visit_date: '2026-09-01', status: 'Due Today', status_badge: '🟡 Due Today' },
-  { farmer_id: 'FARM-102', farmer_name: 'Hello Kumar', mobile: '9898588989', village: 'Mandhana, Kanpur', crop: 'Paddy (धान)', land_area: '4.0 Acres', surveyor_name: 'ram kumar', last_visit_date: '2026-08-20', next_visit_date: '2026-08-27', status: 'Overdue', status_badge: '🔴 Overdue by 4 Days' },
-  { farmer_id: 'FARM-103', farmer_name: 'Ram Kumar', mobile: '9876543210', village: 'Bithoor, Kanpur', crop: 'Sugarcane (गन्ना)', land_area: '1.8 Acres', surveyor_name: 'surveyor1', last_visit_date: '2026-08-28', next_visit_date: '2026-09-04', status: 'Scheduled', status_badge: '🟢 In 4 Days' },
-  { farmer_id: 'FARM-104', farmer_name: 'Vijay Singh', mobile: '9911223344', village: 'Rawatpur, Kanpur', crop: 'Mustard (सरसों)', land_area: '3.2 Acres', surveyor_name: 'hello kumar', last_visit_date: '2026-08-22', next_visit_date: '2026-08-29', status: 'Overdue', status_badge: '🔴 Overdue by 2 Days' },
-  { farmer_id: 'FARM-105', farmer_name: 'Sunil Sharma', mobile: '9822334455', village: 'Chakeri, Kanpur', crop: 'Maize (मक्का)', land_area: '5.0 Acres', surveyor_name: 'ram kumar', last_visit_date: '2026-08-29', next_visit_date: '2026-09-05', status: 'Scheduled', status_badge: '🟢 In 5 Days' },
+  {
+    farmer_id: 'FARM-102',
+    farmer_name: 'Hello Kumar',
+    mobile: '9898588989',
+    village: 'Mandhana, Kanpur',
+    crop: 'Paddy',
+    land_area: '4.0 acres',
+    surveyor_name: 'ram kumar',
+    last_visit_date: '2026-08-20',
+    next_visit_date: '2026-08-27',
+    status: 'Overdue',
+    days_overdue: 4,
+    status_badge: 'Overdue 4 days',
+  },
+  {
+    farmer_id: 'FARM-104',
+    farmer_name: 'Vijay Singh',
+    mobile: '9911223344',
+    village: 'Rawatpur, Kanpur',
+    crop: 'Mustard',
+    land_area: '3.2 acres',
+    surveyor_name: 'hello kumar',
+    last_visit_date: '2026-08-22',
+    next_visit_date: '2026-08-29',
+    status: 'Overdue',
+    days_overdue: 2,
+    status_badge: 'Overdue 2 days',
+  },
+  {
+    farmer_id: 'FARM-101',
+    farmer_name: 'Ramesh Kumar',
+    mobile: '9898767645',
+    village: 'Kalyanpur, Kanpur',
+    crop: 'Wheat',
+    land_area: '2.5 acres',
+    surveyor_name: 'hello kumar',
+    last_visit_date: '2026-08-25',
+    next_visit_date: '2026-09-01',
+    status: 'Due Today',
+    days_overdue: 0,
+    status_badge: 'Due today',
+  },
+  {
+    farmer_id: 'FARM-103',
+    farmer_name: 'Ram Kumar',
+    mobile: '9876543210',
+    village: 'Bithoor, Kanpur',
+    crop: 'Sugarcane',
+    land_area: '1.8 acres',
+    surveyor_name: 'surveyor1',
+    last_visit_date: '2026-08-28',
+    next_visit_date: '2026-09-04',
+    status: 'Scheduled',
+    days_ahead: 4,
+    status_badge: 'In 4 days',
+  },
+  {
+    farmer_id: 'FARM-105',
+    farmer_name: 'Sunil Sharma',
+    mobile: '9822334455',
+    village: 'Chakeri, Kanpur',
+    crop: 'Maize',
+    land_area: '5.0 acres',
+    surveyor_name: 'ram kumar',
+    last_visit_date: '2026-08-29',
+    next_visit_date: '2026-09-05',
+    status: 'Scheduled',
+    days_ahead: 5,
+    status_badge: 'In 5 days',
+  },
 ];
 
 const CompanyAdminPerformanceAnalytics = () => {
   const { token } = useContext(AuthContext);
   const [performanceData, setPerformanceData] = useState([]);
-  const [farmAllocations, setFarmAllocations] = useState({ total_farms: 0, assigned_farms: 0, unassigned_farms: 0 });
+  const [farmAllocations, setFarmAllocations] = useState({ total_farms: 12, assigned_farms: 12, unassigned_farms: 0 });
   const [upcomingSchedules, setUpcomingSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateRange, setDateRange] = useState('all');
-  const [cardFilter, setCardFilter] = useState('all'); // 'all', 'delays', 'active'
+  const [dateFilter, setDateFilter] = useState('7days');
   const [alertSentId, setAlertSentId] = useState(null);
 
   const fetchPerformanceData = async () => {
@@ -52,7 +119,12 @@ const CompanyAdminPerformanceAnalytics = () => {
       const allocData = await allocRes.json();
       const schedData = await schedRes.json();
 
-      const list = perfData && Array.isArray(perfData.data) ? perfData.data : (Array.isArray(perfData) ? perfData : []);
+      const list =
+        perfData && Array.isArray(perfData.data)
+          ? perfData.data
+          : Array.isArray(perfData)
+          ? perfData
+          : [];
       setPerformanceData(list);
 
       if (allocData.success && allocData.data) {
@@ -90,663 +162,453 @@ const CompanyAdminPerformanceAnalytics = () => {
   const filteredData = safeData.filter((a) => {
     if (!a) return false;
     const query = searchTerm.toLowerCase();
-    const matchesSearch =
+    return (
       (a.name || '').toLowerCase().includes(query) ||
       (a.username || '').toLowerCase().includes(query) ||
-      (a.mobile || '').toLowerCase().includes(query);
-
-    if (!matchesSearch) return false;
-
-    if (cardFilter === 'delays') {
-      return a.delayed_visits > 0;
-    } else if (cardFilter === 'active') {
-      return a.status === 'active' || a.completed_visits > 0;
-    }
-    return true;
+      (a.mobile || '').toLowerCase().includes(query)
+    );
   });
 
-  const totalAdmins = safeData.length;
-  const totalSurveyorsManaged = safeData.reduce((acc, a) => acc + (parseInt(a?.surveyors_count, 10) || 0), 0);
-  const totalFarmersManaged = safeData.reduce((acc, a) => acc + (parseInt(a?.assigned_farmers, 10) || 0), 0);
-  const totalCompanyDelays = safeData.reduce((acc, a) => acc + (parseInt(a?.delayed_visits, 10) || 0), 0);
-  const avgGpsAcc = totalAdmins > 0
-    ? (safeData.reduce((acc, a) => {
-        const val = parseFloat((String(a?.gps_accuracy || '98.8')).replace('%', ''));
-        return acc + (isNaN(val) ? 98.8 : val);
-      }, 0) / totalAdmins).toFixed(1)
-    : '98.8';
-
-  const assignedPct = farmAllocations.total_farms > 0
-    ? Math.round((farmAllocations.assigned_farms / farmAllocations.total_farms) * 100)
-    : 92;
+  const totalActiveAdmins = safeData.length || 2;
+  const totalOnboardedFarmers =
+    safeData.reduce((acc, a) => acc + (parseInt(a?.assigned_farmers, 10) || 0), 0) || 12;
+  const totalDelays =
+    safeData.reduce((acc, a) => acc + (parseInt(a?.delayed_visits, 10) || 0), 0) || 2;
+  const avgGpsAcc =
+    totalActiveAdmins > 0
+      ? (
+          safeData.reduce((acc, a) => {
+            const val = parseFloat(String(a?.gps_accuracy || '95.3').replace('%', ''));
+            return acc + (isNaN(val) ? 95.3 : val);
+          }, 0) / totalActiveAdmins
+        ).toFixed(1)
+      : '95.3';
 
   const displaySchedules = upcomingSchedules.length > 0 ? upcomingSchedules : sampleUpcomingSchedules;
+  const overdueItems = displaySchedules.filter((s) => s.status === 'Overdue');
+  const dueTodayItems = displaySchedules.filter((s) => s.status === 'Due Today');
+  const upcomingItems = displaySchedules.filter((s) => s.status === 'Scheduled');
+
+  const totalFarms = farmAllocations.total_farms || totalOnboardedFarmers || 12;
+  const assignedFarms = farmAllocations.assigned_farms || totalOnboardedFarmers || 12;
+  const allocationPct = totalFarms > 0 ? Math.round((assignedFarms / totalFarms) * 100) : 100;
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Header Banner (Floating White Capsule Card) */}
+    <div style={{ width: '100%', paddingBottom: '30px' }}>
+      {/* FLOATING WHITE CAPSULE HEADER BAR WITH BACK TO DASHBOARD */}
       <div
         style={{
           background: '#ffffff',
-          borderRadius: '40px',
-          padding: '18px 28px',
+          borderRadius: '32px',
+          padding: '16px 28px',
           border: '1px solid #e2e8f0',
           boxShadow: '0 4px 14px rgba(0, 0, 0, 0.04)',
           display: 'flex',
-          justify: 'space-between',
+          justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '20px',
           flexWrap: 'wrap',
-          gap: '16px',
+          gap: '14px',
         }}
       >
         <div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0d3c26', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Building2 size={26} color="#15803d" /> Company Admin Performance Analytics
+          <h1
+            style={{
+              fontSize: '1.35rem',
+              fontWeight: 900,
+              color: '#0d3c26',
+              margin: '0 0 4px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <TrendingUp size={22} color="#15803d" /> Company Admin Performance Analytics
           </h1>
-          <p style={{ color: '#475569', fontSize: '0.86rem', margin: '4px 0 0 0', fontWeight: 600 }}>
-            Superadmin real-time overview of company/district admin performance, managed field staff, visit delays &amp; team GPS accuracy
+          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, fontWeight: 600 }}>
+            SuperAdmin overview of company admin staff, field teams, and GPS logs
           </p>
         </div>
 
-        <button
-          onClick={fetchPerformanceData}
-          className="btn btn-secondary"
-          style={{
-            borderRadius: '30px',
-            padding: '8px 18px',
-            fontWeight: 700,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: '#f8fafc',
-            border: '1.5px solid #cbd5e1',
-            color: '#0d3c26',
-            cursor: 'pointer',
-          }}
-        >
-          <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh Analytics
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Link
+            to="/admin"
+            style={{
+              background: '#f8fafc',
+              border: '1.5px solid #cbd5e1',
+              borderRadius: '24px',
+              padding: '8px 18px',
+              fontWeight: 700,
+              fontSize: '0.84rem',
+              color: '#334155',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <LayoutDashboard size={15} /> Back to Dashboard
+          </Link>
+
+          <button
+            onClick={fetchPerformanceData}
+            style={{
+              background: '#ffffff',
+              border: '1.5px solid #cbd5e1',
+              borderRadius: '24px',
+              padding: '8px 16px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: '#0f172a',
+              fontWeight: 700,
+              fontSize: '0.84rem',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Refresh analytics"
+          >
+            <RefreshCw size={15} className={loading ? 'spin' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
-      {/* Date Category Filter Bar */}
+      {/* Date Filter Pills Bar */}
       <div
         style={{
           background: '#ffffff',
-          borderRadius: '30px',
-          padding: '10px 20px',
+          borderRadius: '24px',
+          padding: '8px 16px',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
-          display: 'flex',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+          display: 'inline-flex',
           alignItems: 'center',
           gap: '8px',
           marginBottom: '20px',
           flexWrap: 'wrap',
         }}
       >
-        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#475569', display: 'flex', alignItems: 'center', gap: '6px', marginRight: '4px' }}>
-          <Filter size={15} color="#0d3c26" /> Date Filter:
+        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', marginRight: '4px' }}>
+          Date Range:
         </span>
         {[
-          { key: 'all', label: '🌐 All Time' },
-          { key: 'today', label: '📅 Today' },
-          { key: '2days', label: '📆 Last 2 Days' },
-          { key: '7days', label: '🗓️ Last 7 Days' },
-          { key: '30days', label: '📊 Last 30 Days' },
-        ].map((item) => (
-          <button
-            key={item.key}
-            onClick={() => setDateRange(item.key)}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              border: dateRange === item.key ? '1.5px solid #0d3c26' : '1px solid #cbd5e1',
-              background: dateRange === item.key ? '#0d3c26' : '#f8fafc',
-              color: dateRange === item.key ? '#ffffff' : '#334155',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
+          { key: '7days', label: 'Last 7 days' },
+          { key: 'today', label: 'Today' },
+          { key: '30days', label: 'Last 30 days' },
+          { key: 'all', label: 'All time' },
+        ].map((tab) => {
+          const isSelected = dateFilter === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setDateFilter(tab.key)}
+              style={{
+                padding: '6px 16px',
+                borderRadius: '20px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                border: isSelected ? '1.5px solid #0d3c26' : '1px solid #cbd5e1',
+                background: isSelected ? '#0d3c26' : '#f8fafc',
+                color: isSelected ? '#ffffff' : '#334155',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Top 4 Hero Metric Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-        {/* Card 1: Total Company Admins */}
-        <div
-          onClick={() => setCardFilter('all')}
-          style={{
-            background: '#ffffff',
-            borderRadius: '20px',
-            padding: '20px',
-            border: cardFilter === 'all' ? '2.5px solid #15803d' : '1.5px solid #e2e8f0',
-            boxShadow: cardFilter === 'all' ? '0 6px 18px rgba(21, 128, 61, 0.15)' : '0 4px 14px rgba(0,0,0,0.04)',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            position: 'relative',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#475569' }}>Total Company Admins</span>
-            <div style={{ background: '#f0fdf4', padding: '8px', borderRadius: '12px', color: '#15803d' }}>
-              <Building2 size={20} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#0d3c26' }}>{totalAdmins}</div>
-          <div style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 700, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <ArrowUpRight size={14} /> District &amp; Regional Admins
-          </div>
-          {cardFilter === 'all' && (
-            <span style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '0.68rem', background: '#15803d', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
-              Active Filter
-            </span>
-          )}
-        </div>
-
-        {/* Card 2: Total Surveyors Managed */}
-        <div
-          onClick={() => setCardFilter('active')}
-          style={{
-            background: '#ffffff',
-            borderRadius: '20px',
-            padding: '20px',
-            border: cardFilter === 'active' ? '2.5px solid #059669' : '1.5px solid #e2e8f0',
-            boxShadow: cardFilter === 'active' ? '0 6px 18px rgba(5, 150, 105, 0.15)' : '0 4px 14px rgba(0,0,0,0.04)',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            position: 'relative',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#475569' }}>Total Field Surveyors</span>
-            <div style={{ background: '#ecfdf5', padding: '8px', borderRadius: '12px', color: '#059669' }}>
-              <Users size={20} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#059669' }}>{totalSurveyorsManaged}</div>
-          <div style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 700, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <ArrowUpRight size={14} /> Active Field Staff Managed
-          </div>
-          {cardFilter === 'active' && (
-            <span style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '0.68rem', background: '#059669', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
-              Active Filter
-            </span>
-          )}
-        </div>
-
-        {/* Card 3: Company Visit Delays */}
-        <div
-          onClick={() => setCardFilter(cardFilter === 'delays' ? 'all' : 'delays')}
-          style={{
-            background: cardFilter === 'delays' ? '#fef2f2' : (totalCompanyDelays > 0 ? '#fff5f5' : '#ffffff'),
-            borderRadius: '20px',
-            padding: '20px',
-            border: cardFilter === 'delays' ? '2.5px solid #dc2626' : (totalCompanyDelays > 0 ? '2px solid #fca5a5' : '1.5px solid #e2e8f0'),
-            boxShadow: cardFilter === 'delays' ? '0 6px 18px rgba(220, 38, 38, 0.2)' : '0 4px 14px rgba(220, 38, 38, 0.08)',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            position: 'relative',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: totalCompanyDelays > 0 ? '#991b1b' : '#475569' }}>Company Visit Delays</span>
-            <div style={{ background: '#fee2e2', padding: '8px', borderRadius: '12px', color: '#dc2626' }}>
-              <AlertTriangle size={20} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#dc2626' }}>{totalCompanyDelays}</div>
-          <div style={{ fontSize: '0.78rem', color: '#b91c1c', fontWeight: 700, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            ⚠️ Click to Filter Delayed Companies
-          </div>
-          {cardFilter === 'delays' && (
-            <span style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '0.68rem', background: '#dc2626', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
-              Overdue Filtered
-            </span>
-          )}
-        </div>
-
-        {/* Card 4: Avg Team GPS Accuracy */}
-        <div
-          onClick={() => setCardFilter('all')}
-          style={{
-            background: '#ffffff',
-            borderRadius: '20px',
-            padding: '20px',
-            border: '1.5px solid #e2e8f0',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
-            cursor: 'pointer',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#475569' }}>Avg Team GPS Accuracy</span>
-            <div style={{ background: '#f0fdf4', padding: '8px', borderRadius: '12px', color: '#16a34a' }}>
-              <ShieldCheck size={20} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#15803d' }}>{avgGpsAcc}%</div>
-          <div style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 700, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            🛡️ Verified Team Location Rating
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 2: FARM ALLOCATION CATEGORY BREAKDOWN CARD */}
+      {/* 4 Metric Stats Cards in One Row */}
       <div
         style={{
-          background: '#ffffff',
-          borderRadius: '24px',
-          padding: '20px 24px',
-          border: '1.5px solid #e2e8f0',
-          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.04)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '16px',
           marginBottom: '24px',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+        {/* Metric 1: Active company admins */}
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '18px',
+            padding: '20px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+          }}
+        >
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+            {totalActiveAdmins}
+          </div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginTop: '8px' }}>
+            Active company admins
+          </div>
+        </div>
+
+        {/* Metric 2: Farmers onboarded */}
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '18px',
+            padding: '20px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+          }}
+        >
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+            {totalOnboardedFarmers}
+          </div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginTop: '8px' }}>
+            Farmers onboarded
+          </div>
+        </div>
+
+        {/* Metric 3: Avg GPS accuracy */}
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '18px',
+            padding: '20px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+          }}
+        >
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+            {avgGpsAcc}%
+          </div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginTop: '8px' }}>
+            Avg GPS accuracy
+          </div>
+        </div>
+
+        {/* Metric 4: Visits overdue (Soft Red Highlight) */}
+        <div
+          style={{
+            background: '#fef2f2',
+            border: '1.5px solid #fecaca',
+            borderRadius: '18px',
+            padding: '20px',
+          }}
+        >
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#dc2626', lineHeight: 1 }}>
+            {totalDelays}
+          </div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#991b1b', marginTop: '8px' }}>
+            Visits overdue
+          </div>
+        </div>
+      </div>
+
+      {/* ─── SECTION: Detailed Company Admin Ranking Leaderboard Table ─── */}
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '20px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.03)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '18px 24px',
+            borderBottom: '1.5px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
           <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0d3c26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <PieChart size={20} color="#15803d" /> Total Registered Farms &amp; Allocation Breakdown
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0d3c26' }}>
+              Company Admin Performance Leaderboard
             </h3>
-            <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
-              Superadmin view of total farms, assigned surveyor farms &amp; unassigned farm categories
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+              Organization-level performance, field teams, and GPS logs
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '6px 14px', borderRadius: '16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>🌾 Total Farms</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#0d3c26' }}>{farmAllocations.total_farms || totalFarmersManaged || 3}</div>
-              </div>
-
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '6px 14px', borderRadius: '16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.72rem', color: '#15803d', fontWeight: 700 }}>👨‍🌾 Assigned Farms</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#15803d' }}>{farmAllocations.assigned_farms || totalFarmersManaged || 3}</div>
-              </div>
-
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '6px 14px', borderRadius: '16px', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.72rem', color: '#dc2626', fontWeight: 700 }}>⚠️ Unassigned Farms</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#dc2626' }}>{farmAllocations.unassigned_farms || 0}</div>
-              </div>
-            </div>
+          <div style={{ position: 'relative', width: '240px' }}>
+            <Search
+              size={15}
+              style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#94a3b8',
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Search company admin..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '7px 12px 7px 34px',
+                borderRadius: '20px',
+                border: '1.5px solid #cbd5e1',
+                fontSize: '0.82rem',
+                outline: 'none',
+              }}
+            />
           </div>
         </div>
 
-        {/* Allocation Progress Visual Bar */}
-        <div style={{ width: '100%', height: '10px', background: '#fee2e2', borderRadius: '10px', overflow: 'hidden' }}>
-          <div style={{ width: `${assignedPct}%`, height: '100%', background: '#15803d', borderRadius: '10px', transition: 'width 0.5s ease' }} />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '0.76rem', color: '#64748b', fontWeight: 700 }}>
-          <span>🟢 {assignedPct}% Farms Assigned to Field Surveyors</span>
-          <span>🔴 {100 - assignedPct}% Pending Assignment</span>
-        </div>
-      </div>
-
-      {/* SECTION 3: FARM-SPECIFIC UPCOMING VISIT SCHEDULE (WITH USER-FRIENDLY STICKY SCROLLER) */}
-      <div style={{ background: '#ffffff', borderRadius: '24px', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', overflow: 'hidden', marginBottom: '24px' }}>
-        {/* Header Controls Area */}
-        <div style={{ padding: '18px 24px', borderBottom: '1.5px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', background: '#ffffff' }}>
-          <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0d3c26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Calendar size={20} color="#15803d" /> 📅 Farm-Specific Upcoming Visit Schedule
-            </h2>
-            <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
-              Superadmin tracking of farm-specific crop visit schedules across all company teams (Showing {displaySchedules.length} schedules)
-            </span>
-          </div>
-
-          <Link
-            to="/admin/farmers"
-            className="btn btn-secondary"
-            style={{ borderRadius: '20px', padding: '6px 16px', fontSize: '0.8rem', fontWeight: 700, textDecoration: 'none', background: '#f8fafc', border: '1.5px solid #cbd5e1' }}
-          >
-            View All Farms
-          </Link>
-        </div>
-
-        {/* User-Friendly Smooth Vertical Scroll Container with Sticky Headers */}
-        <div className="custom-scrollbar" style={{ maxHeight: '340px', overflowY: 'auto', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
-              <tr style={{ borderBottom: '1.5px solid #e2e8f0', color: '#475569', fontWeight: 800 }}>
-                <th style={{ padding: '12px 20px', background: '#f8fafc' }}>Farmer &amp; Village</th>
-                <th style={{ padding: '12px 20px', background: '#f8fafc' }}>Farm / Crop</th>
-                <th style={{ padding: '12px 20px', textAlign: 'center', background: '#f8fafc' }}>Land Area</th>
-                <th style={{ padding: '12px 20px', background: '#f8fafc' }}>Assigned Surveyor</th>
-                <th style={{ padding: '12px 20px', textAlign: 'center', background: '#f8fafc' }}>Last Visit Date</th>
-                <th style={{ padding: '12px 20px', textAlign: 'center', background: '#f8fafc' }}>Next Scheduled Visit</th>
-                <th style={{ padding: '12px 20px', textAlign: 'center', background: '#f8fafc' }}>Schedule Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displaySchedules.map((sched, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#fcfdfd' }}>
-                  <td style={{ padding: '12px 20px' }}>
-                    <div style={{ fontWeight: 800, color: '#0f172a' }}>{sched.farmer_name}</div>
-                    <div style={{ fontSize: '0.76rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <MapPin size={12} /> {sched.village} | 📞 {sched.mobile}
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 20px', fontWeight: 700, color: '#15803d' }}>
-                    🌾 {sched.crop}
-                  </td>
-                  <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 700, color: '#475569' }}>
-                    {sched.land_area}
-                  </td>
-                  <td style={{ padding: '12px 20px', fontWeight: 700, color: '#334155' }}>
-                    👤 {sched.surveyor_name}
-                  </td>
-                  <td style={{ padding: '12px 20px', textAlign: 'center', color: '#64748b', fontSize: '0.82rem' }}>
-                    {sched.last_visit_date}
-                  </td>
-                  <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 800, color: '#0d3c26' }}>
-                    📅 {sched.next_visit_date}
-                  </td>
-                  <td style={{ padding: '12px 20px', textAlign: 'center' }}>
-                    <span
-                      style={{
-                        padding: '4px 12px',
-                        borderRadius: '20px',
-                        fontSize: '0.78rem',
-                        fontWeight: 800,
-                        background: sched.status === 'Overdue' ? '#fef2f2' : (sched.status === 'Due Today' ? '#fefce8' : '#f0fdf4'),
-                        color: sched.status === 'Overdue' ? '#dc2626' : (sched.status === 'Due Today' ? '#ca8a04' : '#15803d'),
-                        border: sched.status === 'Overdue' ? '1px solid #fecaca' : '1px solid #bbf7d0',
-                      }}
-                    >
-                      {sched.status_badge}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* SECTION 4: PERFORMANCE LEADERBOARD (WITH USER-FRIENDLY STICKY SCROLLER) */}
-      <div style={{ background: '#ffffff', borderRadius: '24px', border: '1.5px solid #e2e8f0', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        {/* Table Header Controls */}
-        <div style={{ padding: '20px 24px', borderBottom: '1.5px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', background: '#ffffff' }}>
-          <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0d3c26', margin: 0 }}>
-              🏆 Company Admin Performance Leaderboard
-            </h2>
-            <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>
-              Ranked by company visit submissions &amp; team efficiency
-              {cardFilter !== 'all' && (
-                <span style={{ marginLeft: '8px', color: '#dc2626', fontWeight: 800 }}>
-                  (Filtered by: {cardFilter === 'delays' ? '⚠️ Overdue Companies Only' : '🟢 Active Only'})
-                </span>
-              )}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{ position: 'relative', width: '260px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-              <input
-                type="text"
-                placeholder="Search admin name or mobile..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 14px 9px 38px',
-                  borderRadius: '30px',
-                  border: '1.5px solid #cbd5e1',
-                  fontSize: '0.84rem',
-                  outline: 'none',
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Scrollable Container with Sticky Headers */}
-        <div className="custom-scrollbar" style={{ maxHeight: '380px', overflowY: 'auto', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
-              <tr style={{ borderBottom: '1.5px solid #e2e8f0', color: '#475569', fontWeight: 800 }}>
-                <th style={{ padding: '14px 20px', width: '70px', background: '#f8fafc' }}>Rank</th>
-                <th style={{ padding: '14px 20px', background: '#f8fafc' }}>Company Admin</th>
-                <th style={{ padding: '14px 20px', textAlign: 'center', background: '#f8fafc' }}>Field Staff</th>
-                <th style={{ padding: '14px 20px', textAlign: 'center', background: '#f8fafc' }}>Managed Farmers</th>
-                <th style={{ padding: '14px 20px', textAlign: 'center', background: '#f8fafc' }}>Completed Visits</th>
-                <th style={{ padding: '14px 20px', textAlign: 'center', background: '#f8fafc' }}>Team Delays ⚠️</th>
-                <th style={{ padding: '14px 20px', textAlign: 'center', background: '#f8fafc' }}>GPS Accuracy %</th>
-                <th style={{ padding: '14px 20px', textAlign: 'center', background: '#f8fafc' }}>Performance Rating</th>
-                <th style={{ padding: '14px 20px', textAlign: 'center', background: '#f8fafc' }}>Status</th>
-                <th style={{ padding: '14px 20px', textAlign: 'right', background: '#f8fafc' }}>Actions</th>
+        <div className="custom-scrollbar" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.86rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1.5px solid #e2e8f0', color: '#64748b', fontWeight: 800, background: '#f8fafc', textTransform: 'uppercase', fontSize: '0.76rem', letterSpacing: '0.5px' }}>
+                <th style={{ padding: '12px 20px' }}>Admin</th>
+                <th style={{ padding: '12px 20px', textAlign: 'center' }}>Surveyors</th>
+                <th style={{ padding: '12px 20px', textAlign: 'center' }}>Farmers</th>
+                <th style={{ padding: '12px 20px', textAlign: 'center' }}>Visits</th>
+                <th style={{ padding: '12px 20px', textAlign: 'center' }}>Delayed ⚠️</th>
+                <th style={{ padding: '12px 20px', textAlign: 'center' }}>GPS Accuracy</th>
+                <th style={{ padding: '12px 20px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: 600 }}>
-                    <RefreshCw size={24} className="spin" style={{ margin: '0 auto 10px auto', display: 'block' }} />
-                    Loading company admin performance records...
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                    Loading company admin leaderboard...
                   </td>
                 </tr>
               ) : filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontWeight: 600 }}>
-                    No company admins found matching criteria.
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                    No company admins found.
                   </td>
                 </tr>
               ) : (
-                filteredData.map((admin, idx) => {
-                  const rank = idx + 1;
-                  const rankBadge = rank === 1 ? '🥇 #1' : rank === 2 ? '🥈 #2' : rank === 3 ? '🥉 #3' : `#${rank}`;
-                  const hasDelays = admin.delayed_visits > 0;
-
-                  return (
-                    <tr
-                      key={admin.id}
-                      style={{
-                        borderBottom: '1px solid #f1f5f9',
-                        transition: 'all 0.15s ease',
-                        background: hasDelays ? '#fffdfd' : '#ffffff',
-                      }}
-                    >
-                      {/* Rank */}
-                      <td style={{ padding: '14px 20px', fontWeight: 800, color: rank <= 3 ? '#b45309' : '#64748b' }}>
-                        <span
+                filteredData.map((admin, idx) => (
+                  <tr
+                    key={admin.id || idx}
+                    style={{
+                      borderBottom: '1px solid #f1f5f9',
+                      background: idx % 2 === 0 ? '#ffffff' : '#fcfdfd',
+                    }}
+                  >
+                    <td style={{ padding: '12px 20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div
                           style={{
-                            display: 'inline-block',
-                            padding: '4px 10px',
-                            borderRadius: '20px',
-                            background: rank === 1 ? '#fef3c7' : rank === 2 ? '#f1f5f9' : rank === 3 ? '#ffedd5' : '#f8fafc',
-                            border: rank <= 3 ? '1px solid #fde68a' : '1px solid #e2e8f0',
-                            fontSize: '0.82rem',
-                          }}
-                        >
-                          {rankBadge}
-                        </span>
-                      </td>
-
-                      {/* Admin Info */}
-                      <td style={{ padding: '14px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div
-                            style={{
-                              width: '38px',
-                              height: '38px',
-                              borderRadius: '50%',
-                              background: '#15803d',
-                              color: '#ffffff',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 800,
-                              fontSize: '0.92rem',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {admin.name ? admin.name.charAt(0).toUpperCase() : 'A'}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.92rem' }}>
-                              {admin.name}
-                            </div>
-                            <div style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 500 }}>
-                              📞 {admin.mobile} | @{admin.username}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Managed Field Staff */}
-                      <td style={{ padding: '14px 20px', textAlign: 'center', fontWeight: 800, color: '#0d3c26' }}>
-                        <span style={{ background: '#f0fdf4', color: '#15803d', padding: '4px 10px', borderRadius: '12px' }}>
-                          👥 {admin.surveyors_count} Surveyors
-                        </span>
-                      </td>
-
-                      {/* Managed Farmers */}
-                      <td style={{ padding: '14px 20px', textAlign: 'center', fontWeight: 800, color: '#334155' }}>
-                        {admin.assigned_farmers}
-                      </td>
-
-                      {/* Completed Visits */}
-                      <td style={{ padding: '14px 20px', textAlign: 'center', fontWeight: 800, color: '#15803d' }}>
-                        {admin.completed_visits}
-                      </td>
-
-                      {/* Delayed Visits Warning Badge */}
-                      <td style={{ padding: '14px 20px', textAlign: 'center' }}>
-                        {admin.delayed_visits > 0 ? (
-                          <span
-                            style={{
-                              background: '#fef2f2',
-                              color: '#dc2626',
-                              border: '1.5px solid #fecaca',
-                              padding: '4px 12px',
-                              borderRadius: '20px',
-                              fontWeight: 800,
-                              fontSize: '0.8rem',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                          >
-                            ⚠️ {admin.delayed_visits} Delays
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              background: '#f0fdf4',
-                              color: '#16a34a',
-                              border: '1px solid #bbf7d0',
-                              padding: '4px 10px',
-                              borderRadius: '20px',
-                              fontWeight: 700,
-                              fontSize: '0.78rem',
-                            }}
-                          >
-                            ✔ On Track
-                          </span>
-                        )}
-                      </td>
-
-                      {/* GPS Accuracy */}
-                      <td style={{ padding: '14px 20px', textAlign: 'center' }}>
-                        <span
-                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            background: '#0d3c26',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             fontWeight: 800,
-                            color: '#047857',
-                            background: '#ecfdf5',
-                            padding: '4px 10px',
-                            borderRadius: '12px',
-                            fontSize: '0.82rem',
+                            fontSize: '0.88rem',
+                            flexShrink: 0,
                           }}
                         >
-                          🛡️ {admin.gps_accuracy}
-                        </span>
-                      </td>
-
-                      {/* Performance Rating Stars */}
-                      <td style={{ padding: '14px 20px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#eab308' }}>
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              size={14}
-                              fill={star <= Math.floor(admin.rating || 5) ? '#eab308' : 'none'}
-                              color="#eab308"
-                            />
-                          ))}
-                          <span style={{ fontSize: '0.76rem', color: '#475569', fontWeight: 700, marginLeft: '4px' }}>
-                            ({admin.rating})
-                          </span>
+                          {admin.name?.charAt(0)?.toUpperCase() || 'A'}
                         </div>
-                      </td>
+                        <div>
+                          <div style={{ fontWeight: 800, color: '#0f172a' }}>{admin.name}</div>
+                          <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                            @{admin.username}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
 
-                      {/* Status */}
-                      <td style={{ padding: '14px 20px', textAlign: 'center' }}>
+                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 800, color: '#0d3c26' }}>
+                      {admin.active_surveyors || 0}
+                    </td>
+
+                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 800, color: '#15803d' }}>
+                      {admin.assigned_farmers || 0}
+                    </td>
+
+                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 800, color: '#0284c7' }}>
+                      {admin.completed_visits || 0}
+                    </td>
+
+                    <td style={{ padding: '12px 20px', textAlign: 'center' }}>
+                      {admin.delayed_visits > 0 ? (
                         <span
                           style={{
-                            padding: '4px 10px',
-                            borderRadius: '20px',
+                            background: '#fef2f2',
+                            color: '#dc2626',
+                            padding: '3px 10px',
+                            borderRadius: '16px',
+                            fontWeight: 800,
                             fontSize: '0.76rem',
-                            fontWeight: 800,
-                            background: admin.delayed_visits > 5 ? '#fef2f2' : '#f0fdf4',
-                            color: admin.delayed_visits > 5 ? '#dc2626' : '#15803d',
-                            border: admin.delayed_visits > 5 ? '1px solid #fecaca' : '1px solid #bbf7d0',
+                            border: '1px solid #fecaca',
                           }}
                         >
-                          {admin.delayed_visits > 5 ? '🔴 Action Needed' : '🟢 Active Admin'}
+                          {admin.delayed_visits} Overdue
                         </span>
-                      </td>
+                      ) : (
+                        <span
+                          style={{
+                            background: '#f0fdf4',
+                            color: '#15803d',
+                            padding: '3px 10px',
+                            borderRadius: '16px',
+                            fontWeight: 700,
+                            fontSize: '0.76rem',
+                            border: '1px solid #bbf7d0',
+                          }}
+                        >
+                          On Track
+                        </span>
+                      )}
+                    </td>
 
-                      {/* Actions */}
-                      <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                          <Link
-                            to={`/admin/admins?search=${encodeURIComponent(admin.username)}`}
-                            className="btn btn-secondary"
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '12px',
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              textDecoration: 'none',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                          >
-                            <Eye size={13} /> Manage
-                          </Link>
+                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 700, color: '#047857' }}>
+                      {admin.gps_accuracy || '98.5%'}
+                    </td>
 
-                          <button
-                            type="button"
-                            onClick={() => handleSendReminder(admin.id, admin.name)}
-                            disabled={alertSentId === admin.id}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '12px',
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              border: '1px solid #fed7aa',
-                              background: '#fff7ed',
-                              color: '#c2410c',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                            }}
-                          >
-                            <Bell size={13} /> Alert
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                    <td style={{ padding: '12px 20px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <Link
+                          to={`/admin/company-admins`}
+                          style={{
+                            padding: '5px 14px',
+                            borderRadius: '16px',
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            border: '1px solid #cbd5e1',
+                            background: '#ffffff',
+                            color: '#0f172a',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Manage
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleSendReminder(admin.id, admin.name)}
+                          disabled={alertSentId === admin.id}
+                          style={{
+                            padding: '5px 14px',
+                            borderRadius: '16px',
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            border: '1px solid #fed7aa',
+                            background: '#fff7ed',
+                            color: '#c2410c',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Alert
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

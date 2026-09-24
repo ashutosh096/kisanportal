@@ -27,7 +27,7 @@ const generateFarmerId = async () => {
 
 // ─── GET /api/farmers ─── Paginated, admin-scoped farmer list
 router.get('/', authenticateToken, async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+  const limit = Math.min(parseInt(req.query.limit) || 50, 2000);
   const offset = parseInt(req.query.offset) || 0;
   const search = req.query.search || '';
 
@@ -140,7 +140,7 @@ router.get('/:farmer_id', authenticateToken, async (req, res) => {
 });
 
 // ─── POST /api/farmers ─── Register new farmer (idempotent via client_generated_id)
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'surveyor', 'superadmin'), async (req, res) => {
   const io = req.app.get('io');
   const {
     name, contact, location, gps_latitude, gps_longitude,

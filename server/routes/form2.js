@@ -121,7 +121,7 @@ router.get('/surveyor/:surveyor_id/stats', authenticateToken, requireRole('admin
   }
 });
 
-router.post('/2a', authenticateToken, async (req, res) => {
+router.post('/2a', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'surveyor', 'superadmin'), async (req, res) => {
   const {
     farmer_id, client_generated_id, season_name, total_land, ownership,
     soil_testing, water_testing, cow_dung_used, cow_dung_qty,
@@ -352,7 +352,7 @@ router.get('/2b/:farmer_id', authenticateToken, async (req, res) => {
 });
 
 // ─── POST /api/form2/2b ─── Submit a farm visit (idempotent)
-router.post('/2b', authenticateToken, async (req, res) => {
+router.post('/2b', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'surveyor', 'superadmin'), async (req, res) => {
   const {
     farmer_id, form2a_id, client_generated_id,
     visit_date, gps_location, plowing, plowing_count,
@@ -507,8 +507,8 @@ router.get('/upcoming-schedules', authenticateToken, async (req, res) => {
   try {
     let sql = `
       SELECT 
-        f.farmer_id, f.name as farmer_name, f.mobile, f.village, f.district, f.land_area, f.surveyor_name, f.surveyor_id, f.crop,
-        f2a.sowing_date, f2a.crops,
+        f.farmer_id, f.name as farmer_name, f.contact as mobile, f.location as village, f.location, f.total_land as land_area, f.surveyor_name, f.surveyor_id,
+        f2a.crop, f2a.area, f2a.sowing_date,
         v.last_visit_date
       FROM farmers f
       LEFT JOIN form2a_seasonal f2a ON f.farmer_id = f2a.farmer_id AND f2a.is_active = true

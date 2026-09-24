@@ -248,6 +248,43 @@ router.get('/admins-list', authenticateToken, requireRole('superadmin'), async (
   }
 });
 
+// ─── GET /api/auth/admin/:admin_id/stats ─── Company Admin Profile stats for SuperAdmin view
+router.get('/admin/:admin_id/stats', authenticateToken, requireRole('superadmin'), async (req, res) => {
+  const { admin_id } = req.params;
+  const todayStr = new Date().toISOString().split('T')[0];
+  try {
+    const adminUser = await query(`SELECT id, name, username, mobile, status, role, created_at FROM users WHERE id = ?`, [admin_id]);
+    if (adminUser.length === 0) return res.status(404).json({ success: false, message: 'Admin not found' });
+
+    const [totalReg, todayReg, totalSurveyors, todayVisits, recentFarmers, recentVisits] = await Promise.all([
+      query(`SELECT COUNT(*) as count FROM farmers WHERE admin_id = ?`, [admin_id]),
+      query(`SELECT COUNT(*) as count FROM farmers WHERE admin_id = ? AND created_at::text LIKE ?`, [admin_id, `${todayStr}%`]),
+      query(`SELECT COUNT(*) as count FROM users WHERE admin_id = ? AND role = 'surveyor'`, [admin_id]),
+      query(`SELECT COUNT(*) as count FROM form2b_visits WHERE admin_id = ? AND visit_date::text LIKE ?`, [admin_id, `${todayStr}%`]),
+      query(`SELECT farmer_id, name, contact, location, created_at FROM farmers WHERE admin_id = ? ORDER BY created_at DESC LIMIT 5`, [admin_id]),
+      query(`SELECT v.farmer_id, v.visit_date, v.gps_location, f.name as farmer_name, u.name as surveyor_name FROM form2b_visits v LEFT JOIN farmers f ON f.farmer_id = v.farmer_id LEFT JOIN users u ON u.id = v.surveyor_id WHERE v.admin_id = ? OR f.admin_id = ? ORDER BY v.created_at DESC LIMIT 5`, [admin_id, admin_id]),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        admin: adminUser[0],
+        stats: {
+          totalReg: parseInt(totalReg[0]?.count || 0, 10),
+          todayReg: parseInt(todayReg[0]?.count || 0, 10),
+          totalSurveyors: parseInt(totalSurveyors[0]?.count || 0, 10),
+          todayVisits: parseInt(todayVisits[0]?.count || 0, 10),
+        },
+        recentFarmers,
+        recentVisits,
+      },
+    });
+  } catch (err) {
+    console.error('Company Admin stats error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch admin stats' });
+  }
+});
+
 // ─── GET /api/auth/admin-performance ─── Company Admin Performance & Delay Metrics for Superadmin
 router.get('/admin-performance', authenticateToken, requireRole('admin', 'superadmin'), async (req, res) => {
   try {

@@ -1,7 +1,20 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { ArrowLeft, User, FileSpreadsheet, LayoutGrid, Trash2, AlertTriangle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Trash2,
+  AlertTriangle,
+  Calendar,
+  Download,
+  RotateCcw,
+  CheckCircle2,
+  X,
+  Eye,
+  FileSpreadsheet,
+  Table,
+  LayoutGrid,
+} from 'lucide-react';
 import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 
 const FarmerProfile = () => {
@@ -12,18 +25,30 @@ const FarmerProfile = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState('matrix');
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteMsg, setDeleteMsg] = useState('');
+  const [activeTab, setActiveTab] = useState('form1'); // 'form1', 'form2a', 'form2b'
 
+  // Visit logbook filtering & view options
+  const [visitViewMode, setVisitViewMode] = useState('matrix'); // 'matrix' (Excel matrix) or 'table' (standard list)
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [selectedVisitModal, setSelectedVisitModal] = useState(null);
+
+  // Form 2A state
   const [form2aData, setForm2aData] = useState(null);
   const [form2aHistory, setForm2aHistory] = useState([]);
   const [resetting2a, setResetting2a] = useState(false);
   const [resetMsg, setResetMsg] = useState('');
 
-  const isAdminOrSuper = user?.role === 'admin' || user?.role === 'coadmin' || user?.role === 'superadmin';
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState('');
+
+  const isStaff = ['admin', 'coadmin', 'superadmin', 'manager', 'viewer'].includes(user?.role);
   const isSuperAdmin = user?.role === 'superadmin' || user?.username === 'superadmin';
+  const isAdminOrSuper = user?.role === 'admin' || user?.role === 'coadmin' || user?.role === 'superadmin';
+  const basePath = isStaff ? '/admin' : '/surveyor';
 
   const fetchForm2aInfo = async () => {
     try {
@@ -35,7 +60,9 @@ const FarmerProfile = () => {
       const dataHist = await resHist.json();
       if (data2a.success) setForm2aData(data2a.data);
       if (dataHist.success) setForm2aHistory(dataHist.data || []);
-    } catch (e) { console.error('Form2a fetch err', e); }
+    } catch (e) {
+      console.error('Form2a fetch err', e);
+    }
   };
 
   useEffect(() => {
@@ -46,7 +73,7 @@ const FarmerProfile = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'प्रोफ़ाइल लोड करने में विफल');
+        if (!res.ok) throw new Error(json.error || 'Failed to load profile');
         setData(json);
       } catch (err) {
         setError(err.message);
@@ -60,7 +87,12 @@ const FarmerProfile = () => {
   }, [farmer_id, token]);
 
   const handleResetForm2a = async () => {
-    if (!window.confirm('🔄 Reset Form 2A for this farmer?\n\nThis will mark the current Form 2A as inactive and allow filing a new Form 2A. Past Form 2B visit logs will be preserved in history.')) return;
+    if (
+      !window.confirm(
+        '🔄 Reset Form 2A for this farmer?\n\nThis will mark the current Form 2A as inactive and allow filing a new Form 2A. Past Form 2B visit logs will be preserved.'
+      )
+    )
+      return;
     setResetting2a(true);
     setResetMsg('');
     try {
@@ -94,10 +126,9 @@ const FarmerProfile = () => {
         setDeleteMsg(json.message);
         setShowDeleteModal(false);
         if (mode === 'full') {
-          setTimeout(() => navigate('/admin'), 1800);
+          setTimeout(() => navigate(basePath), 1500);
         } else {
-          // Refresh page to show updated visit count
-          setTimeout(() => window.location.reload(), 1200);
+          setTimeout(() => window.location.reload(), 1000);
         }
       } else {
         setDeleteMsg('❌ Error: ' + (json.error || 'Delete failed'));
@@ -109,690 +140,1556 @@ const FarmerProfile = () => {
     }
   };
 
+  const farmer = data?.farmer || data?.data || data || {};
+  const allVisits = Array.isArray(data?.visits)
+    ? data.visits
+    : Array.isArray(data?.data?.last3Visits)
+    ? data.data.last3Visits
+    : [];
+
+  // Filter visits by date if date range active
+  const filteredVisits = useMemo(() => {
+    return allVisits.filter((v) => {
+      if (!startDate && !endDate) return true;
+      const vDateStr = v.visit_date ? String(v.visit_date).split('T')[0] : '';
+      if (!vDateStr) return true;
+      if (startDate && vDateStr < startDate) return false;
+      if (endDate && vDateStr > endDate) return false;
+      return true;
+    });
+  }, [allVisits, startDate, endDate]);
+
+  // Export farmer complete PDF profile
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleExportPDF = async () => {
+    const fid = farmer.farmer_id || farmer_id;
+    if (!fid) return;
+    setDownloadingPdf(true);
+    try {
+      const res = await fetch(`/api/export/farmer/${fid}/pdf?token=${token}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error('Failed to generate farmer PDF');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Farmer_Profile_${fid}_${farmer.name || 'Report'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Failed to download PDF report');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  // Export visit logbook to CSV
+  const handleExportCSV = () => {
+    if (!filteredVisits || filteredVisits.length === 0) {
+      alert('No visit logs to export.');
+      return;
+    }
+    const headers = [
+      'Date',
+      'Crop',
+      'Ploughing',
+      'Ploughing Times',
+      'Pesticide',
+      'Pesticide Qty',
+      'Pesticide Brand',
+      'Supplement',
+      'Supplement Qty',
+      'Supplement Brand',
+      'Fertilizer',
+      'Fertilizer Qty',
+      'Fertilizer Brand',
+      'Irrigation',
+      'Irrigation Source',
+      'Irrigation Type',
+      'Weeding',
+      'Surveyor',
+    ];
+
+    const rows = filteredVisits.map((v) => [
+      formatDateDDMMYYYY(v.visit_date),
+      v.crop_name || v.crop || farmer.crop || 'Paddy / Rice',
+      v.plowing === 'yes' ? 'Yes' : 'No',
+      v.plowing_count || '-',
+      v.pesticide_used === 'yes' ? 'Yes' : 'No',
+      v.pesticide_qty || '-',
+      v.pesticide_brand || '-',
+      v.supplement_used === 'yes' ? 'Yes' : 'No',
+      v.supplement_qty || '-',
+      v.supplement_brand || '-',
+      v.fertilizer_used === 'yes' ? 'Yes' : 'No',
+      v.fertilizer_qty || '-',
+      v.fertilizer_brand || '-',
+      v.irrigation_done === 'yes' ? 'Yes' : 'No',
+      v.irrigation_source || '-',
+      v.irrigation_type || '-',
+      v.weeding_done === 'yes' ? 'Yes' : 'No',
+      v.surveyor_name || '-',
+    ]);
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((e) => e.map((val) => `"${val}"`).join(','))].join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Farmer_${farmer.farmer_id || farmer_id}_Visits.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
-      <div className="main-content">
-        <p style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Loading farmer profile...</p>
+      <div style={{ padding: '60px 20px', color: '#64748b', textAlign: 'center' }}>
+        Loading farmer profile...
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="main-content">
-        <div className="alert alert-danger">{error || 'Farmer profile not found'}</div>
-        <Link to="/admin" className="btn btn-secondary btn-inline">
-          <ArrowLeft size={16} /> Back to Dashboard
+      <div style={{ padding: '40px 20px' }}>
+        <div style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
+          {error || 'Farmer profile not found'}
+        </div>
+        <Link
+          to={basePath}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: '#ffffff',
+            border: '1.5px solid #cbd5e1',
+            color: '#0f172a',
+            padding: '10px 18px',
+            borderRadius: '10px',
+            textDecoration: 'none',
+            fontWeight: 700,
+          }}
+        >
+          <ArrowLeft size={16} /> Back to dashboard
         </Link>
       </div>
     );
   }
 
-  const farmer = data?.farmer || data?.data || data || {};
-  const visits = Array.isArray(data?.visits) ? data.visits : (Array.isArray(data?.data?.last3Visits) ? data.data.last3Visits : []);
-
-  // Exact 20 activity rows matching user Excel template screenshot
-  const excelMatrixRows = [
-    { id: 0, label: 'Selected Crop (फसल)', key: 'crop_name', getValue: (v) => v.crop_name || v.crop || '-' },
-    { id: 1, label: 'Ploughing (Yes/No)', key: 'plowing', getValue: (v) => (v.plowing === 'yes' ? 'Yes' : 'No') },
-    { id: 2, label: 'No. Of ploughing', key: 'plowing_count', getValue: (v) => (v.plowing === 'yes' ? `${v.plowing_count || 1} times` : '-') },
-    { id: 3, label: 'Pesticide (yes/no)', key: 'pesticide_used', getValue: (v) => (v.pesticide_used === 'yes' ? 'Yes' : 'No') },
-    { id: 4, label: 'Pesticide Quantity', key: 'pesticide_qty', getValue: (v) => v.pesticide_qty || '-' },
-    { id: 5, label: 'Pesticide Brand', key: 'pesticide_brand', getValue: (v) => v.pesticide_brand || '-' },
-    { id: 6, label: 'Supplement (Yes/No)', key: 'supplement_used', getValue: (v) => (v.supplement_used === 'yes' ? 'Yes' : 'No') },
-    { id: 7, label: 'Supplement Quantity', key: 'supplement_qty', getValue: (v) => v.supplement_qty || '-' },
-    { id: 8, label: 'Supplement Brand', key: 'supplement_brand', getValue: (v) => v.supplement_brand || '-' },
-    { id: 9, label: 'Fertilizer (Yes/No)', key: 'fertilizer_used', getValue: (v) => (v.fertilizer_used === 'yes' ? 'Yes' : 'No') },
-    { id: 10, label: 'Fertilizer Quantity', key: 'fertilizer_qty', getValue: (v) => v.fertilizer_qty || '-' },
-    { id: 11, label: 'Fertilizer Brand', key: 'fertilizer_brand', getValue: (v) => v.fertilizer_brand || '-' },
-    { id: 12, label: 'Irrigation (Yes/No)', key: 'irrigation_done', getValue: (v) => (v.irrigation_done === 'yes' ? 'Yes' : 'No') },
-    { id: 13, label: 'Irrigation Source (Tubewell/Canal)', key: 'irrigation_source', getValue: (v) => v.irrigation_source || '-' },
-    { id: 14, label: 'Irrigation type (sprinkle/Flood)', key: 'irrigation_type', getValue: (v) => v.irrigation_type || '-' },
-    { id: 15, label: 'Irrigation Depth', key: 'irrigation_depth', getValue: (v) => v.irrigation_depth || '-' },
-    { id: 16, label: 'Weeding', key: 'weeding_done', getValue: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No') },
-    { id: 17, label: 'Additional Activities', key: 'additional_activities', getValue: (v) => v.additional_activities || '-' },
-    { id: 18, label: 'Data Collection Date', key: 'visit_date', getValue: (v) => formatDateDDMMYYYY(v.visit_date) },
-  ];
+  const initialLetter = farmer.name ? farmer.name.charAt(0).toUpperCase() : 'F';
+  const subtitleLocation = farmer.location || farmer.village || farmer.address || 'Kanpur Nagar, UP';
+  const regDateFormatted = formatDateDDMMYYYY(farmer.date || farmer.created_at);
 
   return (
-    <div className="main-content" style={{ paddingBottom: '40px' }}>
-      <div style={{ marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <Link to="/admin" className="btn btn-secondary btn-inline" style={{ fontSize: '0.9rem', borderRadius: '30px' }}>
-          <ArrowLeft size={16} /> Back to Admin Dashboard
-        </Link>
-        {isSuperAdmin && (
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 18px',
-              borderRadius: '30px',
-              background: '#fef2f2',
-              color: '#dc2626',
-              border: '1.5px solid #fecaca',
-              fontWeight: 800,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-            }}
-          >
-            <Trash2 size={15} /> Delete Farmer
-          </button>
-        )}
-        {deleteMsg && (
-          <span style={{ fontSize: '0.85rem', color: deleteMsg.startsWith('❌') ? '#dc2626' : '#15803d', fontWeight: 700 }}>
-            {deleteMsg}
-          </span>
-        )}
-      </div>
-
-      {/* Header Profile Summary Card */}
+    <div
+      style={{
+        padding: '10px 4px 60px',
+        color: '#0f172a',
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      {/* ─────────────────────────────────────────────────────────────
+          1. TOP ACTION BAR (Back button + Delete farmer button)
+         ───────────────────────────────────────────────────────────── */}
       <div
         style={{
-          background: '#ffffff',
-          borderRadius: '24px',
-          padding: '24px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.03)',
-          marginBottom: '24px',
-          borderLeft: '6px solid #0d3c26',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {farmer.photo_url ? (
-              <img
-                src={farmer.photo_url}
-                alt={farmer.name}
-                style={{
-                  width: '60px',
-                  height: '60px',
-                  minWidth: '60px',
-                  minHeight: '60px',
-                  maxWidth: '60px',
-                  maxHeight: '60px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  border: '3px solid #15803d',
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
-                  flexShrink: 0,
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: '60px',
-                  height: '60px',
-                  minWidth: '60px',
-                  minHeight: '60px',
-                  maxWidth: '60px',
-                  maxHeight: '60px',
-                  borderRadius: '50%',
-                  background: '#0d3c26',
-                  color: '#ffffff',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: '1.5rem',
-                  lineHeight: 1,
-                  flexShrink: 0,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
-                }}
-              >
-                {farmer.name ? farmer.name.charAt(0).toUpperCase() : 'F'}
-              </div>
-            )}
-            <div>
-              <h1 style={{ color: '#0d3c26', margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 800 }}>
-                {farmer.name}
-              </h1>
-              <div style={{ fontSize: '0.98rem', fontWeight: 700, color: '#64748b', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                <span>ID: <strong style={{ color: '#0d3c26' }}>{farmer.farmer_id}</strong></span>
-                <span>📞 <strong style={{ color: '#0f172a' }}>{farmer.contact}</strong></span>
-                <span>📍 <strong style={{ color: '#0f172a' }}>{farmer.location}</strong></span>
-              </div>
-            </div>
-          </div>
-          <span
-            style={{
-              background: '#dcfce7',
-              color: '#15803d',
-              padding: '6px 16px',
-              borderRadius: '30px',
-              fontWeight: 800,
-              fontSize: '0.85rem',
-            }}
-          >
-            Reg Date: {formatDateDDMMYYYY(farmer.date)}
-          </span>
-        </div>
-
-        {/* Baseline Form 1 Information Cards Grid */}
-        <div style={{ marginTop: '20px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1.5px solid #bbf7d0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', borderBottom: '1.5px solid #cbd5e1', paddingBottom: '8px' }}>
-            <h3 style={{ color: '#0d3c26', fontSize: '1.05rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📋 Form 1: Farmer Baseline Registration Details (फॉर्म 1: किसान पंजीकरण विवरण)
-            </h3>
-            <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 800 }}>
-              Form 1 Verified
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', fontSize: '0.88rem' }}>
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Farmer Name / किसान का नाम</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>{farmer.name || 'N/A'}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Farmer System ID / किसान आईडी</span>
-              <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>{farmer.farmer_id || 'N/A'}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Contact Number / संपर्क नंबर</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📞 {farmer.contact || 'N/A'}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Village & Address / गांव का नाम</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📍 {farmer.location || 'N/A'}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Total Land Holding / कुल भूमि</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>🌾 {farmer.total_land || 'N/A'}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Land Ownership / स्वामित्व स्थिति</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>🏷️ {farmer.ownership || 'N/A'}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>GPS Coordinates / जीपीएस लोकेशन</span>
-              <strong style={{ color: '#15803d', fontSize: '0.95rem' }}>🌐 {farmer.gps_location || (farmer.gps_latitude ? `${farmer.gps_latitude}, ${farmer.gps_longitude}` : 'Not Recorded')}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Registered By Surveyor / सर्वेक्षक</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>👤 {farmer.surveyor_name || 'System Admin'}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Assigned Admin / कंपनी एडमिन</span>
-              <strong style={{ color: '#0d3c26', fontSize: '0.95rem' }}>🏢 {farmer.admin_name || 'System Admin'}</strong>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 700, display: 'block' }}>Registration Date / पंजीकरण तिथि</span>
-              <strong style={{ color: '#0f172a', fontSize: '0.95rem' }}>📅 {formatDateDDMMYYYY(farmer.date)}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Form 2A (Seasonal Setup) Card & Reset Button */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '24px',
-          padding: '24px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.03)',
-          marginBottom: '24px',
-          borderLeft: '6px solid #15803d',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0d3c26', margin: 0 }}>
-              🌾 Form 2A: Active Seasonal &amp; Crop Setup
-            </h2>
-            <p style={{ color: '#64748b', fontSize: '0.84rem', margin: '2px 0 0 0' }}>
-              Current season parameters for farm management
-            </p>
-          </div>
-          {isAdminOrSuper && form2aData && (
-            <button
-              onClick={handleResetForm2a}
-              disabled={resetting2a}
-              style={{
-                background: '#fef2f2',
-                color: '#dc2626',
-                border: '1.5px solid #fecaca',
-                borderRadius: '30px',
-                padding: '8px 18px',
-                fontWeight: 800,
-                fontSize: '0.82rem',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              🔄 {resetting2a ? 'Resetting...' : 'Reset Form 2A (ऋतु सेटअप रीसेट करें)'}
-            </button>
-          )}
-        </div>
-
-        {resetMsg && (
-          <div style={{ padding: '10px 14px', borderRadius: '12px', background: resetMsg.startsWith('✅') ? '#f0fdf4' : '#fef2f2', color: resetMsg.startsWith('✅') ? '#15803d' : '#dc2626', fontWeight: 700, fontSize: '0.88rem', marginBottom: '14px' }}>
-            {resetMsg}
-          </div>
-        )}
-
-        {form2aData ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', fontSize: '0.86rem', background: '#f0fdf4', padding: '16px', borderRadius: '16px', border: '1px solid #bbf7d0' }}>
-            <div><strong>Season:</strong> {form2aData.season_name || '-'}</div>
-            <div><strong>Crop Name:</strong> <strong style={{ color: '#15803d' }}>{form2aData.crop || '-'}</strong></div>
-            <div><strong>Selection Reason:</strong> {form2aData.crop_reason || '-'}</div>
-            <div><strong>Crop Variety:</strong> {form2aData.variety || '-'}</div>
-            <div><strong>Land Area:</strong> {form2aData.area || '-'}</div>
-            <div><strong>Sowing Date:</strong> {formatDateDDMMYYYY(form2aData.sowing_date)}</div>
-            <div><strong>Seed Qty/Acre:</strong> {form2aData.seed_qty_per_acre || '-'}</div>
-            <div><strong>Seed Type:</strong> {form2aData.seed_type || '-'}</div>
-            <div><strong>Soil Testing:</strong> {form2aData.soil_testing === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
-            <div><strong>Water Testing:</strong> {form2aData.water_testing === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
-            <div><strong>Cow Dung Manure:</strong> {form2aData.cow_dung_used === 'yes' ? `Yes (${form2aData.cow_dung_qty || 'Used'})` : 'No (नहीं)'}</div>
-            <div><strong>Harvest Date:</strong> {formatDateDDMMYYYY(form2aData.harvest_date)}</div>
-            <div><strong>Expected Yield:</strong> {form2aData.expected_yield || '-'}</div>
-            <div><strong>Expert Advice:</strong> {form2aData.expert_advice === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)'}</div>
-          </div>
-        ) : (
-          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '14px', padding: '14px 18px', color: '#b45309', fontWeight: 700, fontSize: '0.88rem' }}>
-            ⚠️ No active Form 2A found for current season. (किसान का फॉर्म 2A सेटअप लंबित या रीसेट है)
-          </div>
-        )}
-
-        {/* Past Form 2A History Accordion */}
-        {form2aHistory.length > 0 && (
-          <div style={{ marginTop: '16px', borderTop: '1.5px dashed #cbd5e1', paddingTop: '14px' }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.92rem', fontWeight: 800, color: '#475569' }}>
-              📜 Previous Form 2A Records (पुराने रीसेट रिकॉर्ड)
-            </h4>
-            <div style={{ display: 'grid', gap: '8px' }}>
-              {form2aHistory.map((h, i) => (
-                <div key={h.id || i} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', fontSize: '0.82rem' }}>
-                  <div style={{ fontWeight: 800, color: '#64748b', marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Season: {h.season_name} | Crop: {h.crop || '-'}</span>
-                    <span style={{ color: '#94a3b8' }}>Reset on: {h.reset_at ? new Date(h.reset_at).toLocaleDateString('en-IN') : '—'}</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px', color: '#334155' }}>
-                    <div>Area: {h.area || '-'}</div>
-                    <div>Variety: {h.variety || '-'}</div>
-                    <div>Sowing: {formatDateDDMMYYYY(h.sowing_date)}</div>
-                    <div>Yield: {h.expected_yield || '-'}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* VIEW MODE TOGGLE TOOLBAR WRAPPED IN CRISP WHITE FLOATING CARD FOR 100% LEGIBILITY */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '24px',
-          padding: '18px 24px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '20px',
           flexWrap: 'wrap',
           gap: '12px',
-          position: 'relative',
-          zIndex: 2,
         }}
       >
-        <div>
-          <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0d3c26', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileSpreadsheet color="#15803d" size={24} />
-            Farm Management Visit Logbook (खेत प्रबंधन विवरण)
-          </h2>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0', fontWeight: 500 }}>
-            Exact multi-date logbook matching paper and Excel template layout
-          </p>
-        </div>
+        <Link
+          to={basePath}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: '#ffffff',
+            border: '1.5px solid #cbd5e1',
+            color: '#0f172a',
+            padding: '8px 16px',
+            borderRadius: '10px',
+            textDecoration: 'none',
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            transition: 'all 0.15s ease',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#f8fafc';
+            e.currentTarget.style.borderColor = '#94a3b8';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#ffffff';
+            e.currentTarget.style.borderColor = '#cbd5e1';
+          }}
+        >
+          <ArrowLeft size={16} /> Back to dashboard
+        </Link>
 
-        {/* Capsule Toggle Buttons */}
-        <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '30px', padding: '4px' }}>
-          <button
-            type="button"
-            onClick={() => setViewMode('matrix')}
-            style={{
-              background: viewMode === 'matrix' ? '#0d3c26' : 'transparent',
-              color: viewMode === 'matrix' ? '#ffffff' : '#475569',
-              border: 'none',
-              borderRadius: '26px',
-              padding: '8px 18px',
-              fontWeight: 800,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s',
-            }}
-          >
-            <FileSpreadsheet size={16} /> Excel Matrix View
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('cards')}
-            style={{
-              background: viewMode === 'cards' ? '#0d3c26' : 'transparent',
-              color: viewMode === 'cards' ? '#ffffff' : '#475569',
-              border: 'none',
-              borderRadius: '26px',
-              padding: '8px 18px',
-              fontWeight: 800,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s',
-            }}
-          >
-            <LayoutGrid size={16} /> Cards View
-          </button>
-        </div>
-      </div>
-
-      {/* MATRIX / CARDS CONTAINER CARD */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '24px',
-          border: '1px solid #e2e8f0',
-          padding: '24px',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.03)',
-        }}
-      >
-        {visits.length === 0 ? (
-          <p style={{ textAlign: 'center', padding: '36px', color: '#64748b', fontSize: '0.95rem' }}>
-            No periodic farm visit logs recorded for this farmer yet.
-            <br />
-            (इस किसान के लिए अभी तक कोई दौरा सर्वे दर्ज नहीं किया गया है।)
-          </p>
-        ) : viewMode === 'matrix' ? (
-          /* ================= 📊 EXACT EXCEL MATRIX GRID VIEW ================= */
-          <div className="table-responsive" style={{ overflowX: 'auto', border: '1.5px solid #cbd5e1', borderRadius: '12px' }}>
-            <table className="data-table" style={{ fontSize: '0.88rem', borderCollapse: 'collapse', width: '100%' }}>
-              <thead>
-                {/* Excel Title Header Row 1 */}
-                <tr style={{ background: '#0d3c26', color: '#ffffff' }}>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, position: 'sticky', left: 0, background: '#0d3c26', zIndex: 10, borderRight: '2px solid #166534' }}>
-                    A
-                  </th>
-                  <th colSpan={visits.length} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, color: '#86efac' }}>
-                    Farm Management Details — {farmer.name}
-                  </th>
-                </tr>
-
-                {/* Farmer Name Header Row 2 */}
-                <tr style={{ background: '#f8fafc', color: '#0f172a', borderBottom: '2px solid #cbd5e1' }}>
-                  <td style={{ fontWeight: 800, padding: '8px 14px', position: 'sticky', left: 0, background: '#f8fafc', zIndex: 10, borderRight: '2px solid #cbd5e1' }}>
-                    Farmer Name
-                  </td>
-                  <td colSpan={visits.length} style={{ fontWeight: 800, padding: '8px 14px', color: '#0d3c26' }}>
-                    {farmer.name}
-                  </td>
-                </tr>
-
-                {/* Dates Columns Header Row 3 */}
-                <tr style={{ background: '#e2e8f0', color: '#0f172a' }}>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 800, position: 'sticky', left: 0, background: '#e2e8f0', zIndex: 10, borderRight: '2px solid #94a3b8' }}>
-                    Date
-                  </th>
-                  {visits.map((v) => (
-                    <th
-                      key={v.id}
-                      style={{
-                        minWidth: '120px',
-                        padding: '10px 14px',
-                        textAlign: 'center',
-                        fontWeight: 800,
-                        background: '#dcfce7',
-                        color: '#15803d',
-                        borderRight: '1px solid #cbd5e1',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      📅 {formatDateDDMMYYYY(v.visit_date)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {excelMatrixRows.map((row, idx) => {
-                  const isIrrigation = row.key.includes('irrigation');
-                  const isPesticide = row.key.includes('pesticide');
-                  const isFertilizer = row.key.includes('fertilizer');
-                  const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-
-                  return (
-                    <tr key={row.id} style={{ background: rowBg, borderBottom: '1px solid #e2e8f0' }}>
-                      {/* Left Activity Name Cell (Compact, Wrapped, Sticky) */}
-                      <td
-                        style={{
-                          fontWeight: 700,
-                          padding: '8px',
-                          color: '#334155',
-                          position: 'sticky',
-                          left: 0,
-                          background: rowBg,
-                          zIndex: 5,
-                          borderRight: '2px solid #cbd5e1',
-                          width: '120px',
-                          minWidth: '120px',
-                          maxWidth: '120px',
-                          fontSize: '0.76rem',
-                          lineHeight: '1.25',
-                          whiteSpace: 'normal',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {row.label}
-                      </td>
-
-                      {/* Date Columns Values (Big, Bold, 150px Wide, Highly Legible) */}
-                      {visits.map((v) => {
-                        const val = row.getValue(v);
-                        const isHighlight = val !== '-' && val !== 'No';
-
-                        let cellStyle = {
-                          textAlign: 'center',
-                          padding: '10px 12px',
-                          borderRight: '1px solid #e2e8f0',
-                          minWidth: '150px',
-                          fontSize: '0.88rem',
-                          fontWeight: 700,
-                          color: '#0f172a',
-                          whiteSpace: 'normal',
-                          wordBreak: 'break-word',
-                        };
-
-                        if (isHighlight && isIrrigation) {
-                          cellStyle.background = '#f0fdf4';
-                          cellStyle.color = '#15803d';
-                          cellStyle.fontWeight = '800';
-                        } else if (isHighlight && isFertilizer) {
-                          cellStyle.background = '#eff6ff';
-                          cellStyle.color = '#1d4ed8';
-                          cellStyle.fontWeight = '800';
-                        } else if (isHighlight && isPesticide) {
-                          cellStyle.background = '#fefce8';
-                          cellStyle.color = '#b45309';
-                          cellStyle.fontWeight = '800';
-                        }
-
-                        return (
-                          <td key={v.id} style={cellStyle}>
-                            {val}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          /* ================= 📋 TIMELINE CARDS VIEW ================= */
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-            {visits.map((v, i) => (
-              <div
-                key={v.id}
+        {isAdminOrSuper && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {deleteMsg && (
+              <span
                 style={{
-                  background: '#f8fafc',
-                  borderRadius: '16px',
-                  padding: '18px',
-                  border: '1px solid #e2e8f0',
-                  borderLeft: '5px solid #15803d',
+                  fontSize: '0.85rem',
+                  color: deleteMsg.startsWith('❌') ? '#dc2626' : '#15803d',
+                  fontWeight: 700,
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                  <span style={{ fontWeight: 800, color: '#0d3c26' }}>Visit #{visits.length - i}</span>
-                  <span style={{ fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '2px 10px', borderRadius: '12px', fontSize: '0.8rem' }}>
-                    📅 {v.visit_date}
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gap: '6px', fontSize: '0.86rem' }}>
-                  <div><strong>Ploughing:</strong> {v.plowing === 'yes' ? `Yes (${v.plowing_count} times)` : 'No'}</div>
-                  <div><strong>Pesticide:</strong> {v.pesticide_used === 'yes' ? `Yes (${v.pesticide_qty} - ${v.pesticide_brand})` : 'No'}</div>
-                  <div><strong>Supplement:</strong> {v.supplement_used === 'yes' ? `Yes (${v.supplement_qty} - ${v.supplement_brand})` : 'No'}</div>
-                  <div><strong>Fertilizer:</strong> {v.fertilizer_used === 'yes' ? `Yes (${v.fertilizer_qty} - ${v.fertilizer_brand})` : 'No'}</div>
-                  <div><strong>Irrigation:</strong> {v.irrigation_done === 'yes' ? `Yes (${v.irrigation_source}, ${v.irrigation_type}, ${v.irrigation_depth})` : 'No'}</div>
-                  <div><strong>Weeding:</strong> {v.weeding_done === 'yes' ? 'Yes' : 'No'}</div>
-                  <div><strong>Activities:</strong> {v.additional_activities || '-'}</div>
-                  <div><strong>Surveyor:</strong> {v.surveyor_name}</div>
-                </div>
-              </div>
-            ))}
+                {deleteMsg}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#fef2f2',
+                border: '1.5px solid #fecaca',
+                color: '#dc2626',
+                padding: '8px 16px',
+                borderRadius: '10px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#fee2e2';
+                e.currentTarget.style.borderColor = '#f87171';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fef2f2';
+                e.currentTarget.style.borderColor = '#fecaca';
+              }}
+            >
+              <Trash2 size={15} /> Delete farmer
+            </button>
           </div>
         )}
       </div>
 
-      {/* ======== DELETE FARMER CONFIRMATION MODAL (SuperAdmin Only) ======== */}
+      {/* ─────────────────────────────────────────────────────────────
+          2. HEADER PROFILE SUMMARY CARD (Application Light Card)
+         ───────────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          background: '#ffffff',
+          border: '1.5px solid #e2e8f0',
+          borderRadius: '18px',
+          padding: '20px 24px',
+          marginBottom: '24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+          boxShadow: '0 4px 18px rgba(0, 0, 0, 0.03)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Avatar Circle */}
+          {farmer.photo_url ? (
+            <img
+              src={farmer.photo_url}
+              alt={farmer.name}
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '2.5px solid #15803d',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                flexShrink: 0,
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '50%',
+                background: '#0d3c26',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.35rem',
+                fontWeight: 800,
+                boxShadow: '0 2px 8px rgba(13, 60, 38, 0.2)',
+                flexShrink: 0,
+              }}
+            >
+              {initialLetter}
+            </div>
+          )}
+
+          {/* Name & Subtitle details */}
+          <div>
+            <h1
+              style={{
+                color: '#0d3c26',
+                fontSize: '1.35rem',
+                fontWeight: 800,
+                margin: '0 0 4px 0',
+                letterSpacing: '-0.3px',
+              }}
+            >
+              {farmer.name}
+            </h1>
+            <div
+              style={{
+                color: '#64748b',
+                fontSize: '0.88rem',
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                fontWeight: 500,
+              }}
+            >
+              <span style={{ color: '#15803d', fontWeight: 700 }}>{farmer.farmer_id}</span>
+              <span>·</span>
+              <span>📞 <strong style={{ color: '#0f172a' }}>{farmer.contact || 'No Contact'}</strong></span>
+              <span>·</span>
+              <span>📍 <strong style={{ color: '#0f172a' }}>{subtitleLocation}</strong></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Registration Date Badge (Soft Pastel Green Contrast) */}
+        <div
+          style={{
+            background: '#f0fdf4',
+            color: '#166534',
+            border: '1.5px solid #bbf7d0',
+            borderRadius: '20px',
+            padding: '6px 16px',
+            fontSize: '0.84rem',
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+          }}
+        >
+          <Calendar size={14} color="#166534" />
+          <span>Registered {regDateFormatted}</span>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          3. TABS NAVIGATION BAR (Application Theme with Solid White Card)
+         ───────────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          background: '#ffffff',
+          border: '1.5px solid #e2e8f0',
+          borderRadius: '14px',
+          padding: '6px 8px',
+          display: 'inline-flex',
+          gap: '6px',
+          marginBottom: '20px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* Tab 1: Form 1 · Registration */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('form1')}
+          style={{
+            background: activeTab === 'form1' ? '#0d3c26' : 'transparent',
+            border: activeTab === 'form1' ? '1.5px solid #0d3c26' : '1.5px solid transparent',
+            color: activeTab === 'form1' ? '#ffffff' : '#475569',
+            padding: '9px 18px',
+            fontSize: '0.92rem',
+            fontWeight: activeTab === 'form1' ? 800 : 600,
+            borderRadius: '10px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            outline: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+          onMouseEnter={(e) => {
+            if (activeTab !== 'form1') {
+              e.currentTarget.style.background = '#f1f5f9';
+              e.currentTarget.style.color = '#0f172a';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'form1') {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#475569';
+            }
+          }}
+        >
+          Form 1 · Registration
+        </button>
+
+        {/* Tab 2: Form 2A · Crop setup */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('form2a')}
+          style={{
+            background: activeTab === 'form2a' ? '#0d3c26' : 'transparent',
+            border: activeTab === 'form2a' ? '1.5px solid #0d3c26' : '1.5px solid transparent',
+            color: activeTab === 'form2a' ? '#ffffff' : '#475569',
+            padding: '9px 18px',
+            fontSize: '0.92rem',
+            fontWeight: activeTab === 'form2a' ? 800 : 600,
+            borderRadius: '10px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            outline: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+          onMouseEnter={(e) => {
+            if (activeTab !== 'form2a') {
+              e.currentTarget.style.background = '#f1f5f9';
+              e.currentTarget.style.color = '#0f172a';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'form2a') {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#475569';
+            }
+          }}
+        >
+          Form 2A · Crop setup
+        </button>
+
+        {/* Tab 3: Form 2B · Visit logbook */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('form2b')}
+          style={{
+            background: activeTab === 'form2b' ? '#0d3c26' : 'transparent',
+            border: activeTab === 'form2b' ? '1.5px solid #0d3c26' : '1.5px solid transparent',
+            color: activeTab === 'form2b' ? '#ffffff' : '#475569',
+            padding: '9px 18px',
+            fontSize: '0.92rem',
+            fontWeight: activeTab === 'form2b' ? 800 : 600,
+            borderRadius: '10px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            outline: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+          onMouseEnter={(e) => {
+            if (activeTab !== 'form2b') {
+              e.currentTarget.style.background = '#f1f5f9';
+              e.currentTarget.style.color = '#0f172a';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (activeTab !== 'form2b') {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#475569';
+            }
+          }}
+        >
+          Form 2B · Visit logbook
+        </button>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          4. TAB 1 CONTENT: Form 1 · Registration (Categorized Sections)
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'form1' && (
+        <div style={{ display: 'grid', gap: '20px' }}>
+          {[
+            {
+              categoryTitle: '👤 Personal & Contact Details (व्यक्तिगत एवं संपर्क विवरण)',
+              fields: [
+                { label: 'Farmer name', value: farmer.name },
+                { label: 'System ID', value: farmer.farmer_id, isId: true },
+                { label: 'Contact', value: farmer.contact },
+                { label: 'Village and address', value: farmer.location || farmer.village || farmer.address },
+              ],
+            },
+            {
+              categoryTitle: '🏞️ Land & Agricultural Holdings (भूमि एवं जोत विवरण)',
+              fields: [
+                { label: 'Total land holding', value: farmer.total_land || (farmer.area ? `${farmer.area} katha` : '10 katha') },
+                { label: 'Land ownership', value: farmer.ownership || 'Owned (निजी / अपनी)' },
+                {
+                  label: 'GPS coordinates',
+                  value:
+                    farmer.gps_location ||
+                    (farmer.gps_latitude ? `${farmer.gps_latitude}, ${farmer.gps_longitude}` : ''),
+                },
+              ],
+            },
+            {
+              categoryTitle: '🛡️ Surveyor & Administrative Record (सर्वेक्षक एवं प्रशासनिक विवरण)',
+              fields: [
+                {
+                  label: 'Registered by surveyor',
+                  value: farmer.surveyor_name || farmer.surveyor_display_name || 'System Admin',
+                },
+                {
+                  label: 'Assigned admin',
+                  value: farmer.admin_name || 'ClimAgro Analytics',
+                },
+                {
+                  label: 'Registration date',
+                  value: regDateFormatted,
+                },
+              ],
+            },
+          ].map((section) => (
+            <div
+              key={section.categoryTitle}
+              style={{
+                background: '#ffffff',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
+              }}
+            >
+              {/* Category Header */}
+              <div
+                style={{
+                  background: '#f8fafc',
+                  borderBottom: '1.5px solid #e2e8f0',
+                  padding: '12px 22px',
+                  color: '#0d3c26',
+                  fontWeight: 800,
+                  fontSize: '0.88rem',
+                }}
+              >
+                {section.categoryTitle}
+              </div>
+
+              {/* Category Fields */}
+              {section.fields.map((item, idx, arr) => (
+                <div
+                  key={item.label}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '13px 22px',
+                    borderBottom: idx === arr.length - 1 ? 'none' : '1px solid #f1f5f9',
+                    fontSize: '0.9rem',
+                    background: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f1f5f9';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#fafafa';
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '280px',
+                      color: '#64748b',
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.label}
+                  </div>
+                  <div
+                    style={{
+                      color: item.isId ? '#15803d' : '#0f172a',
+                      fontWeight: item.isId ? 800 : 700,
+                      flex: 1,
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {item.value ? (
+                      item.value
+                    ) : (
+                      <span style={{ color: '#94a3b8', fontWeight: 500 }}>—</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          5. TAB 2 CONTENT: Form 2A · Crop setup (Categorized Sections)
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'form2a' && (
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.02)',
+          }}
+        >
+          {/* Top header row with Season title & Reset button */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              gap: '12px',
+              paddingBottom: '16px',
+              borderBottom: '1.5px solid #f1f5f9',
+            }}
+          >
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0d3c26' }}>
+              🌾 {form2aData?.season_name || 'Kharif 2026'} Season Setup
+            </div>
+
+            {isAdminOrSuper && form2aData && (
+              <button
+                type="button"
+                onClick={handleResetForm2a}
+                disabled={resetting2a}
+                style={{
+                  background: '#fef2f2',
+                  border: '1.5px solid #fecaca',
+                  color: '#dc2626',
+                  borderRadius: '8px',
+                  padding: '6px 16px',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#fee2e2';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#fef2f2';
+                }}
+              >
+                {resetting2a ? 'Resetting...' : 'Reset form 2A'}
+              </button>
+            )}
+          </div>
+
+          {resetMsg && (
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: '8px',
+                background: resetMsg.startsWith('✅') ? '#f0fdf4' : '#fef2f2',
+                color: resetMsg.startsWith('✅') ? '#15803d' : '#dc2626',
+                border: resetMsg.startsWith('✅') ? '1px solid #bbf7d0' : '1px solid #fecaca',
+                fontWeight: 700,
+                fontSize: '0.86rem',
+                marginBottom: '16px',
+              }}
+            >
+              {resetMsg}
+            </div>
+          )}
+
+          {/* Form 2A Categorized Sections */}
+          {form2aData ? (
+            <div style={{ display: 'grid', gap: '18px' }}>
+              {[
+                {
+                  sectionTitle: '🌾 1. Crop Setup & Variety (फसल एवं किस्म विवरण)',
+                  rows: [
+                    { label: 'Crop name', value: form2aData.crop || 'Paddy / Rice', isCrop: true },
+                    { label: 'Crop variety', value: form2aData.variety },
+                    { label: 'Land area', value: form2aData.area ? `${form2aData.area} katha` : '' },
+                    { label: 'Seed type', value: form2aData.seed_type || 'Hybrid seed' },
+                  ],
+                },
+                {
+                  sectionTitle: '🧪 2. Soil & Water Testing (मृदा एवं जल परीक्षण)',
+                  rows: [
+                    {
+                      label: 'Soil testing',
+                      value: form2aData.soil_testing === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)',
+                      isBadge: true,
+                      isPositive: form2aData.soil_testing === 'yes',
+                    },
+                    {
+                      label: 'Water testing',
+                      value: form2aData.water_testing === 'yes' ? 'Yes (हाँ)' : 'No (नहीं)',
+                      isBadge: true,
+                      isPositive: form2aData.water_testing === 'yes',
+                    },
+                  ],
+                },
+                {
+                  sectionTitle: '📅 3. Sowing, Harvest & Estimation (बुवाई, कटाई एवं अनुमानित पैदावार)',
+                  rows: [
+                    { label: 'Sowing date', value: formatDateDDMMYYYY(form2aData.sowing_date) },
+                    { label: 'Harvest date', value: formatDateDDMMYYYY(form2aData.harvest_date) },
+                    { label: 'Expected yield', value: form2aData.expected_yield },
+                  ],
+                },
+              ].map((grp) => (
+                <div
+                  key={grp.sectionTitle}
+                  style={{
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '14px',
+                    overflow: 'hidden',
+                    background: '#ffffff',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#f8fafc',
+                      borderBottom: '1.5px solid #e2e8f0',
+                      padding: '10px 18px',
+                      color: '#0d3c26',
+                      fontWeight: 800,
+                      fontSize: '0.84rem',
+                    }}
+                  >
+                    {grp.sectionTitle}
+                  </div>
+
+                  {grp.rows.map((item, idx, arr) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '12px 18px',
+                        borderBottom: idx === arr.length - 1 ? 'none' : '1px solid #f1f5f9',
+                        fontSize: '0.9rem',
+                        background: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                        transition: 'background 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#f1f5f9';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#fafafa';
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '280px',
+                          color: '#64748b',
+                          fontWeight: 600,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {item.label}
+                      </div>
+                      <div
+                        style={{
+                          flex: 1,
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {item.isBadge ? (
+                          <span
+                            style={{
+                              background: item.isPositive ? '#dcfce7' : '#fee2e2',
+                              color: item.isPositive ? '#15803d' : '#dc2626',
+                              border: item.isPositive ? '1px solid #bbf7d0' : '1px solid #fca5a5',
+                              borderRadius: '16px',
+                              padding: '3px 12px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              display: 'inline-block',
+                            }}
+                          >
+                            {item.value}
+                          </span>
+                        ) : item.isCrop ? (
+                          <span style={{ color: '#15803d', fontWeight: 800, fontSize: '0.96rem' }}>
+                            {item.value}
+                          </span>
+                        ) : item.value ? (
+                          <span style={{ color: '#0f172a', fontWeight: 700 }}>
+                            {item.value}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontWeight: 500 }}>—</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '14px', padding: '24px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}>🌾</div>
+              <div style={{ color: '#92400e', fontWeight: 800, fontSize: '0.95rem', marginBottom: '4px' }}>
+                No active Form 2A seasonal setup found for this farmer.
+              </div>
+              <div style={{ color: '#b45309', fontSize: '0.84rem' }}>
+                Surveyors can create a seasonal crop profile during field visits.
+              </div>
+            </div>
+          )}
+
+          {/* Previous Form 2A Records History */}
+          {form2aHistory.length > 0 && (
+            <div style={{ marginTop: '28px', borderTop: '1.5px solid #f1f5f9', paddingTop: '20px' }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '0.92rem', color: '#475569', fontWeight: 800 }}>
+                📜 Previous Season Records ({form2aHistory.length})
+              </h4>
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {form2aHistory.map((h, i) => (
+                  <div
+                    key={h.id || i}
+                    style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      padding: '12px 16px',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    <div style={{ color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>
+                      Season: <strong style={{ color: '#0f172a' }}>{h.season_name}</strong> · Crop:{' '}
+                      <strong style={{ color: '#15803d' }}>{h.crop}</strong> · Reset on:{' '}
+                      {h.reset_at ? new Date(h.reset_at).toLocaleDateString('en-IN') : '—'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          6. TAB 3 CONTENT: Form 2B · Visit logbook (Exact Excel Matrix View)
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === 'form2b' && (
+        <div>
+          {/* Top Title & View Switcher Bar */}
+          <div
+            style={{
+              background: '#ffffff',
+              border: '1.5px solid #cbd5e1',
+              borderRadius: '16px',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '16px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileSpreadsheet size={20} color="#15803d" />
+                <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0d3c26' }}>
+                  Farm Management Visit Logbook (खेत प्रबंधन विवरण)
+                </h2>
+              </div>
+              <p style={{ margin: '3px 0 0 0', color: '#64748b', fontSize: '0.82rem', fontWeight: 500 }}>
+                Exact multi-date logbook matching paper and Excel template layout
+              </p>
+            </div>
+
+            {/* View Switcher & Action Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  background: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '3px',
+                  display: 'inline-flex',
+                  gap: '3px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setVisitViewMode('matrix')}
+                  style={{
+                    background: visitViewMode === 'matrix' ? '#0d3c26' : 'transparent',
+                    color: visitViewMode === 'matrix' ? '#ffffff' : '#475569',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '6px 14px',
+                    fontSize: '0.82rem',
+                    fontWeight: visitViewMode === 'matrix' ? 800 : 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <FileSpreadsheet size={14} /> Excel Matrix View
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setVisitViewMode('cards')}
+                  style={{
+                    background: visitViewMode === 'cards' ? '#0d3c26' : 'transparent',
+                    color: visitViewMode === 'cards' ? '#ffffff' : '#475569',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '6px 14px',
+                    fontSize: '0.82rem',
+                    fontWeight: visitViewMode === 'cards' ? 800 : 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <LayoutGrid size={14} /> Cards View
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                style={{
+                  background: '#ffffff',
+                  border: '1.5px solid #cbd5e1',
+                  color: '#0f172a',
+                  padding: '7px 14px',
+                  borderRadius: '10px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                }}
+              >
+                <Download size={14} /> Export CSV
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                disabled={downloadingPdf}
+                style={{
+                  background: '#0d3c26',
+                  border: 'none',
+                  color: '#ffffff',
+                  padding: '7px 14px',
+                  borderRadius: '10px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: downloadingPdf ? 'wait' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(13,60,38,0.2)',
+                  opacity: downloadingPdf ? 0.7 : 1,
+                }}
+              >
+                <FileText size={14} /> {downloadingPdf ? 'Generating PDF...' : 'Download PDF'}
+              </button>
+            </div>
+          </div>
+
+          {/* ─────────────────────────────────────────────────────────────
+              A. EXCEL MATRIX SPREADSHEET VIEW
+             ───────────────────────────────────────────────────────────── */}
+          {visitViewMode === 'matrix' && (
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1.5px solid #cbd5e1',
+                borderRadius: '16px',
+                padding: '16px 20px 24px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Header inside Card: Avatar + Green Title */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  marginBottom: '16px',
+                  paddingBottom: '12px',
+                  borderBottom: '1px solid #f1f5f9',
+                }}
+              >
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '6px',
+                    background: '#0d3c26',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    flexShrink: 0,
+                  }}
+                >
+                  {initialLetter}
+                </div>
+                <div style={{ color: '#15803d', fontWeight: 800, fontSize: '0.96rem' }}>
+                  Farm Management Details — {farmer.name}
+                </div>
+              </div>
+
+              {filteredVisits.length === 0 ? (
+                <div style={{ padding: '50px 20px', textAlign: 'center', color: '#94a3b8' }}>
+                  No visit log records found for this farmer.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
+                  <table
+                    style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: '0.86rem',
+                      border: '1px solid #e2e8f0',
+                      minWidth: `${Math.max(650, 240 + filteredVisits.length * 180)}px`,
+                    }}
+                  >
+                    <tbody>
+                      {[
+                        {
+                          label: 'Farmer Name',
+                          render: () => <span style={{ fontWeight: 800, color: '#0f172a' }}>{farmer.name || '—'}</span>,
+                          alignLeft: true,
+                        },
+                        {
+                          label: 'Date',
+                          render: (v) => (
+                            <span style={{ fontWeight: 800, color: '#15803d' }}>
+                              🗓️ {formatDateDDMMYYYY(v.visit_date)}
+                            </span>
+                          ),
+                          bg: '#dcfce7',
+                        },
+                        {
+                          label: 'Selected Crop (फसल)',
+                          render: (v) => v.crop_name || v.crop || farmer.crop || '—',
+                        },
+                        {
+                          label: 'Ploughing (Yes/No)',
+                          render: (v) => (v.plowing === 'yes' ? 'Yes' : 'No'),
+                        },
+                        {
+                          label: 'No. Of ploughing',
+                          render: (v) => (v.plowing === 'yes' && v.plowing_count ? `${v.plowing_count} times` : '—'),
+                        },
+                        {
+                          label: 'Pesticide (yes/no)',
+                          render: (v) => (v.pesticide_used === 'yes' ? 'Yes' : 'No'),
+                          bg: '#fffbeb',
+                          textColor: '#b45309',
+                          bold: true,
+                        },
+                        {
+                          label: 'Pesticide Quantity',
+                          render: (v) =>
+                            v.pesticide_qty ? `${v.pesticide_qty} Litre / Acre (लीटर / एकड़)` : '—',
+                          bg: '#fffbeb',
+                          textColor: '#b45309',
+                          bold: true,
+                        },
+                        {
+                          label: 'Pesticide Brand',
+                          render: (v) => v.pesticide_brand || '—',
+                          bg: '#fffbeb',
+                          textColor: '#b45309',
+                          bold: true,
+                        },
+                        {
+                          label: 'Supplement (Yes/No)',
+                          render: (v) => (v.supplement_used === 'yes' ? 'Yes' : 'No'),
+                        },
+                        {
+                          label: 'Supplement Quantity',
+                          render: (v) => (v.supplement_qty ? `${v.supplement_qty} Kg (किग्रा)` : '—'),
+                        },
+                        {
+                          label: 'Supplement Brand',
+                          render: (v) => v.supplement_brand || '—',
+                        },
+                        {
+                          label: 'Fertilizer (Yes/No)',
+                          render: (v) => (v.fertilizer_used === 'yes' ? 'Yes' : 'No'),
+                          bg: '#eff6ff',
+                          textColor: '#2563eb',
+                          bold: true,
+                        },
+                        {
+                          label: 'Fertilizer Quantity',
+                          render: (v) => v.fertilizer_qty || '—',
+                          bg: '#eff6ff',
+                          textColor: '#2563eb',
+                        },
+                        {
+                          label: 'Fertilizer Brand',
+                          render: (v) => v.fertilizer_brand || '—',
+                          bg: '#eff6ff',
+                          textColor: '#2563eb',
+                          bold: true,
+                        },
+                        {
+                          label: 'Irrigation (Yes/No)',
+                          render: (v) => (v.irrigation_done === 'yes' ? 'Yes' : 'No'),
+                          textColor: '#15803d',
+                          bold: true,
+                        },
+                        {
+                          label: 'Irrigation Source (Tubewell/Canal)',
+                          render: (v) => {
+                            if (!v.irrigation_source) return '—';
+                            const src = v.irrigation_source.toLowerCase();
+                            if (src.includes('tubewell')) return 'Tubewell (ट्यूबवेल)';
+                            if (src.includes('canal')) return 'Canal (नहर)';
+                            return v.irrigation_source;
+                          },
+                          textColor: '#15803d',
+                          bold: true,
+                        },
+                        {
+                          label: 'Irrigation type (sprinkler/Flood)',
+                          render: (v) => {
+                            if (!v.irrigation_type) return '—';
+                            const typ = v.irrigation_type.toLowerCase();
+                            if (typ.includes('sprinkler')) return 'Sprinkler (छिड़काव)';
+                            if (typ.includes('flood')) return 'Flood (बहाव)';
+                            if (typ.includes('drip')) return 'Drip (ड्रिप)';
+                            return v.irrigation_type;
+                          },
+                          textColor: '#15803d',
+                          bold: true,
+                        },
+                        {
+                          label: 'Irrigation Depth',
+                          render: (v) => v.irrigation_depth || '—',
+                        },
+                        {
+                          label: 'Weeding',
+                          render: (v) => (v.weeding_done === 'yes' ? 'Yes' : 'No'),
+                        },
+                        {
+                          label: 'Additional Activities',
+                          render: (v) => v.additional_activities || '—',
+                        },
+                        {
+                          label: 'Data Collection Date',
+                          render: (v) => formatDateDDMMYYYY(v.visit_date),
+                        },
+                        {
+                          label: '🏁 Crop Cycle Status (फसल चक्र)',
+                          render: (v) =>
+                            v.is_crop_cycle_closed === 'yes' ? (
+                              <span style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                🏁 Closed / Final Harvest
+                              </span>
+                            ) : (
+                              <span style={{ color: '#64748b', fontSize: '0.78rem' }}>In Progress (प्रगति पर)</span>
+                            ),
+                          bg: '#f8fafc',
+                        },
+                        {
+                          label: 'Actual Harvest Date (कटाई दिनांक)',
+                          render: (v) => (v.actual_harvest_date ? formatDateDDMMYYYY(v.actual_harvest_date) : '—'),
+                        },
+                        {
+                          label: 'Actual Final Yield (कुल पैदावार)',
+                          render: (v) => (v.actual_yield ? <strong style={{ color: '#0d3c26' }}>{v.actual_yield}</strong> : '—'),
+                        },
+                        {
+                          label: 'Selling Price (बिक्री मूल्य)',
+                          render: (v) =>
+                            v.selling_price_per_quintal ? `₹${v.selling_price_per_quintal} / क्विंटल` : '—',
+                        },
+                        {
+                          label: 'Crop Quality Grade (गुणवत्ता श्रेणी)',
+                          render: (v) => v.crop_quality_grade || '—',
+                        },
+                        {
+                          label: 'Farmer Satisfaction (किसान संतुष्टि)',
+                          render: (v) => v.farmer_satisfaction || '—',
+                        },
+                        {
+                          label: 'Closing Remarks (समापन टिप्पणी)',
+                          render: (v) => v.closing_remarks || '—',
+                        },
+                      ].map((row, rIdx) => (
+                        <tr key={row.label} style={{ background: row.bg || '#ffffff' }}>
+                          {/* Left Parameter Column (Sticky Pinned) */}
+                          <td
+                            style={{
+                              position: 'sticky',
+                              left: 0,
+                              zIndex: 3,
+                              background: '#f1f5f9',
+                              color: '#0f172a',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                              padding: '8px 16px',
+                              width: '240px',
+                              minWidth: '240px',
+                              border: '1px solid #cbd5e1',
+                              boxShadow: '2px 0 5px rgba(0, 0, 0, 0.04)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {row.label}
+                          </td>
+
+                          {/* Data Columns (One per visit) */}
+                          {filteredVisits.map((v, cIdx) => (
+                            <td
+                              key={v.id || cIdx}
+                              style={{
+                                padding: '8px 16px',
+                                textAlign: row.alignLeft ? 'left' : 'center',
+                                border: '1px solid #e2e8f0',
+                                background: row.bg || '#ffffff',
+                                color: row.textColor || '#0f172a',
+                                fontWeight: row.bold ? 700 : 500,
+                              }}
+                            >
+                              {row.render(v)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─────────────────────────────────────────────────────────────
+              B. CARDS VIEW (Multi-Card Mode)
+             ───────────────────────────────────────────────────────────── */}
+          {visitViewMode === 'cards' && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: '16px',
+              }}
+            >
+              {filteredVisits.length === 0 ? (
+                <div
+                  style={{
+                    gridColumn: '1 / -1',
+                    background: '#ffffff',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '50px 20px',
+                    textAlign: 'center',
+                    color: '#94a3b8',
+                  }}
+                >
+                  No visit log records found for this farmer.
+                </div>
+              ) : (
+                filteredVisits.map((v, i) => (
+                  <div
+                    key={v.id || i}
+                    style={{
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      borderRadius: '16px',
+                      padding: '20px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '14px',
+                        paddingBottom: '10px',
+                        borderBottom: '1.5px solid #f1f5f9',
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, color: '#0d3c26', fontSize: '1.05rem' }}>
+                        🗓️ {formatDateDDMMYYYY(v.visit_date)}
+                      </div>
+                      <span
+                        style={{
+                          background: '#dcfce7',
+                          color: '#15803d',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        Visit #{i + 1}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '8px', fontSize: '0.86rem', color: '#334155' }}>
+                      <div>
+                        <strong>Crop:</strong>{' '}
+                        <span style={{ color: '#15803d', fontWeight: 700 }}>
+                          {v.crop_name || v.crop || farmer.crop || 'Paddy / Rice'}
+                        </span>
+                      </div>
+                      <div>
+                        <strong>Ploughing:</strong>{' '}
+                        {v.plowing === 'yes' ? `Yes (${v.plowing_count || 1} times)` : 'No'}
+                      </div>
+                      <div>
+                        <strong>Pesticide:</strong>{' '}
+                        {v.pesticide_used === 'yes'
+                          ? `Yes (${v.pesticide_qty || ''} - ${v.pesticide_brand || ''})`
+                          : 'No'}
+                      </div>
+                      <div>
+                        <strong>Supplement:</strong>{' '}
+                        {v.supplement_used === 'yes'
+                          ? `Yes (${v.supplement_qty || ''} - ${v.supplement_brand || ''})`
+                          : 'No'}
+                      </div>
+                      <div>
+                        <strong>Fertilizer:</strong>{' '}
+                        {v.fertilizer_used === 'yes'
+                          ? `Yes (${v.fertilizer_qty || ''} - ${v.fertilizer_brand || ''})`
+                          : 'No'}
+                      </div>
+                      <div>
+                        <strong>Irrigation:</strong>{' '}
+                        {v.irrigation_done === 'yes'
+                          ? `Yes (${v.irrigation_source || ''}, ${v.irrigation_type || ''})`
+                          : 'No'}
+                      </div>
+                      <div>
+                        <strong>Weeding:</strong> {v.weeding_done === 'yes' ? 'Yes' : 'No'}
+                      </div>
+                      <div>
+                        <strong>Surveyor:</strong> {v.surveyor_name || '-'}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          7. VISIT DETAILS MODAL (Application Light Theme)
+         ───────────────────────────────────────────────────────────── */}
+      {selectedVisitModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={() => setSelectedVisitModal(null)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              maxWidth: '540px',
+              width: '100%',
+              padding: '28px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+              borderTop: '6px solid #15803d',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0d3c26' }}>
+                Visit Details ({formatDateDDMMYYYY(selectedVisitModal.visit_date)})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedVisitModal(null)}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: '10px', fontSize: '0.9rem', color: '#334155' }}>
+              <div><strong>Crop:</strong> {selectedVisitModal.crop_name || selectedVisitModal.crop || 'Paddy / Rice'}</div>
+              <div><strong>Ploughing:</strong> {selectedVisitModal.plowing === 'yes' ? `Yes (${selectedVisitModal.plowing_count || 1} times)` : 'No'}</div>
+              <div><strong>Pesticide:</strong> {selectedVisitModal.pesticide_used === 'yes' ? `Yes (${selectedVisitModal.pesticide_qty || ''} - ${selectedVisitModal.pesticide_brand || ''})` : 'No'}</div>
+              <div><strong>Supplement:</strong> {selectedVisitModal.supplement_used === 'yes' ? `Yes (${selectedVisitModal.supplement_qty || ''} - ${selectedVisitModal.supplement_brand || ''})` : 'No'}</div>
+              <div><strong>Fertilizer:</strong> {selectedVisitModal.fertilizer_used === 'yes' ? `Yes (${selectedVisitModal.fertilizer_qty || ''} - ${selectedVisitModal.fertilizer_brand || ''})` : 'No'}</div>
+              <div><strong>Irrigation:</strong> {selectedVisitModal.irrigation_done === 'yes' ? `Yes (${selectedVisitModal.irrigation_source || ''}, ${selectedVisitModal.irrigation_type || ''})` : 'No'}</div>
+              <div><strong>Weeding:</strong> {selectedVisitModal.weeding_done === 'yes' ? 'Yes' : 'No'}</div>
+              <div><strong>Surveyor:</strong> {selectedVisitModal.surveyor_name || '-'}</div>
+              {selectedVisitModal.additional_activities && (
+                <div><strong>Activities:</strong> {selectedVisitModal.additional_activities}</div>
+              )}
+              {selectedVisitModal.is_crop_cycle_closed === 'yes' && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e2e8f0', background: '#f0fdf4', padding: '10px', borderRadius: '10px' }}>
+                  <div style={{ color: '#15803d', fontWeight: 800, marginBottom: '6px' }}>🏁 Crop Cycle Closed (अंतिम कटाई व समापन)</div>
+                  {selectedVisitModal.actual_harvest_date && <div><strong>Harvest Date:</strong> {formatDateDDMMYYYY(selectedVisitModal.actual_harvest_date)}</div>}
+                  {selectedVisitModal.actual_yield && <div><strong>Actual Yield:</strong> {selectedVisitModal.actual_yield}</div>}
+                  {selectedVisitModal.selling_price_per_quintal && <div><strong>Selling Price:</strong> ₹{selectedVisitModal.selling_price_per_quintal} / quintal</div>}
+                  {selectedVisitModal.crop_quality_grade && <div><strong>Grade:</strong> {selectedVisitModal.crop_quality_grade}</div>}
+                  {selectedVisitModal.farmer_satisfaction && <div><strong>Satisfaction:</strong> {selectedVisitModal.farmer_satisfaction}</div>}
+                  {selectedVisitModal.closing_remarks && <div><strong>Closing Remarks:</strong> {selectedVisitModal.closing_remarks}</div>}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          8. DELETE CONFIRMATION MODAL (Application Theme)
+         ───────────────────────────────────────────────────────────── */}
       {showDeleteModal && (
         <div
           style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(15, 23, 42, 0.80)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 9999, padding: '16px',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.70)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
           }}
           onClick={() => setShowDeleteModal(false)}
         >
           <div
             style={{
               background: '#ffffff',
-              borderRadius: '24px',
+              borderRadius: '20px',
               maxWidth: '460px',
               width: '100%',
               padding: '30px',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.35)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.2)',
               borderTop: '6px solid #dc2626',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <AlertTriangle size={44} color="#dc2626" style={{ marginBottom: '10px' }} />
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
                 Delete Farmer Record
               </h2>
               <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
-                Farmer: <strong style={{ color: '#0f172a' }}>{data?.farmer?.name}</strong> &nbsp;|&nbsp;
-                ID: <strong style={{ color: '#dc2626' }}>{farmer_id}</strong>
-              </p>
-              <p style={{ color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, marginTop: '8px' }}>
-                ⚠️ Choose what to delete — this action cannot be undone.
+                Farmer: <strong style={{ color: '#0f172a' }}>{farmer.name}</strong> ({farmer_id})
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Option 1: Delete only farm visits */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
+                type="button"
                 onClick={() => handleDelete('surveys')}
                 disabled={deleting}
                 style={{
-                  padding: '14px 20px',
-                  borderRadius: '16px',
+                  padding: '14px 18px',
+                  borderRadius: '12px',
                   background: '#fffbeb',
-                  border: '2px solid #fbbf24',
+                  border: '1.5px solid #fde68a',
                   color: '#92400e',
-                  fontWeight: 800,
-                  fontSize: '0.95rem',
+                  fontWeight: 700,
+                  fontSize: '0.92rem',
                   cursor: 'pointer',
                   textAlign: 'left',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
                 }}
               >
-                🗑️ Delete Farm Visits Only
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#78350f' }}>
-                  Keeps farmer registration · Removes all visit/survey logs
+                🗑️ Delete Visit Logs Only
+                <span style={{ display: 'block', fontSize: '0.78rem', color: '#b45309', fontWeight: 500, marginTop: '2px' }}>
+                  Keeps farmer registration · Clears all visit logs
                 </span>
               </button>
 
-              {/* Option 2: Full delete */}
               <button
+                type="button"
                 onClick={() => handleDelete('full')}
                 disabled={deleting}
                 style={{
-                  padding: '14px 20px',
-                  borderRadius: '16px',
+                  padding: '14px 18px',
+                  borderRadius: '12px',
                   background: '#fef2f2',
-                  border: '2px solid #fca5a5',
-                  color: '#991b1b',
-                  fontWeight: 800,
-                  fontSize: '0.95rem',
+                  border: '1.5px solid #fecaca',
+                  color: '#dc2626',
+                  fontWeight: 700,
+                  fontSize: '0.92rem',
                   cursor: 'pointer',
                   textAlign: 'left',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
                 }}
               >
                 🔥 Delete Farmer Completely
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#7f1d1d' }}>
-                  Permanently removes farmer registration + all visit logs
+                <span style={{ display: 'block', fontSize: '0.78rem', color: '#991b1b', fontWeight: 500, marginTop: '2px' }}>
+                  Permanently deletes registration and all seasonal logs
                 </span>
               </button>
 
-              {/* Cancel */}
               <button
+                type="button"
                 onClick={() => setShowDeleteModal(false)}
                 style={{
                   padding: '12px',
-                  borderRadius: '16px',
+                  borderRadius: '10px',
                   background: '#f1f5f9',
                   border: '1px solid #cbd5e1',
                   color: '#475569',
                   fontWeight: 700,
                   fontSize: '0.9rem',
                   cursor: 'pointer',
+                  marginTop: '6px',
                 }}
               >
-                Cancel — Keep Farmer
+                Cancel
               </button>
             </div>
 
             {deleting && (
-              <p style={{ textAlign: 'center', color: '#64748b', marginTop: '14px', fontSize: '0.9rem' }}>
-                ⏳ Deleting...
+              <p style={{ textAlign: 'center', color: '#64748b', marginTop: '12px', fontSize: '0.85rem' }}>
+                Deleting...
               </p>
             )}
           </div>

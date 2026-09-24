@@ -457,3 +457,42 @@ body::before {
     font-size: 0.78rem !important;
   }
 }
+
+/* ==========================================================================
+   🖨️ CLEAN PRINT & PDF EXPORT STYLES (MATCHES PAPER & EXCEL TEMPLATE)
+   ========================================================================== */
+@media print {
+  body::before,
+  .option3-sidebar,
+  .btn-logout-option3,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    zoom: 100% !important;
+  }
+
+  .option3-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  table {
+    page-break-inside: auto;
+    border-collapse: collapse !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th, td {
+    border: 1px solid #94a3b8 !important;
+  }
+}
