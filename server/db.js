@@ -24,9 +24,9 @@ try {
   pgPool = new pg.Pool({
     connectionString,
     ssl: { rejectUnauthorized: false },
-    max: 3,                       // Max concurrent DB connections for serverless
+    max: 20,                       // Max concurrent DB connections
     idleTimeoutMillis: 30000,      // Close idle connections after 30s
-    connectionTimeoutMillis: 5000, // Fail fast if DB is busy
+    connectionTimeoutMillis: 15000, // Connection timeout
   });
   pgPool.on('error', (err) => {
     console.warn('⚠️ Idle PostgreSQL pool connection warning:', err.message);

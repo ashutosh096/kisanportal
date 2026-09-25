@@ -144,18 +144,33 @@ router.get('/performance', authenticateToken, requireRole('admin', 'coadmin', 'm
 
     const surveyors = await query(sql, params);
 
+    const { range } = req.query;
+    let farmerDateClause = '';
+    let visitDateClause = '';
+
+    if (range === 'today') {
+      farmerDateClause = ' AND created_at >= CURRENT_DATE';
+      visitDateClause = ' AND created_at >= CURRENT_DATE';
+    } else if (range === '7days') {
+      farmerDateClause = " AND created_at >= NOW() - INTERVAL '7 days'";
+      visitDateClause = " AND created_at >= NOW() - INTERVAL '7 days'";
+    } else if (range === '30days') {
+      farmerDateClause = " AND created_at >= NOW() - INTERVAL '30 days'";
+      visitDateClause = " AND created_at >= NOW() - INTERVAL '30 days'";
+    }
+
     const performanceData = await Promise.all(
       surveyors.map(async (s) => {
         // 1. Total Onboarded Farmers
         const regRes = await query(
-          'SELECT COUNT(*) as count FROM farmers WHERE surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?)',
+          `SELECT COUNT(*) as count FROM farmers WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?))${farmerDateClause}`,
           [s.id, s.username]
         );
         const totalFarmers = parseInt(regRes[0]?.count || 0, 10);
 
         // 2. Completed Visit Logs
         const survRes = await query(
-          'SELECT COUNT(*) as count FROM form2b_visits WHERE surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?)',
+          `SELECT COUNT(*) as count FROM form2b_visits WHERE (surveyor_id = ? OR LOWER(surveyor_name) = LOWER(?))${visitDateClause}`,
           [s.id, s.username]
         );
         const completedVisits = parseInt(survRes[0]?.count || 0, 10);

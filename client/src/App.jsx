@@ -100,9 +100,12 @@ function App() {
                       <Route path="farmers" element={<FarmersList />} />
                       <Route path="farmer/:farmer_id" element={<FarmerProfile />} />
                       <Route path="admins" element={<CompanyAdminManagement />} />
+                      <Route path="company-admins" element={<CompanyAdminManagement />} />
                       <Route path="company-performance" element={<CompanyAdminPerformanceAnalytics />} />
                       <Route path="surveyors" element={<SurveyorManagement />} />
+                      <Route path="surveyor-management" element={<SurveyorManagement />} />
                       <Route path="performance" element={<SurveyorPerformanceAnalytics />} />
+                      <Route path="surveyor-performance" element={<SurveyorPerformanceAnalytics />} />
                       <Route path="users" element={<UsersManagement />} />
                       <Route path="roles" element={<RolesManagement />} />
                       <Route path="export" element={<ExportPage />} />

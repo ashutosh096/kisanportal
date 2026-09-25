@@ -117,7 +117,7 @@ const SurveyorManagement = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Search, Status & Filter State (Image 2 style)
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'active', 'inactive', 'locked'
   const [activeThisMonthOnly, setActiveThisMonthOnly] = useState(false);
   const [inactiveOnly, setInactiveOnly] = useState(false);
@@ -125,6 +125,13 @@ const SurveyorManagement = () => {
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q !== null && q !== undefined) {
+      setSearchTerm(q);
+    }
+  }, [searchParams]);
 
   // Form State for Add
   const [surveyorUsername, setSurveyorUsername] = useState('');
@@ -206,9 +213,32 @@ const SurveyorManagement = () => {
   }, [token]);
 
   useEffect(() => {
+    const isAddAction =
+      searchParams.get('action') === 'add' ||
+      searchParams.get('openAdd') === 'true' ||
+      searchParams.get('add') === 'true';
+    if (isAddAction) {
+      setSurveyorUsername('');
+      setSurveyorName('');
+      setSurveyorPassword('');
+      setSurveyorMobile('');
+      setShowAddPassword(true);
+      setMsg('');
+      setError('');
+      setModalError('');
+      setShowAddSurveyorModal(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     const targetSurveyorId = searchParams.get('surveyorId') || searchParams.get('id');
-    if (targetSurveyorId && surveyors.length > 0) {
-      const matched = surveyors.find((s) => String(s.id) === String(targetSurveyorId));
+    const targetUsername = searchParams.get('username');
+    if ((targetSurveyorId || targetUsername) && surveyors.length > 0) {
+      const matched = surveyors.find(
+        (s) =>
+          (targetSurveyorId && String(s.id) === String(targetSurveyorId)) ||
+          (targetUsername && (s.username === targetUsername || s.name === targetUsername))
+      );
       if (matched && (!selectedProfileSurveyor || selectedProfileSurveyor.id !== matched.id)) {
         openSurveyorProfile(matched);
       }

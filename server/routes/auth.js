@@ -286,8 +286,23 @@ router.get('/admin/:admin_id/stats', authenticateToken, requireRole('superadmin'
 });
 
 // ─── GET /api/auth/admin-performance ─── Company Admin Performance & Delay Metrics for Superadmin
-router.get('/admin-performance', authenticateToken, requireRole('admin', 'superadmin'), async (req, res) => {
+router.get('/admin-performance', authenticateToken, requireRole('admin', 'coadmin', 'manager', 'viewer', 'superadmin'), async (req, res) => {
   try {
+    const { range } = req.query;
+    let farmerDateClause = '';
+    let visitDateClause = '';
+
+    if (range === 'today') {
+      farmerDateClause = ' AND created_at >= CURRENT_DATE';
+      visitDateClause = ' AND created_at >= CURRENT_DATE';
+    } else if (range === '7days') {
+      farmerDateClause = " AND created_at >= NOW() - INTERVAL '7 days'";
+      visitDateClause = " AND created_at >= NOW() - INTERVAL '7 days'";
+    } else if (range === '30days') {
+      farmerDateClause = " AND created_at >= NOW() - INTERVAL '30 days'";
+      visitDateClause = " AND created_at >= NOW() - INTERVAL '30 days'";
+    }
+
     const admins = await query(
       `SELECT u.id, u.username, u.name, u.role, u.mobile, u.status, u.created_at
        FROM users u
@@ -306,14 +321,14 @@ router.get('/admin-performance', authenticateToken, requireRole('admin', 'supera
 
         // 2. Total Onboarded Farmers under this admin
         const farmerRes = await query(
-          "SELECT COUNT(*) as count FROM farmers WHERE admin_id = ? OR surveyor_id IN (SELECT id FROM users WHERE admin_id = ?)",
+          `SELECT COUNT(*) as count FROM farmers WHERE (admin_id = ? OR surveyor_id IN (SELECT id FROM users WHERE admin_id = ?))${farmerDateClause}`,
           [a.id, a.id]
         );
         const onboardedFarmers = parseInt(farmerRes[0]?.count || 0, 10);
 
         // 3. Total Visit Logs under this admin
         const visitRes = await query(
-          "SELECT COUNT(*) as count FROM form2b_visits WHERE admin_id = ? OR surveyor_id IN (SELECT id FROM users WHERE admin_id = ?)",
+          `SELECT COUNT(*) as count FROM form2b_visits WHERE (admin_id = ? OR surveyor_id IN (SELECT id FROM users WHERE admin_id = ?))${visitDateClause}`,
           [a.id, a.id]
         );
         const completedVisits = parseInt(visitRes[0]?.count || 0, 10);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import {
   Building2,
@@ -98,6 +98,7 @@ const sampleUpcomingSchedules = [
 
 const CompanyAdminPerformanceAnalytics = () => {
   const { token } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [performanceData, setPerformanceData] = useState([]);
   const [farmAllocations, setFarmAllocations] = useState({ total_farms: 12, assigned_farms: 12, unassigned_farms: 0 });
   const [upcomingSchedules, setUpcomingSchedules] = useState([]);
@@ -105,12 +106,13 @@ const CompanyAdminPerformanceAnalytics = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('7days');
   const [alertSentId, setAlertSentId] = useState(null);
+  const [selectedAdminModal, setSelectedAdminModal] = useState(null);
 
   const fetchPerformanceData = async () => {
     setLoading(true);
     try {
       const [perfRes, allocRes, schedRes] = await Promise.all([
-        fetch('/api/auth/admin-performance', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/auth/admin-performance?range=${dateFilter}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/form2/farm-allocations', { headers: { Authorization: `Bearer ${token}` } }),
         fetch('/api/form2/upcoming-schedules', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
@@ -147,7 +149,7 @@ const CompanyAdminPerformanceAnalytics = () => {
 
   useEffect(() => {
     fetchPerformanceData();
-  }, [token]);
+  }, [token, dateFilter]);
 
   const handleSendReminder = (adminId, name) => {
     setAlertSentId(adminId);
@@ -169,20 +171,18 @@ const CompanyAdminPerformanceAnalytics = () => {
     );
   });
 
-  const totalActiveAdmins = safeData.length || 2;
-  const totalOnboardedFarmers =
-    safeData.reduce((acc, a) => acc + (parseInt(a?.assigned_farmers, 10) || 0), 0) || 12;
-  const totalDelays =
-    safeData.reduce((acc, a) => acc + (parseInt(a?.delayed_visits, 10) || 0), 0) || 2;
+  const totalActiveAdmins = safeData.length;
+  const totalOnboardedFarmers = safeData.reduce((acc, a) => acc + (parseInt(a?.assigned_farmers, 10) || 0), 0);
+  const totalDelays = safeData.reduce((acc, a) => acc + (parseInt(a?.delayed_visits, 10) || 0), 0);
   const avgGpsAcc =
     totalActiveAdmins > 0
       ? (
           safeData.reduce((acc, a) => {
-            const val = parseFloat(String(a?.gps_accuracy || '95.3').replace('%', ''));
-            return acc + (isNaN(val) ? 95.3 : val);
+            const val = parseFloat(String(a?.gps_accuracy || '96.5').replace('%', ''));
+            return acc + (isNaN(val) ? 96.5 : val);
           }, 0) / totalActiveAdmins
         ).toFixed(1)
-      : '95.3';
+      : '96.5';
 
   const displaySchedules = upcomingSchedules.length > 0 ? upcomingSchedules : sampleUpcomingSchedules;
   const overdueItems = displaySchedules.filter((s) => s.status === 'Overdue');
@@ -432,7 +432,7 @@ const CompanyAdminPerformanceAnalytics = () => {
             </span>
           </div>
 
-          <div style={{ position: 'relative', width: '240px' }}>
+          <div style={{ position: 'relative', width: '260px', maxWidth: '100%', boxSizing: 'border-box' }}>
             <Search
               size={15}
               style={{
@@ -441,6 +441,7 @@ const CompanyAdminPerformanceAnalytics = () => {
                 top: '50%',
                 transform: 'translateY(-50%)',
                 color: '#94a3b8',
+                pointerEvents: 'none',
               }}
             />
             <input
@@ -450,11 +451,13 @@ const CompanyAdminPerformanceAnalytics = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
                 width: '100%',
-                padding: '7px 12px 7px 34px',
+                boxSizing: 'border-box',
+                padding: '8px 12px 8px 34px',
                 borderRadius: '20px',
                 border: '1.5px solid #cbd5e1',
                 fontSize: '0.82rem',
                 outline: 'none',
+                background: '#ffffff',
               }}
             />
           </div>
@@ -496,7 +499,11 @@ const CompanyAdminPerformanceAnalytics = () => {
                     }}
                   >
                     <td style={{ padding: '12px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div
+                        onClick={() => navigate(`/admin/admins?adminId=${admin.id}&username=${encodeURIComponent(admin.username || admin.name)}`)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+                        title="View Admin Profile"
+                      >
                         <div
                           style={{
                             width: '36px',
@@ -515,7 +522,9 @@ const CompanyAdminPerformanceAnalytics = () => {
                           {admin.name?.charAt(0)?.toUpperCase() || 'A'}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 800, color: '#0f172a' }}>{admin.name}</div>
+                          <div style={{ fontWeight: 800, color: '#0f172a', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                            {admin.name}
+                          </div>
                           <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
                             @{admin.username}
                           </div>
@@ -524,7 +533,7 @@ const CompanyAdminPerformanceAnalytics = () => {
                     </td>
 
                     <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 800, color: '#0d3c26' }}>
-                      {admin.active_surveyors || 0}
+                      {admin.surveyors_count ?? admin.active_surveyors ?? 0}
                     </td>
 
                     <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 800, color: '#15803d' }}>
@@ -572,17 +581,33 @@ const CompanyAdminPerformanceAnalytics = () => {
                     </td>
 
                     <td style={{ padding: '12px 20px', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/admins?adminId=${admin.id}&username=${encodeURIComponent(admin.username || admin.name)}`)}
+                          style={{
+                            padding: '5px 12px',
+                            borderRadius: '16px',
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            border: '1px solid #cbd5e1',
+                            background: '#f8fafc',
+                            color: '#0f172a',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Profile
+                        </button>
                         <Link
-                          to={`/admin/company-admins`}
+                          to={`/admin/admins?adminId=${admin.id}&search=${encodeURIComponent(admin.username || admin.name)}`}
                           style={{
                             padding: '5px 14px',
                             borderRadius: '16px',
                             fontSize: '0.76rem',
                             fontWeight: 700,
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            color: '#0f172a',
+                            border: '1px solid #0d3c26',
+                            background: '#0d3c26',
+                            color: '#ffffff',
                             textDecoration: 'none',
                           }}
                         >
@@ -614,6 +639,111 @@ const CompanyAdminPerformanceAnalytics = () => {
           </table>
         </div>
       </div>
+
+      {/* ADMIN DETAIL MODAL */}
+      {selectedAdminModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={() => setSelectedAdminModal(null)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              maxWidth: '500px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+              borderTop: '6px solid #0d3c26',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#0d3c26', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                  {selectedAdminModal.name?.charAt(0)?.toUpperCase() || 'A'}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0d3c26' }}>
+                    {selectedAdminModal.name}
+                  </h3>
+                  <span style={{ fontSize: '0.78rem', color: '#64748b' }}>@{selectedAdminModal.username} · {selectedAdminModal.company_role || 'Company Admin'}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedAdminModal(null)}
+                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 800 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700 }}>Active Field Surveyors</span>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0d3c26', marginTop: '2px' }}>
+                  {selectedAdminModal.surveyors_count ?? selectedAdminModal.active_surveyors ?? 0}
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700 }}>Total Farmers Onboarded</span>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#15803d', marginTop: '2px' }}>
+                  {selectedAdminModal.assigned_farmers || 0}
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700 }}>Completed Visits</span>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0284c7', marginTop: '2px' }}>
+                  {selectedAdminModal.completed_visits || 0}
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 700 }}>Avg GPS Accuracy</span>
+                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#047857', marginTop: '2px' }}>
+                  {selectedAdminModal.gps_accuracy || '98.5%'}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+              <Link
+                to={`/admin/admins?search=${encodeURIComponent(selectedAdminModal.username || selectedAdminModal.name)}`}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '20px',
+                  fontSize: '0.84rem',
+                  fontWeight: 800,
+                  background: '#0d3c26',
+                  color: '#ffffff',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                Open Admin Management <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
   Table,
   LayoutGrid,
+  FileText,
 } from 'lucide-react';
 import { formatDateDDMMYYYY } from '../utils/dateFormatter';
 

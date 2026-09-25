@@ -106,7 +106,7 @@ const CompanyAdminManagement = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Search, Status & Filter State (Image 2 style)
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'active', 'inactive', 'locked'
   const [activeThisMonthOnly, setActiveThisMonthOnly] = useState(false);
   const [inactiveOnly, setInactiveOnly] = useState(false);
@@ -114,6 +114,13 @@ const CompanyAdminManagement = () => {
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q !== null && q !== undefined) {
+      setSearchTerm(q);
+    }
+  }, [searchParams]);
 
   // Edit / Delete / Confirm State
   const [editAdmin, setEditAdmin] = useState(null);
@@ -191,9 +198,31 @@ const CompanyAdminManagement = () => {
   };
 
   useEffect(() => {
+    const isAddAction =
+      searchParams.get('action') === 'add' ||
+      searchParams.get('openAdd') === 'true' ||
+      searchParams.get('add') === 'true';
+    if (isAddAction) {
+      setAdminUsername('');
+      setAdminName('');
+      setAdminPassword('admin123');
+      setAdminMobile('');
+      setMsg('');
+      setError('');
+      setModalError('');
+      setShowAddAdminModal(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     const targetAdminId = searchParams.get('adminId') || searchParams.get('id');
-    if (targetAdminId && admins.length > 0) {
-      const matched = admins.find((a) => String(a.id) === String(targetAdminId));
+    const targetUsername = searchParams.get('username');
+    if ((targetAdminId || targetUsername) && admins.length > 0) {
+      const matched = admins.find(
+        (a) =>
+          (targetAdminId && String(a.id) === String(targetAdminId)) ||
+          (targetUsername && (a.username === targetUsername || a.name === targetUsername))
+      );
       if (matched && (!selectedProfileAdmin || selectedProfileAdmin.id !== matched.id)) {
         openAdminProfile(matched);
       }
